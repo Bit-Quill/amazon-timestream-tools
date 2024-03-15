@@ -2,11 +2,11 @@
 
 ## Introduction
 
-The Influx migration script is a Python script that migrates data between InfluxDB OSS instances, whether those instances are managed by AWS or not.
+The Amazon Timestream for InfluxDB migration script is a Python script that migrates data between InfluxDB OSS instances, whether those instances are managed by AWS or not.
 
-InfluxDB is a time series database. InfluxDB contains "points," which contain a number of key-value pairs and a timestamp. When points are grouped by key-value pairs they form a series. Series are grouped by a string identifier called a "measurement." InfluxDB is often used for operations monitoring, IOT data, and analytics. A bucket is a kind of container within InfluxDB to store data. AWS-managed InfluxDB is InfluxDB but within the AWS ecosystem. InfluxDB provides the InfluxDB v2 API for accessing data and making changes to the database. The InfluxDB v2 API is what the Influx migration script uses to migrate data.
+InfluxDB is a time series database. InfluxDB contains "points," which contain a number of key-value pairs and a timestamp. When points are grouped by key-value pairs they form a series. Series are grouped by a string identifier called a "measurement." InfluxDB is often used for operations monitoring, IOT data, and analytics. A bucket is a kind of container within InfluxDB to store data. AWS-managed InfluxDB is InfluxDB but within the AWS ecosystem. InfluxDB provides the InfluxDB v2 API for accessing data and making changes to the database. The InfluxDB v2 API is what the Amazon Timestream for InfluxDB migration script uses to migrate data.
 
-The Influx migration script can migrate buckets and their metadata, migrate all buckets from all organizations, or do a full migration, which replaces all data on the destination instance.
+The Amazon Timestream for InfluxDB migration script can migrate buckets and their metadata, migrate all buckets from all organizations, or do a full migration, which replaces all data on the destination instance.
 
 The script backups data from the source instance locally, on whatever system executes the script, then restores the data to the destination instance. The data is kept in `influxdb-backup-<timestamp>` directories, one for each migration. Users are responsible for setting up and managing the system running the script.
 
@@ -315,7 +315,7 @@ INFO: influx_migration.py: Removing temporary mount directory
 
 ### Sensitive Data
 
-All data migrated by the Influx migration script, including sensitive data, is the responsibility of the user. Users are encouraged to be mindful about what data they choose to migrate and where that data will be migrated.
+All data migrated by the Amazon Timestream for InfluxDB migration script, including sensitive data, is the responsibility of the user. Users are encouraged to be mindful about what data they choose to migrate and where that data will be migrated.
 
 ### Permissions
 
@@ -398,7 +398,7 @@ It is recommended that users rotate tokens often using a secret manager and keep
 
 ### Network Access
 
-The Influx migration script can function locally, migrating data between two InfluxDB instances on the same system, but it is assumed that the primary use case for migrations will be migrating data across the network, either a local or public network. With this comes security considerations. The Influx migration script will, by default, verify TLS certificates for instances with TLS enabled: it is recommended that users enable TLS in their InfluxDB instances and do not use the `--skip-verify` option for the script.
+The Amazon Timestream for InfluxDB migration script can function locally, migrating data between two InfluxDB instances on the same system, but it is assumed that the primary use case for migrations will be migrating data across the network, either a local or public network. With this comes security considerations. The Amazon Timestream for InfluxDB migration script will, by default, verify TLS certificates for instances with TLS enabled: it is recommended that users enable TLS in their InfluxDB instances and do not use the `--skip-verify` option for the script.
 
 Additionally, network traffic to the InfluxDB instances should be limited to known IPs.
 
@@ -456,7 +456,7 @@ Read more about S3 bucket best security practices at "[Security best practices f
 
 ## Deploying in a VPC
 
-AWS Timestream for InfluxDB can be deployed without a public endpoint, restricting access to within its VPC, this makes migrations trickier. In this situation, the Influx migration script must be run from an EC2 machine within the same VPC as the AWS Timestream for InfluxDB instance.
+AWS Timestream for InfluxDB can be deployed without a public endpoint, restricting access to within its VPC, this makes migrations trickier. In this situation, the Amazon Timestream for InfluxDB migration script must be run from an EC2 machine within the same VPC as the AWS Timestream for InfluxDB instance.
 
 What is needed:
 
@@ -508,7 +508,7 @@ If an internet gateway has already been configured and is associated with the ab
 
 You should now be ready, after completing setting up the [prerequisites](#preparation), to perform a migration.
 
-Perform the migration using the Influx migration script; the Influx migration script will perform health checks, ensure both source and destination instances are reachable, that buckets exists, that the required dependencies are installed, and will clearly indicate what kind of configuration errors are encountered, if any.
+Perform the migration using the Amazon Timestream for InfluxDB migration script; the Amazon Timestream for InfluxDB migration script will perform health checks, ensure both source and destination instances are reachable, that buckets exists, that the required dependencies are installed, and will clearly indicate what kind of configuration errors are encountered, if any.
 
 The following diagram outlines the structure of the above configuration:
 
