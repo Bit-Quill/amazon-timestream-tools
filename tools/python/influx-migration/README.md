@@ -68,64 +68,10 @@ Data migration for InfluxDB is accomplished with a Python script that utilizes I
 
 For migrations without `--csv`, operator tokens are needed for both source and destination instances. Operator tokens have all possible permissions for a database granted to it, this is required as migrations require the `read:/authorizations` permission, which only operator tokens have. If setup for InfluxDB is done through the UI, an operator token will be displayed and cannot be retrieved afterwards. If setup for InfluxDB is done through the CLI, operator tokens will be located in the InfluxDB configs file (default location `~/.influxdbv2/configs`).
 
-For `--csv`, the least privilege for source and destination tokens are as follow:
-```json
-# Source token
-{
-  "status": "active",
-  "description": "source-migration-token",
-  "orgID": "'"<source org ID>"'",
-  "userID": "<user ID of user existing in source>",
-  "permissions": [
-    {
-      "action": "read",
-      "resource": {
-        "orgID": "'"<source org ID>"'",
-        "type": "orgs"
-      }
-    },
-    {
-      "action": "read",
-      "resource": {
-        "orgID": "'"<source org ID>"'",
-        "type": "buckets"
-      }
-    }
-  ]
-}
+For `--csv`, the least privilege for source and destination tokens can be found in "[Permissions](#permissions)."
 
-# Destination token
-{
-  "status": "active",
-  "description": "destination-migration-token",
-  "orgID": "'"<destination org ID>"'",
-  "userID": "<user ID of user existing in destination>",
-  "permissions": [
-    {
-      "action": "read",
-      "resource": {
-        "orgID": "'"<destination org ID>"'",
-        "type": "orgs"
-      }
-    },
-    {
-      "action": "read",
-      "resource": {
-        "orgID": "'"<destination org ID>"'",
-        "type": "buckets"
-      }
-    },
-    {
-      "action": "write",
-      "resource": {
-        "orgID": "'"<destination org ID>"'",
-        "type": "buckets"
-      }
-    }
-  ]
-}
-```
 These tokens can be created by using the Influx CLI and an operator token:
+
 ```shell
 # Source token
 influx auth create --read-orgs --read-buckets -u <source user> --host <source host> -t <source operator token> --org <source org>
@@ -373,11 +319,76 @@ All data migrated by the Influx migration script, including sensitive data, is t
 
 ### Permissions
 
-InfluxDB users should be granted least-privilege permissions and tokens granted to specific users, instead of operator tokens, should be used during migration.
+For a migration that doesn't use the `--csv` flag, operator tokens should be used since backing up and restoring data in this case requires read permissions for all authorizations in an instance.
 
-AWS-managed InfluxDB uses IAM permissions to control user permissions, least-privilege permissions should be granted to users.
+An operator token can be created using `influx auth create --operator`.
 
-[//]: # "TODO: Once documentation or access to an instance is available list IAM permissions"
+With `--csv`, the required least permissions for source tokens should have:
+- Read access for buckets within a chosen organization used for migration.
+- Read access for the source organization used for migration.
+
+The required least permissions for destination tokens should have:
+- Read and write access for buckets within a chosen organization used for migration.
+- Read access for the destination organization used for migration.
+
+The following is an example of the bodies of two POST requests made to the `/api/v2/authorizations` endpoint to create tokens with these permissions:
+
+```json
+# Source token
+{
+  "status": "active",
+  "description": "source-migration-token",
+  "orgID": "'"<source org ID>"'",
+  "userID": "<user ID of user existing in source>",
+  "permissions": [
+    {
+      "action": "read",
+      "resource": {
+        "orgID": "'"<source org ID>"'",
+        "type": "orgs"
+      }
+    },
+    {
+      "action": "read",
+      "resource": {
+        "orgID": "'"<source org ID>"'",
+        "type": "buckets"
+      }
+    }
+  ]
+}
+
+# Destination token
+{
+  "status": "active",
+  "description": "destination-migration-token",
+  "orgID": "'"<destination org ID>"'",
+  "userID": "<user ID of user existing in destination>",
+  "permissions": [
+    {
+      "action": "read",
+      "resource": {
+        "orgID": "'"<destination org ID>"'",
+        "type": "orgs"
+      }
+    },
+    {
+      "action": "read",
+      "resource": {
+        "orgID": "'"<destination org ID>"'",
+        "type": "buckets"
+      }
+    },
+    {
+      "action": "write",
+      "resource": {
+        "orgID": "'"<destination org ID>"'",
+        "type": "buckets"
+      }
+    }
+  ]
+}
+```
 
 ### Secrets
 
