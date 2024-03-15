@@ -924,7 +924,7 @@ def write_bucket_from_csv(path, host, token, bucket_name, new_bucket_name=None, 
         client = InfluxDBClient(url=host, token=token,
             verify_ssl=not skip_verify, timeout=MILLISECOND_TIMEOUT, org=org_name)
         client.buckets_api().create_bucket(bucket_name=dest_bucket_name, org=org_name, retention_rules=retention_rules)
-        write_command = ['influx', 'write', '--host', host, '-t', token, '--bucket', dest_bucket_name, '--skip-verify',
+        write_command = ['influx', 'write', '--host', host, '-t', token, '--bucket', dest_bucket_name,
             '--org', org_name, '--format', 'csv', '--file', f'{path}/bucket_{bucket_name}.csv']
         if skip_verify:
             write_command.append("--skip-verify")
