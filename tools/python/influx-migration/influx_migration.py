@@ -280,7 +280,7 @@ def health_check(host, token, skip_verify):
         client = InfluxDBClient(url=host,
             token=token, timeout=MILLISECOND_TIMEOUT, verify_ssl=not skip_verify)
         if not client.ping():
-            raise InfluxDBError(message=f"{host} ping failed")
+            raise InfluxDBError(message=f"InfluxDB API call to {host}/ping failed")
     except InfluxDBError as error:
         logging.error(str(error))
         return False
