@@ -134,7 +134,7 @@ The following is a formatted version of the output:
 
 **`--src-bucket SRC_BUCKET`**: Optional. The name of the InfluxDB bucket in the source server. If not provided, then `--full` must be provided.
 
-**`--src-host SRC_HOST`**: Optional. The host for the source server. Must have a scheme, domain or IP address, and port, e.g., http://127.0.0.1:8086 or https://some-domain:8086. Defaults to http://localhost:8086.
+**`--src-host SRC_HOST`**: Optional. The host for the source server. Must have a scheme, domain or IP address, and port, e.g., http://127.0.0.1:8086 or https://<domain>:<port>. Defaults to http://localhost:8086b if no value is specified.
 
 > As mentioned previously, `mountpoint-s3` and `rclone` are needed if `--s3-bucket` is to be used, but can be ignored if the user doesn't provide a value for `--s3-bucket`, in which case backup files will be stored in a unique directory locally.
 
