@@ -265,7 +265,7 @@ def create_backup_directory(backup_directory, mount_point=None, bucket_name=None
         raise RuntimeError("Backup directory could not be created within S3 bucket")
     return backup_directory
 
-def health_check(host, token, skip_verify):
+def health_check(host, token, skip_verify, debug=False):
     """
     Pings the InfluxDB instance to determine health.
     
@@ -278,7 +278,7 @@ def health_check(host, token, skip_verify):
     # Ensure hosts can be connected to
     try:
         client = InfluxDBClient(url=host,
-            token=token, timeout=MILLISECOND_TIMEOUT, verify_ssl=not skip_verify)
+            token=token, timeout=MILLISECOND_TIMEOUT, verify_ssl=not skip_verify, debug=debug)
         if not client.ping():
             raise InfluxDBError(message=f"InfluxDB API call to {host}/ping failed")
     except InfluxDBError as error:
@@ -767,9 +767,10 @@ def verify_instances(args, src_token, dest_token):
     :returns: None
     :raises InfluxDBError: If any check fails.
     """
+    debug = args.log_level.lower() == "debug"
     # Source checks
     if src_token is not None:
-        if not health_check(args.src_host, src_token, args.skip_verify):
+        if not health_check(args.src_host, src_token, args.skip_verify, debug):
             raise InfluxDBError(message="Health check for source host failed")
         if not verify_token(args.src_host, src_token, args.skip_verify):
             raise InfluxDBError(message="Could not verify source token")
@@ -782,7 +783,7 @@ def verify_instances(args, src_token, dest_token):
             raise InfluxDBError(message="TLS certificate could not be verified for source host")
 
     # Destination checks
-    if not health_check(args.dest_host, dest_token, args.skip_verify):
+    if not health_check(args.dest_host, dest_token, args.skip_verify, debug):
         raise InfluxDBError(message="Health check for destination host failed")
     if not args.skip_verify and not verify_tls(args.dest_host):
         raise InfluxDBError(message="TLS certificate could not be verified for destination host")
