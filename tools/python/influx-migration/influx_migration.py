@@ -373,7 +373,7 @@ def parse_args(args):
         "source server. If not provided, then --full must be provided.",
         required=False)
     parser.add_argument("--dest-bucket", help="Optional. The name of the InfluxDB bucket in the "
-        "destination server, must not be an already existing bucket. Defaults to value of"
+        "destination server, must not be an already existing bucket. Defaults to value of "
         "--src-bucket or None if --src-bucket not provided.",
         required=False)
     parser.add_argument("--src-host", help="Optional. The host for the source server. Defaults to "
