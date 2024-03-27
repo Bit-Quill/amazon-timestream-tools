@@ -114,7 +114,7 @@ The following is a formatted version of the output:
 
 **`--dest-bucket DEST_BUCKET`**: Optional. The name of the InfluxDB bucket in the destination server, must not be an already existing bucket. Defaults to value of `--src-bucket` or `None` if `--src-bucket` not provided.
 
-**`--dest-host DEST_HOST`**: The host for the destination server. Must have a scheme, domain or IP address, and port, e.g., http://127.0.0.1:8086 or https://some-domain:8086.
+**`--dest-host DEST_HOST`**: The host for the destination server. Must have a scheme, domain or IP address, and port, e.g., `http://127.0.0.1:8086` or `https://<domain>:<port>`.
 
 **`--dest-org DEST_ORG`**: Optional. The name of the organization to restore buckets to in the destination server. If this is omitted, then all migrated buckets from the source server will retain their original organization and migrated buckets may not be visible in the destination server without creating and switching organizations. This value will be used in all forms of restoration whether a single bucket, a full migration, or any migration using csv files for backup and restoration.
 
