@@ -280,6 +280,14 @@ def health_check(host, token, skip_verify, debug=False):
         client = InfluxDBClient(url=host,
             token=token, timeout=MILLISECOND_TIMEOUT, verify_ssl=not skip_verify, debug=debug)
         if not client.ping():
+            url_parse = urllib.parse.urlparse(host)
+            if url_parse.scheme == "":
+                logging.error("Host is missing scheme")
+            if url_parse.port is None:
+                logging.error("Host is missing port")
+            if url_parse.scheme == "" or url_parse.port is None:
+                logging.error("The expected format for host urls is <scheme>:<domain>:<port>. "
+                    "For example, http://127.0.0.1:8086")
             raise InfluxDBError(message=f"InfluxDB API call to {host}/ping failed")
     except InfluxDBError as error:
         logging.error(str(error))
