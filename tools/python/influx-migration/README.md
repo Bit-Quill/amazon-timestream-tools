@@ -178,7 +178,7 @@ After meeting the prerequisites:
 
     - (optional) S3 bucket name and credentials, AWS CLI credentials should be set in the OS environment variables.
       ```
-      # AWS credentials (for timestream testing)
+      # AWS credentials
       export AWS_ACCESS_KEY_ID="xxx"
       export AWS_SECRET_ACCESS_KEY="xxx"
       ```
