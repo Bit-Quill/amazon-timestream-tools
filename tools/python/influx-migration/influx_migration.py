@@ -378,11 +378,11 @@ def parse_args(args):
         required=False)
     parser.add_argument("--src-host", help="Optional. The host for the source server. "
         "Must have a scheme, domain or IP address, and port, e.g., http://127.0.0.1:8086 or "
-        "https://some-domain:8086. Defaults to http://localhost:8086.",
+        "https://<domain>:<port>. Defaults to http://localhost:8086 if no value is specified.",
         default="http://localhost:8086", required=False)
     parser.add_argument("--dest-host", help="The host for the destination server. "
         "Must have a scheme, domain or IP address, and port, e.g., http://127.0.0.1:8086 or "
-        "https://some-domain:8086.",
+        "https://<domain:<port>.",
         required=True)
     parser.add_argument("--full", help="Optional. Whether to perform a full restore, replacing all "
         "data on destination server with all data from source server from all organizations, "
