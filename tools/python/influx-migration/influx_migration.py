@@ -35,12 +35,12 @@ from sys import platform
 import textwrap
 import time
 import urllib
-from influxdb_client.service.metrics_service import MetricsService
 import urllib3
 
 from influxdb_client import BucketRetentionRules, InfluxDBClient
 from influxdb_client.client.exceptions import InfluxDBError
 from influxdb_client.rest import ApiException
+from influxdb_client.service.metrics_service import MetricsService
 
 # Maximum number of retries for attempting to mount an S3 bucket
 MAX_RETRIES = 20
