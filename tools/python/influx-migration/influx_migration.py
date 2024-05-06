@@ -685,7 +685,7 @@ def set_logging(log_level):
     
     logging.addLevelName(logging.WARNING, yellow + logging.getLevelName(logging.WARNING) + reset)
     logging.addLevelName(logging.ERROR, bold_red + logging.getLevelName(logging.ERROR) + reset)
-    log_format = '%(levelname)s: %(filename)s: %(message)s'
+    log_format = '%(levelname)s: %(asctime)s %(filename)s: %(message)s'
 
     log_level = log_level.lower()
     if log_level == "debug":
