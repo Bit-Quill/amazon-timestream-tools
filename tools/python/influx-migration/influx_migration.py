@@ -35,6 +35,7 @@ from sys import platform
 import textwrap
 import time
 import urllib
+from influxdb_client.service.metrics_service import MetricsService
 import urllib3
 
 from influxdb_client import BucketRetentionRules, InfluxDBClient
@@ -48,6 +49,12 @@ MILLISECOND_TIMEOUT = 30_000
 # The name of the temporary directory to be created and used to
 # mount an S3 bucket
 MOUNT_POINT_NAME = "influxdb-backups"
+
+# The recommended amount of time to wait before scraping from the /metrics endpoint
+# to ensure metrics are up to date
+METRICS_SCRAPE_INTERVAL_SECONDS=10
+
+BUCKET_PAGINATION_LIMIT=100
 
 script_duration = 0
 
@@ -80,6 +87,12 @@ def backup(backup_path, root_token, src_host, bucket_name=None, full=False, skip
         raise ValueError("bucket_name and full not provided, one must be provided")
 
     logging.info("Backing up bucket data and metadata using the InfluxDB CLI")
+    if logging.root.level >= logging.DEBUG:
+        time.sleep(METRICS_SCRAPE_INTERVAL_SECONDS)
+        if full:
+            report_all_bucket_series_count(host=src_host, token=root_token)
+        else:
+            report_bucket_series_count(bucket_name=bucket_name, host=src_host, token=root_token)
     start_time = time.time()
 
     bucket_backup_command = ['influx', 'backup', backup_path, '-t', root_token,
@@ -96,6 +109,47 @@ def backup(backup_path, root_token, src_host, bucket_name=None, full=False, skip
         raise RuntimeError("Backup CLI command failed")
     duration = time.time() - start_time
     log_performance_metrics("backup", start_time, duration)
+
+def report_all_bucket_series_count(host, token, org=None):
+    with InfluxDBClient(url=host, token=token) as client:
+        # CSV migration may use an all access token, meaning buckets will be scoped to an organization
+        if org is not None:
+            client.org = org
+        buckets = client.buckets_api().find_buckets(limit=BUCKET_PAGINATION_LIMIT)
+        for bucket in buckets.buckets:
+            if not bucket.name.startswith("_"):
+                report_bucket_series_count(bucket_name=bucket.name, host=host, token=token, org=org)
+        # Handle pagination
+        offset = 0
+        while buckets.links.next is not None:
+            offset += BUCKET_PAGINATION_LIMIT
+            buckets = client.buckets_api().find_buckets(limit=BUCKET_PAGINATION_LIMIT,
+                offset=offset)
+            for bucket in buckets.buckets:
+                if not bucket.name.startswith("_"):
+                    report_bucket_series_count(bucket_name=bucket.name, host=host, token=token, org=org)
+
+def report_bucket_series_count(bucket_name, host, token, org=None):
+    try:
+        with InfluxDBClient(url=host, token=token) as client:
+            if org is not None:
+                client.org = org
+            bucket = client.buckets_api().find_bucket_by_name(bucket_name=bucket_name)
+            metrics_service = MetricsService(client.api_client)
+            metrics = metrics_service.get_metrics()
+            for line in metrics.split("\n"):
+                if f'storage_bucket_series_num{{bucket="{bucket.id}"}}' in line:
+                    line = line.split(" ")
+                    if len(line) < 2:
+                        raise ValueError(f"Bucket metrics for bucket with name {bucket.name} are "
+                            "tracked in storage_bucket_series_num but its series count is missing. "
+                            f"Check the {host}/metrics endpoint for more details")
+                    logging.debug(f"Bucket with name {bucket.name}, in org {bucket.org_id}, has {line[1]} series")
+                    return
+            raise ValueError(f"Bucket series count could not be found in {host}/metrics")
+    except (ApiException, ValueError) as error:
+        logging.error(repr(error))
+        logging.error(f"Failed to get series count for bucket with name {bucket_name} in {host}")
 
 def backup_csv(backup_path, root_token, src_host, bucket_name=None, full=False, skip_verify=False, src_org=None):
     """
@@ -118,6 +172,12 @@ def backup_csv(backup_path, root_token, src_host, bucket_name=None, full=False, 
     :raises OSError: If writing bucket data to csv fails
     """
     logging.info("Backing up bucket data and metadata using the InfluxDB v2 API")
+    if logging.root.level >= logging.DEBUG:
+        time.sleep(METRICS_SCRAPE_INTERVAL_SECONDS)
+        if full:
+            report_all_bucket_series_count(host=src_host, token=root_token, org=src_org)
+        else:
+            report_bucket_series_count(bucket_name=bucket_name, host=src_host, token=root_token, org=src_org)
     start_time = time.time()
 
     try:
@@ -170,7 +230,7 @@ def bucket_create_rollback(host, token, bucket_name, org, skip_verify):
         client.close()
     return True
 
-def bucket_exists(host, token, bucket_name, skip_verify=False, org=None):
+def bucket_exists(host, token, bucket_name, skip_verify=False, org_name=None):
     """
     Checks for the existence of a bucket.
 
@@ -178,22 +238,36 @@ def bucket_exists(host, token, bucket_name, skip_verify=False, org=None):
     :param str token: The token to use for verification.
     :param str bucket_name: The name of the bucket to verify.
     :param bool skip_verify: Whether to skip TLS certificate verification.
-    :param org: The name of the org to use for bucket verification
-    :type org: str or None
+    :param org_name: The name of the org to use for bucket verification
+    :type org_name: str or None
     :returns: Whether the bucket exists in the instance.
     :rtype: bool
     """
     try:
-        client = InfluxDBClient(url=host,
-            token=token, timeout=MILLISECOND_TIMEOUT, verify_ssl=not skip_verify, org=org)
-        if client.buckets_api().find_bucket_by_name(bucket_name) is None:
-            return False
+        with InfluxDBClient(url=host, token=token, timeout=MILLISECOND_TIMEOUT,
+            verify_ssl=not skip_verify) as client:
+            org_list = []
+            if org_name is not None:
+                client.org = org_name
+                org_list = client.organizations_api().find_organizations(org=org_name)
+                if len(org_list) <= 0:
+                    logging.debug(f"Org {org_name} could not be found when checking whether bucket {bucket_name} exists")
+                    return False
+                logging.debug(f"{len(org_list)} orgs matched with name {org_name}")
+            bucket = client.buckets_api().find_bucket_by_name(bucket_name)
+            if bucket is None:
+                return False
+            if len(org_list) > 0:
+                for org in org_list:
+                    if org.id == bucket.org_id:
+                        return True
+                # Bucket could not be found in any org with matching org_name
+                return False
+            # Org not specified and bucket has been found
+            return True
     except InfluxDBError as error:
         logging.error(str(error))
         return False
-    finally:
-        client.close()
-    return True
 
 def cleanup(mount_point=None, exec_s3_bucket_mount=None):
     """
@@ -1083,6 +1157,17 @@ def main(args):
                 "If you want to skip backing up data and retry restoration use the "
                 "--retry-restore-dir option and provide the previously-mentioned backup directory.")
             raise
+
+        # Report number of series in destination after migration
+        if logging.root.level >= logging.DEBUG:
+            time.sleep(METRICS_SCRAPE_INTERVAL_SECONDS)
+            if args.full:
+                # For a full migration, destination instance will contain
+                # the source token after migration
+                report_all_bucket_series_count(host=args.dest_host, token=src_token)
+            else:
+                report_bucket_series_count(bucket_name=args.dest_bucket, host=args.dest_host,
+                    token=dest_token, org=args.dest_org)
 
         logging.info("Migration complete")
         log_performance_metrics("influx_migration.py", script_start_time, script_duration)
