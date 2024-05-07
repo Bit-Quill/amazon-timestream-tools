@@ -256,17 +256,26 @@ def bucket_exists(host, token, bucket_name, skip_verify=False, org_name=None):
                 logging.debug(f"{len(org_list)} orgs matched with name {org_name}")
             bucket = client.buckets_api().find_bucket_by_name(bucket_name)
             if bucket is None:
+                logging.debug(f"Bucket with name {bucket_name} could not be found "
+                    f"in host {host}")
                 return False
             if len(org_list) > 0:
                 for org in org_list:
                     if org.id == bucket.org_id:
+                        logging.debug(f"Bucket with name {bucket_name} found in org "
+                            f"{org_name} with org ID {org.id} in host {host}")
                         return True
                 # Bucket could not be found in any org with matching org_name
+                logging.debug(f"Bucket with name {bucket_name} could not be found "
+                    f"in any org with name {org_name} in host {host}")
                 return False
             # Org not specified and bucket has been found
+            logging.debug(f"Bucket with name {bucket_name} found in host {host}")
             return True
     except InfluxDBError as error:
         logging.error(str(error))
+        logging.debug("An unexpected error occurred while checking the existence "
+            f"a bucket with name {bucket_name} in host {host}")
         return False
 
 def cleanup(mount_point=None, exec_s3_bucket_mount=None):
