@@ -50,8 +50,7 @@ MILLISECOND_TIMEOUT = 30_000
 # mount an S3 bucket
 MOUNT_POINT_NAME = "influxdb-backups"
 
-# The recommended amount of time to wait before scraping from the /metrics endpoint
-# to ensure metrics are up to date
+# The number of seconds to wait before scraping from the /metrics endpoint
 METRICS_SCRAPE_INTERVAL_SECONDS=10
 
 BUCKET_PAGINATION_LIMIT=100
