@@ -230,52 +230,82 @@ def bucket_create_rollback(host, token, bucket_name, org, skip_verify):
         client.close()
     return True
 
-def bucket_exists(host, token, bucket_name, skip_verify=False, org_name=None):
+def bucket_exists(host, token, bucket_name, org_name=None, skip_verify=False):
     """
     Checks for the existence of a bucket.
 
     :param str host: The host for the InfluxDB instance.
     :param str token: The token to use for verification.
     :param str bucket_name: The name of the bucket to verify.
-    :param bool skip_verify: Whether to skip TLS certificate verification.
-    :param org_name: The name of the org to use for bucket verification
+    :param org_name: The name of the org to use for bucket verification.
     :type org_name: str or None
+    :param bool skip_verify: Whether to skip TLS certificate verification.
     :returns: Whether the bucket exists in the instance.
     :rtype: bool
     """
     try:
         with InfluxDBClient(url=host, token=token, timeout=MILLISECOND_TIMEOUT,
             verify_ssl=not skip_verify) as client:
-            org_list = []
+            # If the org name is provided, set the client org before making
+            # any requests
             if org_name is not None:
                 client.org = org_name
-                org_list = client.organizations_api().find_organizations(org=org_name)
-                if len(org_list) <= 0:
-                    logging.debug(f"Org {org_name} could not be found when checking whether bucket {bucket_name} exists")
-                    return False
-                logging.debug(f"{len(org_list)} orgs matched with name {org_name}")
-            bucket = client.buckets_api().find_bucket_by_name(bucket_name)
-            if bucket is None:
+            # Buckets may have the same name in multiple organizations
+            buckets = client.buckets_api().find_buckets(name=bucket_name)
+            if len(buckets.buckets) <= 0:
                 logging.debug(f"Bucket with name {bucket_name} could not be found "
                     f"in host {host}")
                 return False
-            if len(org_list) > 0:
-                for org in org_list:
-                    if org.id == bucket.org_id:
-                        logging.debug(f"Bucket with name {bucket_name} found in org "
-                            f"{org_name} with org ID {org.id} in host {host}")
-                        return True
-                # Bucket could not be found in any org with matching org_name
-                logging.debug(f"Bucket with name {bucket_name} could not be found "
-                    f"in any org with name {org_name} in host {host}")
-                return False
-            # Org not specified and bucket has been found
+            if org_name is not None:
+                bucket_found_in_org = False
+                for bucket in buckets.buckets:
+                    if bucket_exists_in_org(host=host, token=token, bucket=bucket,
+                        org_name=org_name, skip_verify=skip_verify):
+                        bucket_found_in_org = True
+                return bucket_found_in_org
             logging.debug(f"Bucket with name {bucket_name} found in host {host}")
+            logging.debug(f"{len(buckets.buckets)} buckets found")
             return True
     except InfluxDBError as error:
         logging.error(str(error))
         logging.debug("An unexpected error occurred while checking the existence "
             f"a bucket with name {bucket_name} in host {host}")
+        return False
+
+def bucket_exists_in_org(host, token, bucket, org_name, skip_verify=False):
+    """
+    Checks for the existence of a bucket in an org.
+
+    :param str host: The host for the InfluxDB instance.
+    :param str token: The token to use for verification.
+    :param influxdb_client.Bucket bucket: The bucket to verify.
+    :param org_name: The name of the org to use for bucket verification.
+    :type org_name: str or None
+    :param bool skip_verify: Whether to skip TLS certificate verification.
+    :returns: Whether the bucket exists in the instance in the specified org.
+    :rtype: bool
+    """
+    try:
+        with InfluxDBClient(url=host, token=token, timeout=MILLISECOND_TIMEOUT, verify_ssl=not skip_verify, org=org_name) as client:
+            org_list = client.organizations_api().find_organizations(org=org_name)
+            if len(org_list) <= 0:
+                logging.debug(f"Org {org_name} could not be found when checking whether bucket {bucket.name} exists")
+                return False
+            else:
+                logging.debug(f"{len(org_list)} orgs matched with name {org_name}")
+                for org in org_list:
+                    if org.id == bucket.org_id:
+                        logging.debug(f"Bucket with name {bucket.name} found in org "
+                            f"{org.name} with org ID {org.id} in host {host}")
+                        return True
+                # Bucket could not be found in any org with matching org_name
+                logging.debug(f"Bucket with name {bucket.name} could not be found "
+                    f"in any org with name {org_name} in host {host}")
+                return False
+    except InfluxDBError as error:
+        logging.error(repr(error))
+        logging.debug("An unexpected error occurred while checking the existence "
+            f"a bucket with name {bucket.name} in the org with name {org_name} in host {host}")
         return False
 
 def cleanup(mount_point=None, exec_s3_bucket_mount=None):
@@ -868,7 +898,7 @@ def verify_instances(args, src_token, dest_token):
         if args.src_org is not None and not verify_org(args.src_host, src_token, args.src_org, args.skip_verify):
             raise InfluxDBError(message="The source org could not be verified")
         if args.src_bucket is not None and args.full is False and \
-            not bucket_exists(args.src_host, src_token, args.src_bucket, args.skip_verify, args.src_org):
+            not bucket_exists(args.src_host, src_token, args.src_bucket, args.src_org, args.skip_verify):
             raise InfluxDBError(message="The source bucket could not be found")
         if not args.skip_verify and not verify_tls(args.src_host):
             raise InfluxDBError(message="TLS certificate could not be verified for source host")
@@ -883,7 +913,7 @@ def verify_instances(args, src_token, dest_token):
     if args.dest_org is not None and not verify_org(args.dest_host, dest_token, args.dest_org, args.skip_verify):
         raise InfluxDBError(message="The destination org could not be verified")
     if args.dest_bucket is not None and args.full is False and \
-        bucket_exists(args.dest_host, dest_token, args.dest_bucket, args.skip_verify, args.dest_org):
+        bucket_exists(args.dest_host, dest_token, args.dest_bucket, args.dest_org, args.skip_verify):
         message = (f"The destination bucket {args.dest_bucket} already exists in the "
             "destination instance")
         if args.dest_org is not None:
