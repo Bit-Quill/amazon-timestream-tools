@@ -257,15 +257,12 @@ def bucket_exists(host, token, bucket_name, org_name=None, skip_verify=False):
                 logging.debug(f"Bucket with name {bucket_name} could not be found "
                     f"in host {host}")
                 return False
-            logging.debug(f"Bucket with name {bucket_name} found in host {host}")
-            if org_name is not None:
-                logging.debug(f"Bucket found in org with name {org_name} and ID {buckets.buckets[0].org_id}")
             logging.debug(f"{len(buckets.buckets)} buckets found")
+            for bucket in buckets.buckets:
+                logging.debug(f"Bucket with name {bucket_name} found in "
+                    f"host {host} in org with ID {bucket.org_id}")
             return True
     except InfluxDBError as error:
-        logging.error(str(error))
-        logging.debug("An unexpected error occurred while checking the existence "
-            f"a bucket with name {bucket_name} in host {host}")
         return False
 
 def cleanup(mount_point=None, exec_s3_bucket_mount=None):
