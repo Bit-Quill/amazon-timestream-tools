@@ -174,9 +174,9 @@ def backup_csv(backup_path, root_token, src_host, bucket_name=None, full=False, 
     if logging.root.level >= logging.DEBUG:
         time.sleep(METRICS_SCRAPE_INTERVAL_SECONDS)
         if full:
-            report_all_bucket_series_count(host=src_host, token=root_token, org=src_org)
+            report_all_bucket_series_count(host=src_host, token=root_token, org_name=src_org)
         else:
-            report_bucket_series_count(bucket_name=bucket_name, host=src_host, token=root_token, org=src_org)
+            report_bucket_series_count(bucket_name=bucket_name, host=src_host, token=root_token, org_name=src_org)
     start_time = time.time()
 
     try:
