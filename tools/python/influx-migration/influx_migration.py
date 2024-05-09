@@ -116,18 +116,14 @@ def report_all_bucket_series_count(host, token, org_name=None):
         if org_name is not None:
             client.org = org_name
         buckets = client.buckets_api().find_buckets(limit=BUCKET_PAGINATION_LIMIT)
-        for bucket in buckets.buckets:
-            if not bucket.name.startswith("_"):
-                report_bucket_series_count(bucket_name=bucket.name, host=host, token=token, org_name=org_name)
-        # Handle pagination
         offset = 0
-        while buckets.links.next is not None:
-            offset += BUCKET_PAGINATION_LIMIT
-            buckets = client.buckets_api().find_buckets(limit=BUCKET_PAGINATION_LIMIT,
-                offset=offset)
+        while len(buckets.buckets) > 0:
             for bucket in buckets.buckets:
                 if not bucket.name.startswith("_"):
                     report_bucket_series_count(bucket_name=bucket.name, host=host, token=token, org_name=org_name)
+            offset += BUCKET_PAGINATION_LIMIT
+            buckets = client.buckets_api().find_buckets(limit=BUCKET_PAGINATION_LIMIT,
+                offset=offset)
 
 def report_bucket_series_count(bucket_name, host, token, org_name=None):
     try:
