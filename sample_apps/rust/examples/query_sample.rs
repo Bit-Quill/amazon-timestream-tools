@@ -1,3 +1,4 @@
+mod utils;
 use aws_sdk_timestreamquery as timestream_query;
 use clap::Parser;
 
