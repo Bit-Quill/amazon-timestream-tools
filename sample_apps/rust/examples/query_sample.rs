@@ -1,6 +1,9 @@
-mod utils;
 use aws_sdk_timestreamquery as timestream_query;
 use clap::Parser;
+use crate::utils::query_common;
+use std::fs;
+
+pub mod utils;
 
 static DEFAULT_DATABASE_NAME: &'static str = "devops_multi_sample_application";
 static DEFAULT_TABLE_NAME: &'static str = "host_metrics_sample_application";
@@ -30,8 +33,8 @@ async fn get_connection() -> Result<timestream_query::Client, timestream_query::
     Ok(client)
 }
 
-async fn execute_sample_queries(database_name: String, table_name: String) -> Result<(), timestream_query::Error> {
-    let client = get_connection().await.expect("Failed to get connection");
+async fn execute_sample_queries(database_name: String, table_name: String, f: &fs::File) -> Result<(), timestream_query::Error> {
+    let client = get_connection().await.unwrap();
 
     let hostname = "host-24Gju";
     let query_limit: i32 = 200;
@@ -211,24 +214,11 @@ async fn execute_sample_queries(database_name: String, table_name: String) -> Re
     for (i, query) in queries.iter().enumerate() {
         let msg = format!("Running Query_{} : {}", i + 1, query);
         println!("{}", msg);
-        let query_result = client.query()
-            .query_string(query)
-            .max_rows(max_rows)
-            .send()
-            .await;
-
-        match query_result {
-            Err(err) => {
-                println!("Error occurred: {}", err.as_service_error().unwrap());
-            }
-
-            Ok(query_output) => {
-                println!("Size of results: {}", query_output.rows.len());
-            }
-            
-        }
+        let _ = query_common::write(f, msg.to_string());
+        let _ = query_common::run_query(query.to_string(), &client, f, max_rows).await;
         let divider = "--------------------------------------------";
         println!("{}", divider);
+        let _ = query_common::write(f, divider.to_string());
     }
 
     Ok(())
@@ -240,5 +230,7 @@ async fn main() {
     // Processing command-line arguments
     let args = Args::parse();
 
-    let _result = execute_sample_queries(args.database_name, args.table_name).await;
+    let f = fs::File::create("query_results.log").expect("Error creating log file");
+
+    let _result = execute_sample_queries(args.database_name, args.table_name, &f).await;
 }
