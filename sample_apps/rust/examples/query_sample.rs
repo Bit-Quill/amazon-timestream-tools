@@ -1,4 +1,5 @@
 use aws_sdk_timestreamquery as timestream_query;
+use aws_types::region::Region;
 use clap::Parser;
 use crate::utils::query_common;
 use std::fs;
@@ -6,6 +7,8 @@ use std::fs;
 pub mod utils;
 
 static DEFAULT_DATABASE_NAME: &'static str = "devops_multi_sample_application";
+static DEFAULT_OUTPUT_FILE: &'static str = "query_results.log";
+static DEFAULT_REGION: &'static str = "us-east-1";
 static DEFAULT_TABLE_NAME: &'static str = "host_metrics_sample_application";
 
 #[derive(Parser, Debug)]
@@ -15,14 +18,23 @@ struct Args {
     #[arg(short, long, default_value = DEFAULT_DATABASE_NAME)]
     database_name: String,
 
+    // The full name of the output file to write query results to.
+    // For example, query_results.log
+    #[arg(short, long, default_value = DEFAULT_OUTPUT_FILE)]
+    output_file: String,
+
+    // The name of the AWS region to use for queries
+    #[arg(short, long, default_value = DEFAULT_REGION)]
+    region: String,
+
     // The Timestream for LiveAnalytics table name to use for all queries
     #[arg(short, long, default_value = DEFAULT_TABLE_NAME)]
     table_name: String
 }
 
-async fn get_connection() -> Result<timestream_query::Client, timestream_query::Error> {
+async fn get_connection(region: String) -> Result<timestream_query::Client, timestream_query::Error> {
     let config = aws_config::defaults(aws_config::BehaviorVersion::latest())
-        .region("us-east-1")
+        .region(Region::new(region))
         .load()
         .await;
     let (client, reload) = timestream_query::Client::new(&config)
@@ -33,8 +45,8 @@ async fn get_connection() -> Result<timestream_query::Client, timestream_query::
     Ok(client)
 }
 
-async fn execute_sample_queries(database_name: String, table_name: String, f: &fs::File) -> Result<(), timestream_query::Error> {
-    let client = get_connection().await.unwrap();
+async fn execute_sample_queries(region: String, database_name: String, table_name: String, f: &fs::File) -> Result<(), timestream_query::Error> {
+    let client = get_connection(region).await.unwrap();
 
     let hostname = "host-24Gju";
     let query_limit: i32 = 200;
@@ -230,7 +242,7 @@ async fn main() {
     // Processing command-line arguments
     let args = Args::parse();
 
-    let f = fs::File::create("query_results.log").expect("Error creating log file");
+    let f = fs::File::create(args.output_file).expect("Error creating log file");
 
-    let _result = execute_sample_queries(args.database_name, args.table_name, &f).await;
+    let _result = execute_sample_queries(args.region, args.database_name, args.table_name, &f).await;
 }
