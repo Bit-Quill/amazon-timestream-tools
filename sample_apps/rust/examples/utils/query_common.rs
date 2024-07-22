@@ -131,7 +131,7 @@ pub fn process_array_type(
         let scalar_type_ref = scalar_type.ok_or("Scalar type is None")?;
 
         if scalar_type_ref.as_str() != "" {
-            value.push_str(&process_scalar_type(&datum)?);
+            value.push_str(&process_scalar_type(datum)?);
         } else if let Some(time_series_measure_value_column_info) =
             &column_type_ref.time_series_measure_value_column_info
         {
@@ -140,19 +140,19 @@ pub fn process_array_type(
                 .as_ref()
                 .ok_or("Time series value is None")?;
             value.push_str(&process_time_series_type(
-                &time_series_value,
+                time_series_value,
                 time_series_measure_value_column_info,
             )?);
         } else if let Some(array_column_info) = &column_type_ref.array_column_info {
             let array_value = datum.array_value.as_ref().ok_or("Array value is None")?;
-            value.push_str("[");
-            value.push_str(&process_array_type(&array_value, array_column_info)?);
-            value.push_str("]");
+            value.push('[');
+            value.push_str(&process_array_type(array_value, array_column_info)?);
+            value.push(']');
         } else if let Some(row_column_info) = &column_type_ref.row_column_info {
             let row_value = datum.row_value.as_ref().ok_or("Row value is None")?;
-            value.push_str("[");
+            value.push('[');
             value.push_str(&process_row_type(&row_value.data, row_column_info)?);
-            value.push_str("]");
+            value.push(']');
         } else {
             panic!("Bad column type");
         }
@@ -179,7 +179,7 @@ pub fn process_row_type(
 
         if scalar_type_ref.as_str() != "" {
             // process simple data types
-            value.push_str(&process_scalar_type(&datum)?);
+            value.push_str(&process_scalar_type(datum)?);
         } else if let Some(time_series_measure_value_column_info) =
             &column_type_ref.time_series_measure_value_column_info
         {
@@ -187,22 +187,22 @@ pub fn process_row_type(
                 .time_series_value
                 .as_ref()
                 .ok_or("Time series value is None")?;
-            value.push_str("[");
+            value.push('[');
             value.push_str(&process_time_series_type(
-                &datapoint_list,
-                &time_series_measure_value_column_info,
+                datapoint_list,
+                time_series_measure_value_column_info,
             )?);
-            value.push_str("]");
+            value.push(']');
         } else if let Some(array_column_info) = &column_type_ref.array_column_info {
             let array_value = datum.array_value.as_ref().ok_or("Array value is None")?;
-            value.push_str("[");
-            value.push_str(&process_array_type(&array_value, array_column_info)?);
-            value.push_str("]");
+            value.push('[');
+            value.push_str(&process_array_type(array_value, array_column_info)?);
+            value.push(']');
         } else if let Some(row_column_info) = &column_type_ref.row_column_info {
             let row_value = datum.row_value.as_ref().ok_or("Row value is None")?;
-            value.push_str("[");
-            value.push_str(&process_row_type(&row_value.data, &row_column_info)?);
-            value.push_str("]");
+            value.push('[');
+            value.push_str(&process_row_type(&row_value.data, row_column_info)?);
+            value.push(']');
         } else {
             panic!("Bad column type");
         }
