@@ -2,7 +2,7 @@ use aws_sdk_timestreamwrite as timestream_write;
 use chrono::NaiveDateTime;
 use csv::Reader;
 use std::{error::Error, str::FromStr};
-mod utils;
+pub mod utils;
 use crate::utils::timestream_helper;
 use clap::Parser;
 

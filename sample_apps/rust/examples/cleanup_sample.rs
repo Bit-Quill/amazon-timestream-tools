@@ -1,4 +1,4 @@
-mod utils;
+pub mod utils;
 use crate::utils::timestream_helper;
 use clap::Parser;
 use std::error::Error;

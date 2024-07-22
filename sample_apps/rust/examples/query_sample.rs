@@ -1,4 +1,4 @@
-use crate::utils::{query_common, timestream_helper};
+use crate::utils::query_common;
 use aws_sdk_timestreamquery as timestream_query;
 use clap::Parser;
 use std::fs;
