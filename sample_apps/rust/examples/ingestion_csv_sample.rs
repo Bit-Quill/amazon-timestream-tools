@@ -1,11 +1,35 @@
 use aws_sdk_timestreamwrite as timestream_write;
+use aws_types::region::Region;
 use chrono::NaiveDateTime;
+use clap::Parser;
 use csv::Reader;
 use std::{error::Error, str::FromStr};
 
-async fn get_connection() -> Result<timestream_write::Client, timestream_write::Error> {
+static DEFAULT_DATABASE_NAME: &str = "devops_multi_sample_application";
+static DEFAULT_REGION: &str = "us-east-1";
+static DEFAULT_TABLE_NAME: &str = "host_metrics_sample_application";
+
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    // The Timestream for LiveAnalytics database name to use for all queries
+    #[arg(short, long, default_value = DEFAULT_DATABASE_NAME)]
+    database_name: String,
+
+    // The name of the AWS region to use for queries
+    #[arg(short, long, default_value = DEFAULT_REGION)]
+    region: String,
+
+    // The Timestream for LiveAnalytics table name to use for all queries
+    #[arg(short, long, default_value = DEFAULT_TABLE_NAME)]
+    table_name: String,
+}
+
+async fn get_connection(
+    region: &String,
+) -> Result<timestream_write::Client, timestream_write::Error> {
     let config = aws_config::defaults(aws_config::BehaviorVersion::latest())
-        .region("us-east-1")
+        .region(Region::new(region.to_owned()))
         .load()
         .await;
     let (client, reload) = timestream_write::Client::new(&config)
@@ -16,8 +40,8 @@ async fn get_connection() -> Result<timestream_write::Client, timestream_write::
     Ok(client)
 }
 
-async fn ingest_data() -> Result<(), Box<dyn Error>> {
-    let client = get_connection().await.unwrap();
+async fn ingest_data(args: &Args) -> Result<(), Box<dyn Error>> {
+    let client = get_connection(&args.region).await.unwrap();
 
     let mut records: Vec<timestream_write::types::Record> = Vec::new();
     let mut csv_reader = Reader::from_path("../data/sample.csv")?;
@@ -65,8 +89,8 @@ async fn ingest_data() -> Result<(), Box<dyn Error>> {
         if records.len() == 100 {
             client
                 .write_records()
-                .database_name(String::from("sample-rust-app-devops"))
-                .table_name(String::from("sample-rust-app-host-metrics"))
+                .database_name(&args.database_name)
+                .table_name(&args.table_name)
                 .set_records(Some(std::mem::take(&mut records)))
                 .send()
                 .await?;
@@ -76,8 +100,8 @@ async fn ingest_data() -> Result<(), Box<dyn Error>> {
     if !records.is_empty() {
         client
             .write_records()
-            .database_name(String::from("sample-rust-app-devops"))
-            .table_name(String::from("sample-rust-app-host-metrics"))
+            .database_name(&args.database_name)
+            .table_name(&args.table_name)
             .set_records(Some(records))
             .send()
             .await?;
@@ -85,57 +109,84 @@ async fn ingest_data() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-#[allow(dead_code)]
-async fn create_database() -> Result<(), timestream_write::Error> {
-    let client = get_connection().await.expect("Failed to get connection");
-
-    let db_tags: Vec<timestream_write::types::Tag> = vec![timestream_write::types::Tag::builder()
-        .set_key(Some(String::from("db-tag-key")))
-        .set_value(Some(String::from("db-tag-val")))
-        .build()
-        .expect("Failed to build tag")];
+async fn create_database(args: &Args) -> Result<(), timestream_write::Error> {
+    let client = get_connection(&args.region)
+        .await
+        .expect("Failed to get connection");
 
     client
         .create_database()
-        .set_tags(Some(db_tags))
-        .set_database_name(Some(String::from("sample-rust-app-devops")))
+        .set_database_name(Some(args.database_name.to_owned()))
         .send()
         .await?;
 
     Ok(())
 }
 
-#[allow(dead_code)]
-async fn create_table() -> Result<(), timestream_write::Error> {
-    let client = get_connection().await.expect("Failed to get connection");
-
-    let tbl_tags: Vec<timestream_write::types::Tag> = vec![timestream_write::types::Tag::builder()
-        .set_key(Some(String::from("tbl-tag-key")))
-        .set_value(Some(String::from("tbl-tag-val")))
-        .build()
-        .expect("Failed to build tag")];
-
-    // let tbl_schema = timestream_write::types::Schema::builder().set_composite_partition_key()
+async fn create_table(args: &Args) -> Result<(), timestream_write::Error> {
+    let client = get_connection(&args.region)
+        .await
+        .expect("Failed to get connection");
 
     client
         .create_table()
-        .set_table_name(Some(String::from("sample-rust-app-host-metrics")))
-        .set_database_name(Some(String::from("sample-rust-app-devops")))
-        .set_tags(Some(tbl_tags))
+        .set_table_name(Some(args.table_name.to_owned()))
+        .set_database_name(Some(args.database_name.to_owned()))
         .send()
         .await?;
 
     Ok(())
-
-    //.set_retention_properties()
-    //.set_magnetic_store_write_properties()
-    //.set_schema(Some(tbl_schema))
 }
 
 #[tokio::main]
-async fn main() {
-    // ingest_data().await;
-    // create_database().await;
-    // create_table().await;
-    let _ = ingest_data().await;
+async fn main() -> Result<(), Box<dyn Error>> {
+    let args = Args::parse();
+
+    let client = get_connection(&args.region)
+        .await
+        .expect("Failed to get connection to Timestream");
+
+    if let Err(describe_db_error) = client
+        .describe_database()
+        .database_name(&args.database_name)
+        .send()
+        .await
+    {
+        if describe_db_error
+            .as_service_error()
+            .map(|e| e.is_resource_not_found_exception())
+            == Some(true)
+        {
+            create_database(&args).await?;
+        } else {
+            panic!(
+                "Failed to describe the database {:?}, Error: {:?}",
+                args.database_name, describe_db_error
+            );
+        }
+    }
+
+    if let Err(describe_table_error) = client
+        .describe_table()
+        .database_name(&args.database_name)
+        .table_name(&args.table_name)
+        .send()
+        .await
+    {
+        if describe_table_error
+            .as_service_error()
+            .map(|e| e.is_resource_not_found_exception())
+            == Some(true)
+        {
+            create_table(&args).await?;
+        } else {
+            panic!(
+                "Failed to describe the table {:?}, Error: {:?}",
+                args.table_name, describe_table_error
+            );
+        }
+    }
+
+    ingest_data(&args).await?;
+    Ok(())
 }

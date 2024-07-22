@@ -1,36 +1,47 @@
 use aws_sdk_timestreamwrite::{self as timestream_write};
+use aws_types::region::Region;
+use clap::Parser;
+use std::error::Error;
 
-async fn get_connection() -> Result<timestream_write::Client, timestream_write::Error> {
+static DEFAULT_DATABASE_NAME: &str = "devops_multi_sample_application";
+static DEFAULT_REGION: &str = "us-east-1";
+static DEFAULT_TABLE_NAME: &str = "host_metrics_sample_application";
+
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    // The Timestream for LiveAnalytics database name to use for all queries
+    #[arg(short, long, default_value = DEFAULT_DATABASE_NAME)]
+    database_name: String,
+
+    // The name of the AWS region to use for queries
+    #[arg(short, long, default_value = DEFAULT_REGION)]
+    region: String,
+
+    // The Timestream for LiveAnalytics table name to use for all queries
+    #[arg(short, long, default_value = DEFAULT_TABLE_NAME)]
+    table_name: String,
+}
+
+async fn get_connection(
+    region: &String,
+) -> Result<timestream_write::Client, timestream_write::Error> {
     let config = aws_config::defaults(aws_config::BehaviorVersion::latest())
-        .region("us-east-1")
+        .region(Region::new(region.to_owned()))
         .load()
         .await;
     let (client, reload) = timestream_write::Client::new(&config)
         .with_endpoint_discovery_enabled()
         .await
-        .expect("Failed to get connection to Timestream");
+        .expect("Failure");
     tokio::task::spawn(reload.reload_task());
     Ok(client)
 }
 
-#[allow(dead_code)]
-async fn create_database() -> Result<(), timestream_write::Error> {
-    let client = get_connection().await?;
-
-    client
-        .create_database()
-        .set_database_name(Some(String::from("sample-rust-app-devops")))
-        .send()
-        .await?;
-
-    Ok(())
-}
-
-#[allow(dead_code)]
-async fn delete_s3_bucket(bucket_name: &str) -> Result<(), aws_sdk_s3::Error> {
+async fn delete_s3_bucket(bucket_name: &str, region: &String) -> Result<(), aws_sdk_s3::Error> {
     println!("Deleting s3 bucket {:?}", bucket_name);
     let config = aws_config::defaults(aws_config::BehaviorVersion::latest())
-        .region("us-east-1")
+        .region(Region::new(region.to_owned()))
         .load()
         .await;
     let client = aws_sdk_s3::Client::new(&config);
@@ -98,15 +109,17 @@ async fn delete_s3_bucket(bucket_name: &str) -> Result<(), aws_sdk_s3::Error> {
 }
 
 #[tokio::main]
-async fn main() {
-    let client = get_connection()
+async fn main() -> Result<(), Box<dyn Error>> {
+    let args = Args::parse();
+
+    let client = get_connection(&args.region)
         .await
         .expect("Failed to get connection to Timestream");
 
     match client
         .describe_table()
-        .database_name("tmp-rust-db")
-        .table_name("tmp-rust-table")
+        .database_name(&args.database_name)
+        .table_name(&args.table_name)
         .send()
         .await
     {
@@ -121,7 +134,7 @@ async fn main() {
                                 let bucket_name = s3_config
                                     .bucket_name()
                                     .expect("Failed to retrieve bucket name");
-                                match delete_s3_bucket(bucket_name).await {
+                                match delete_s3_bucket(bucket_name, &args.region).await {
                                     Ok(_) => {
                                         println!("s3 bucket {:?} successfully deleted", bucket_name)
                                     }
@@ -135,54 +148,69 @@ async fn main() {
                     }
                 }
             }
+            client
+                .delete_table()
+                .database_name(&args.database_name)
+                .table_name(&args.table_name)
+                .send()
+                .await?;
         }
 
-        _ => match client
-            .delete_table()
-            .database_name("tmp-rust-db")
-            .table_name("tmp-rust-table")
-            .send()
-            .await
-        {
-            Ok(_) => println!(
-                "successfully deleted table {:?}",
-                String::from("tmp-rust-table")
-            ),
-            Err(err) => println!(
-                "Failed to delete table {:?}, err: {:?}",
-                String::from("tmp-rust-table"),
-                err
-            ),
-        },
+        Err(describe_table_error) => {
+            if describe_table_error
+                .as_service_error()
+                .map(|e| e.is_resource_not_found_exception())
+                == Some(true)
+            {
+                println!(
+                    "Skipping table deletion as the table {:?} does not exist",
+                    args.table_name
+                );
+            } else {
+                panic!(
+                    "Failed to describe the table {:?}, Error: {:?}",
+                    args.table_name, describe_table_error
+                );
+            }
+        }
     }
-    println!("Describing database");
+
     match client
         .describe_database()
-        .database_name("tmp-rust-db")
+        .database_name(&args.database_name)
         .send()
         .await
     {
         Ok(_) => match client
             .delete_database()
-            .database_name("tmp-rust-db")
+            .database_name(&args.database_name)
             .send()
             .await
         {
-            Ok(_) => println!(
-                "Successfully deleted database {:?}",
-                String::from("tmp-rust-db")
-            ),
+            Ok(_) => println!("Successfully deleted database {:?}", &args.database_name),
             Err(err) => println!(
                 "Failed to delete database {:?}, err: {:?}",
-                String::from("tmp-rust-db"),
-                err
+                &args.database_name, err
             ),
         },
-        Err(_) => {
-            println!(
-                "Error describing database {:?}, skipping deletion",
-                String::from("tmp-rust-db")
-            );
+        Err(describe_database_error) => {
+            if describe_database_error
+                .as_service_error()
+                .map(|e| e.is_resource_not_found_exception())
+                == Some(true)
+            {
+                println!(
+                    "Skipping database deletion as the database {:?} does not exist",
+                    args.database_name
+                );
+            } else {
+                panic!(
+                    "Failed to describe the database {:?}, Error: {:?}",
+                    args.database_name, describe_database_error
+                );
+            }
         }
     }
+
+    Ok(())
 }
