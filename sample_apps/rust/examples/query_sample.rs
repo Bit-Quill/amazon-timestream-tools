@@ -1,8 +1,8 @@
-use crate::utils::query_common;
 use aws_sdk_timestreamquery as timestream_query;
 use clap::Parser;
 use std::fs;
 pub mod utils;
+use crate::utils::query_common;
 
 async fn execute_sample_queries(
     region: String,
