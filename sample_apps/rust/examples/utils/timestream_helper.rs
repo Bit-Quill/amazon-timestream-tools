@@ -32,15 +32,15 @@ pub async fn get_connection(
     let (client, reload) = timestream_write::Client::new(&config)
         .with_endpoint_discovery_enabled()
         .await
-        .expect("Failure");
+        .expect("Failed to get connection to Timestream");
+
     tokio::task::spawn(reload.reload_task());
     Ok(client)
 }
 
 pub async fn create_database(args: &Args) -> Result<(), timestream_write::Error> {
-    let client = get_connection(&args.region)
-        .await
-        .expect("Failed to get connection");
+    let client = get_connection(&args.region).await?;
+    println!("Creating new table {:?}", args.table_name);
 
     client
         .create_database()
@@ -52,9 +52,8 @@ pub async fn create_database(args: &Args) -> Result<(), timestream_write::Error>
 }
 
 pub async fn create_table(args: &Args) -> Result<(), timestream_write::Error> {
-    let client = get_connection(&args.region)
-        .await
-        .expect("Failed to get connection");
+    let client = get_connection(&args.region).await?;
+    println!("Creating new table {:?}", args.table_name);
 
     client
         .create_table()
@@ -127,11 +126,11 @@ pub async fn delete_s3_bucket(bucket_name: &str, region: &String) -> Result<(), 
         }
     }
 
-    let _ = client
+    client
         .delete_bucket()
         .set_bucket(Some(bucket_name.to_owned()))
         .send()
-        .await;
+        .await?;
 
     Ok(())
 }
