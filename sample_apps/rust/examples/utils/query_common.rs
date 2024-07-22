@@ -3,7 +3,7 @@ use aws_sdk_timestreamquery::types;
 use aws_types::region::Region;
 use clap::Parser;
 use std::fs;
-use std::io::{self, Write};
+use std::io::Write;
 
 static DEFAULT_DATABASE_NAME: &str = "devops_multi_sample_application";
 static DEFAULT_OUTPUT_FILE: &str = "query_results.log";
@@ -46,19 +46,35 @@ pub async fn get_connection(
     Ok(client)
 }
 
-pub fn write(mut file: &fs::File, s: String) -> io::Result<()> {
+pub fn write(mut file: &fs::File, s: String) -> Result<(), std::string::String> {
     let s_formatted = format!("{}\n", s);
-    file.write(s_formatted.as_bytes())?;
-    file.flush()?;
+    let write_result = file.write(s_formatted.as_bytes());
+    match write_result {
+        Ok(_) => {}
+
+        Err(_) => {
+            return Err(String::from("Failed to write to file"));
+        }
+    }
+    let flush_result = file.flush();
+    match flush_result {
+        Ok(_) => {}
+
+        Err(_) => {
+            return Err(String::from("Failed to flush file"));
+        }
+    }
     Ok(())
 }
 
+#[allow(dead_code)]
 pub fn process_scalar_type(data: &types::Datum) -> Result<String, String> {
     data.scalar_value
         .clone()
         .ok_or_else(|| "Scalar value is None".to_string())
 }
 
+#[allow(dead_code)]
 pub fn process_time_series_type(
     data: &[types::TimeSeriesDataPoint],
     column_info: &types::ColumnInfo,
@@ -98,9 +114,10 @@ pub fn process_time_series_type(
             value.push_str(", ");
         }
     }
-    return Ok(value);
+    Ok(value)
 }
 
+#[allow(dead_code)]
 pub fn process_array_type(
     datum_list: &[types::Datum],
     column_info: &types::ColumnInfo,
@@ -144,9 +161,10 @@ pub fn process_array_type(
             value.push_str(", ");
         }
     }
-    return Ok(value);
+    Ok(value)
 }
 
+#[allow(dead_code)]
 pub fn process_row_type(
     data: &[types::Datum],
     metadata: &[types::ColumnInfo],
@@ -194,7 +212,7 @@ pub fn process_row_type(
             value.push_str(", ");
         }
     }
-    return Ok(value);
+    Ok(value)
 }
 
 pub async fn run_query(
@@ -247,6 +265,6 @@ pub async fn run_query(
     }
     let message = format!("Number of rows: {}", num_rows).to_string();
     println!("{}", message);
-    let _ = write(f, message);
-    return Ok(());
+    write(f, message)?;
+    Ok(())
 }
