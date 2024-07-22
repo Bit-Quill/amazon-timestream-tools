@@ -1,59 +1,24 @@
+use crate::utils::{query_common, timestream_helper};
 use aws_sdk_timestreamquery as timestream_query;
-use aws_types::region::Region;
 use clap::Parser;
-use crate::utils::query_common;
 use std::fs;
-
 pub mod utils;
 
-static DEFAULT_DATABASE_NAME: &'static str = "devops_multi_sample_application";
-static DEFAULT_OUTPUT_FILE: &'static str = "query_results.log";
-static DEFAULT_REGION: &'static str = "us-east-1";
-static DEFAULT_TABLE_NAME: &'static str = "host_metrics_sample_application";
-
-#[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
-struct Args {
-    // The Timestream for LiveAnalytics database name to use for all queries
-    #[arg(short, long, default_value = DEFAULT_DATABASE_NAME)]
-    database_name: String,
-
-    // The full name of the output file to write query results to.
-    // For example, query_results.log
-    #[arg(short, long, default_value = DEFAULT_OUTPUT_FILE)]
-    output_file: String,
-
-    // The name of the AWS region to use for queries
-    #[arg(short, long, default_value = DEFAULT_REGION)]
+async fn execute_sample_queries(
     region: String,
-
-    // The Timestream for LiveAnalytics table name to use for all queries
-    #[arg(short, long, default_value = DEFAULT_TABLE_NAME)]
-    table_name: String
-}
-
-async fn get_connection(region: String) -> Result<timestream_query::Client, timestream_query::Error> {
-    let config = aws_config::defaults(aws_config::BehaviorVersion::latest())
-        .region(Region::new(region))
-        .load()
-        .await;
-    let (client, reload) = timestream_query::Client::new(&config)
-        .with_endpoint_discovery_enabled()
-        .await
-        .expect("Failure");
-    tokio::task::spawn(reload.reload_task());
-    Ok(client)
-}
-
-async fn execute_sample_queries(region: String, database_name: String, table_name: String, f: &fs::File) -> Result<(), timestream_query::Error> {
-    let client = get_connection(region).await.unwrap();
+    database_name: String,
+    table_name: String,
+    f: &fs::File,
+) -> Result<(), timestream_query::Error> {
+    let client = query_common::get_connection(&region).await.unwrap();
 
     let hostname = "host-24Gju";
     let query_limit: i32 = 200;
     let max_rows: i32 = 200;
 
     // 1. Find the average, p90, p95, and p99 CPU utilization for a specific EC2 host over the past 2 hours.
-    let query_1 = format!("SELECT region, az, hostname, BIN(time, 15s) AS binned_timestamp, \
+    let query_1 = format!(
+        "SELECT region, az, hostname, BIN(time, 15s) AS binned_timestamp, \
         ROUND(AVG(cpu_utilization), 2) AS avg_cpu_utilization, \
         ROUND(APPROX_PERCENTILE(cpu_utilization, 0.9), 2) AS p90_cpu_utilization, \
         ROUND(APPROX_PERCENTILE(cpu_utilization, 0.95), 2) AS p95_cpu_utilization, \
@@ -61,7 +26,8 @@ async fn execute_sample_queries(region: String, database_name: String, table_nam
         FROM {database_name}.{table_name} \
         WHERE measure_name = 'metrics' AND hostname = '{hostname}' AND time > ago(2h) \
         GROUP BY region, hostname, az, BIN(time, 15s) \
-        ORDER BY binned_timestamp ASC");
+        ORDER BY binned_timestamp ASC"
+    );
 
     // 2. Identify EC2 hosts with CPU utilization that is higher by 10%  or more compared to the average CPU utilization of the entire fleet for the past 2 hours.
     let query_2 = format!("WITH avg_fleet_utilization AS ( \
@@ -190,7 +156,8 @@ async fn execute_sample_queries(region: String, database_name: String, table_nam
         FROM time_series_view");
 
     // 11. Find the total number of measurements with of CPU utilization of 0% for a specific EC2 host over the past 2 hours, filling in the missing values using linear interpolation.
-    let query_11 = format!("WITH time_series_view AS (\
+    let query_11 = format!(
+        "WITH time_series_view AS (\
         SELECT INTERPOLATE_LINEAR(\
         CREATE_TIME_SERIES(time, ROUND(cpu_utilization, 2)), \
         SEQUENCE(min(time), max(time), 10s)) AS interpolated_cpu_utilization \
@@ -202,10 +169,12 @@ async fn execute_sample_queries(region: String, database_name: String, table_nam
         DOUBLE '0.0', \
         (s, x) -> s + 1, \
         s -> s) AS count_cpu \
-        FROM time_series_view");
+        FROM time_series_view"
+    );
 
     // 12. Find the average CPU utilization for a specific EC2 host over the past 2 hours, filling in the missing values using linear interpolation.
-    let query_12 = format!("WITH time_series_view AS (\
+    let query_12 = format!(
+        "WITH time_series_view AS (\
         SELECT INTERPOLATE_LINEAR(CREATE_TIME_SERIES(time, ROUND(cpu_utilization, 2)), \
         SEQUENCE(min(time), max(time), 10s)) AS interpolated_cpu_utilization \
         FROM {database_name}.{table_name} \
@@ -215,13 +184,16 @@ async fn execute_sample_queries(region: String, database_name: String, table_nam
         CAST(ROW(0.0, 0) AS ROW(sum DOUBLE, count INTEGER)), \
         (s, x) -> CAST(ROW(x.value + s.sum, s.count + 1) AS ROW(sum DOUBLE, count INTEGER)), \
         s -> IF(s.count = 0, NULL, s.sum / s.count)) AS avg_cpu \
-        FROM time_series_view");
+        FROM time_series_view"
+    );
 
     // 13. Running a query with multiple pages
     let query_13 = format!("SELECT * FROM {database_name}.{table_name} LIMIT {query_limit}");
 
-    let queries = [query_1, query_2, query_3, query_4, query_5, query_6,
-        query_7, query_8, query_9, query_10, query_11, query_12, query_13];
+    let queries = [
+        query_1, query_2, query_3, query_4, query_5, query_6, query_7, query_8, query_9, query_10,
+        query_11, query_12, query_13,
+    ];
 
     for (i, query) in queries.iter().enumerate() {
         let msg = format!("Running Query_{} : {}", i + 1, query);
@@ -236,13 +208,13 @@ async fn execute_sample_queries(region: String, database_name: String, table_nam
     Ok(())
 }
 
-
 #[tokio::main]
 async fn main() {
     // Processing command-line arguments
-    let args = Args::parse();
+    let args = query_common::Args::parse();
 
     let f = fs::File::create(args.output_file).expect("Error creating log file");
 
-    let _result = execute_sample_queries(args.region, args.database_name, args.table_name, &f).await;
+    let _result =
+        execute_sample_queries(args.region, args.database_name, args.table_name, &f).await;
 }

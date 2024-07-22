@@ -1,47 +1,13 @@
 use aws_sdk_timestreamwrite as timestream_write;
-use aws_types::region::Region;
 use chrono::NaiveDateTime;
-use clap::Parser;
 use csv::Reader;
 use std::{error::Error, str::FromStr};
+mod utils;
+use crate::utils::timestream_helper;
+use clap::Parser;
 
-static DEFAULT_DATABASE_NAME: &str = "devops_multi_sample_application";
-static DEFAULT_REGION: &str = "us-east-1";
-static DEFAULT_TABLE_NAME: &str = "host_metrics_sample_application";
-
-#[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
-struct Args {
-    // The Timestream for LiveAnalytics database name to use for all queries
-    #[arg(short, long, default_value = DEFAULT_DATABASE_NAME)]
-    database_name: String,
-
-    // The name of the AWS region to use for queries
-    #[arg(short, long, default_value = DEFAULT_REGION)]
-    region: String,
-
-    // The Timestream for LiveAnalytics table name to use for all queries
-    #[arg(short, long, default_value = DEFAULT_TABLE_NAME)]
-    table_name: String,
-}
-
-async fn get_connection(
-    region: &String,
-) -> Result<timestream_write::Client, timestream_write::Error> {
-    let config = aws_config::defaults(aws_config::BehaviorVersion::latest())
-        .region(Region::new(region.to_owned()))
-        .load()
-        .await;
-    let (client, reload) = timestream_write::Client::new(&config)
-        .with_endpoint_discovery_enabled()
-        .await
-        .expect("Failure");
-    tokio::task::spawn(reload.reload_task());
-    Ok(client)
-}
-
-async fn ingest_data(args: &Args) -> Result<(), Box<dyn Error>> {
-    let client = get_connection(&args.region).await.unwrap();
+async fn ingest_data(args: &timestream_helper::Args) -> Result<(), Box<dyn Error>> {
+    let client = timestream_helper::get_connection(&args.region).await?;
 
     let mut records: Vec<timestream_write::types::Record> = Vec::new();
     let mut csv_reader = Reader::from_path("../data/sample.csv")?;
@@ -109,40 +75,11 @@ async fn ingest_data(args: &Args) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-async fn create_database(args: &Args) -> Result<(), timestream_write::Error> {
-    let client = get_connection(&args.region)
-        .await
-        .expect("Failed to get connection");
-
-    client
-        .create_database()
-        .set_database_name(Some(args.database_name.to_owned()))
-        .send()
-        .await?;
-
-    Ok(())
-}
-
-async fn create_table(args: &Args) -> Result<(), timestream_write::Error> {
-    let client = get_connection(&args.region)
-        .await
-        .expect("Failed to get connection");
-
-    client
-        .create_table()
-        .set_table_name(Some(args.table_name.to_owned()))
-        .set_database_name(Some(args.database_name.to_owned()))
-        .send()
-        .await?;
-
-    Ok(())
-}
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let args = Args::parse();
+    let args = timestream_helper::Args::parse();
 
-    let client = get_connection(&args.region)
+    let client = timestream_helper::get_connection(&args.region)
         .await
         .expect("Failed to get connection to Timestream");
 
@@ -157,7 +94,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .map(|e| e.is_resource_not_found_exception())
             == Some(true)
         {
-            create_database(&args).await?;
+            timestream_helper::create_database(&args).await?;
         } else {
             panic!(
                 "Failed to describe the database {:?}, Error: {:?}",
@@ -178,7 +115,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .map(|e| e.is_resource_not_found_exception())
             == Some(true)
         {
-            create_table(&args).await?;
+            timestream_helper::create_table(&args).await?;
         } else {
             panic!(
                 "Failed to describe the table {:?}, Error: {:?}",
