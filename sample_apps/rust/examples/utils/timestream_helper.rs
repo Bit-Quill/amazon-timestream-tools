@@ -40,13 +40,13 @@ pub async fn get_connection(
 
 pub async fn create_database(
     client: &timestream_write::Client,
-    args: &Args,
+    database_name: &String,
 ) -> Result<(), timestream_write::Error> {
-    println!("Creating new database {:?}", args.database_name);
+    println!("Creating new database {:?}", database_name);
 
     client
         .create_database()
-        .set_database_name(Some(args.database_name.to_owned()))
+        .set_database_name(Some(database_name.to_owned()))
         .send()
         .await?;
 
@@ -55,9 +55,10 @@ pub async fn create_database(
 
 pub async fn create_table(
     client: &timestream_write::Client,
-    args: &Args,
+    database_name: &String,
+    table_name: &String,
 ) -> Result<(), timestream_write::Error> {
-    println!("Creating new table {:?}", args.table_name);
+    println!("Creating new table {:?}", table_name);
 
     let retention_properties = timestream_write::types::RetentionProperties::builder()
         .set_magnetic_store_retention_period_in_days(Some(8000))
@@ -71,8 +72,8 @@ pub async fn create_table(
 
     client
         .create_table()
-        .set_table_name(Some(args.table_name.to_owned()))
-        .set_database_name(Some(args.database_name.to_owned()))
+        .set_table_name(Some(table_name.to_owned()))
+        .set_database_name(Some(database_name.to_owned()))
         .set_retention_properties(Some(retention_properties))
         .set_magnetic_store_write_properties(Some(magnetic_store_properties))
         .send()

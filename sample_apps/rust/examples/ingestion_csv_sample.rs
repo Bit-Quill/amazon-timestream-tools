@@ -126,7 +126,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .map(|e| e.is_resource_not_found_exception())
             == Some(true)
         {
-            timestream_helper::create_database(&client, &args).await?;
+            timestream_helper::create_database(&client, &args.database_name).await?;
         } else {
             panic!(
                 "Failed to describe the database {:?}, Error: {:?}",
@@ -148,7 +148,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             == Some(true)
         {
             // Sleep to avoid any errors shortly after table creation
-            timestream_helper::create_table(&client, &args).await?;
+            timestream_helper::create_table(&client, &args.database_name, &args.table_name).await?;
             for i in (0..30).rev() {
                 print!("\rcountdown: {} to avoid any errors on table creation", i);
                 std::io::stdout().flush()?;
