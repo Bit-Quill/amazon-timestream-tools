@@ -1,5 +1,6 @@
 use aws_sdk_timestreamquery as timestream_query;
 use clap::Parser;
+use std::error::Error;
 use std::fs;
 pub mod utils;
 use crate::utils::query_common;
@@ -209,12 +210,12 @@ async fn execute_sample_queries(
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Box<dyn Error>> {
     // Processing command-line arguments
     let args = query_common::Args::parse();
 
     let f = fs::File::create(args.output_file).expect("Error creating log file");
 
-    let _result =
-        execute_sample_queries(args.region, args.database_name, args.table_name, &f).await;
+    execute_sample_queries(args.region, args.database_name, args.table_name, &f).await?;
+    Ok(())
 }
