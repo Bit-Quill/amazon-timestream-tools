@@ -259,7 +259,7 @@ pub async fn run_query(
                     &query, error_string
                 );
                 println!("{}", message);
-                let _ = write(f, message);
+                write(f, message)?;
                 return Err(error_string.into());
             }
         }
