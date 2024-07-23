@@ -2,6 +2,7 @@ use aws_sdk_timestreamquery as timestream_query;
 use aws_sdk_timestreamquery::types;
 use aws_types::region::Region;
 use clap::Parser;
+use std::error::Error;
 use std::fs;
 use std::io::Write;
 
@@ -46,14 +47,14 @@ pub async fn get_connection(
     Ok(client)
 }
 
-pub fn write(mut file: &fs::File, s: String) -> Result<(), std::string::String> {
+pub fn write(mut file: &fs::File, s: String) -> Result<(), Box<dyn Error>> {
     let s_formatted = format!("{}\n", s);
     let write_result = file.write(s_formatted.as_bytes());
     match write_result {
         Ok(_) => {}
 
         Err(_) => {
-            return Err(String::from("Failed to write to file"));
+            return Err(String::from("Failed to write to file").into());
         }
     }
     let flush_result = file.flush();
@@ -61,24 +62,24 @@ pub fn write(mut file: &fs::File, s: String) -> Result<(), std::string::String> 
         Ok(_) => {}
 
         Err(_) => {
-            return Err(String::from("Failed to flush file"));
+            return Err(String::from("Failed to flush file").into());
         }
     }
     Ok(())
 }
 
 #[allow(dead_code)]
-pub fn process_scalar_type(data: &types::Datum) -> Result<String, String> {
+pub fn process_scalar_type(data: &types::Datum) -> Result<String, Box<dyn Error>> {
     data.scalar_value
         .clone()
-        .ok_or_else(|| "Scalar value is None".to_string())
+        .ok_or("Scalar value is None".to_string().into())
 }
 
 #[allow(dead_code)]
 pub fn process_time_series_type(
     data: &[types::TimeSeriesDataPoint],
     column_info: &types::ColumnInfo,
-) -> Result<String, String> {
+) -> Result<String, Box<dyn Error>> {
     let mut value = String::new();
     for (i, datum) in data.iter().enumerate() {
         value.push_str(&datum.time);
@@ -121,7 +122,7 @@ pub fn process_time_series_type(
 pub fn process_array_type(
     datum_list: &[types::Datum],
     column_info: &types::ColumnInfo,
-) -> Result<String, String> {
+) -> Result<String, Box<dyn Error>> {
     let mut value = String::new();
     for (i, datum) in datum_list.iter().enumerate() {
         let column_type = column_info.r#type();
@@ -168,7 +169,7 @@ pub fn process_array_type(
 pub fn process_row_type(
     data: &[types::Datum],
     metadata: &[types::ColumnInfo],
-) -> Result<String, String> {
+) -> Result<String, Box<dyn Error>> {
     let mut value = String::new();
     for (i, datum) in data.iter().enumerate() {
         let column_info = metadata[i].clone();
@@ -220,7 +221,7 @@ pub async fn run_query(
     client: &timestream_query::Client,
     f: &std::fs::File,
     max_rows: i32,
-) -> Result<(), String> {
+) -> Result<(), Box<dyn Error>> {
     let query_client = client.query().clone();
 
     let mut query_result = query_client
@@ -259,7 +260,7 @@ pub async fn run_query(
                 );
                 println!("{}", message);
                 let _ = write(f, message);
-                return Err(error_string);
+                return Err(error_string.into());
             }
         }
     }
