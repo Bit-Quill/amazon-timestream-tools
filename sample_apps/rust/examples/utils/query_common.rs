@@ -42,7 +42,7 @@ pub async fn get_connection(
     let (client, reload) = timestream_query::Client::new(&config)
         .with_endpoint_discovery_enabled()
         .await
-        .expect("Failure");
+        .expect("Failure to get the query client connection with Timestream");
     tokio::task::spawn(reload.reload_task());
     Ok(client)
 }
