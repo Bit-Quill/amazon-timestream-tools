@@ -12,10 +12,9 @@ This application populates a table with ~63K rows of sample multi-measure-value 
 ### Prerequisites
 
 1. Install [Rust](https://www.rust-lang.org/tools/install).
+2. Configure [SDK authentication with AWS](https://docs.aws.amazon.com/sdk-for-rust/latest/dg/credentials.html).
 
-2. Create a Timestream for LiveAnalytics database called `devops_multi_sample_application` with a table named `host_metrics_sample_application`.
-
-   Once `ingestion_csv_sample` is run, the table `host_metrics_sample_application` will contain the CPU utilization and memory utilization of EC2 instances to simulate DevOps use cases. The timestamps for the data points in the table use millisecond granularity.
+Once the `ingestion_csv_sample` sample application is run, if it doesn't already exist, the database `devops_multi_sample_application` with the table `host_metrics_sample_application` will be created and will contain the CPU utilization and memory utilization of EC2 instances to simulate DevOps use cases. The timestamps for the data points in the table use millisecond granularity.
 
 ### Sample Application to Ingest & Query Multi-Measure Data
 
