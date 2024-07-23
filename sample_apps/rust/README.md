@@ -30,7 +30,7 @@ Once the `ingestion_csv_sample` sample application is run, if it doesn't already
    cargo run --example ingestion_csv_sample -- --region=us-east-2
    ```
 
-   > **_NOTE:_**: If the `--region` parameter is used for the ingesting data, use the same region for the remaining steps.
+   > **_NOTE:_**: If the `--region` parameter is used for the ingesting of data, use the same region for the remaining steps.
 
 3. For any sample application, the `-h` or `--help` parameter displays the list of arguments.
 
