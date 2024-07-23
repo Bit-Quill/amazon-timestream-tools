@@ -49,21 +49,11 @@ pub async fn get_connection(
 
 pub fn write(mut file: &fs::File, s: String) -> Result<(), Box<dyn Error>> {
     let s_formatted = format!("{}\n", s);
-    let write_result = file.write(s_formatted.as_bytes());
-    match write_result {
-        Ok(_) => {}
-
-        Err(_) => {
-            return Err(String::from("Failed to write to file").into());
-        }
+    if file.write(s_formatted.as_bytes()).is_err() {
+        return Err(String::from("Failed to write to file").into());
     }
-    let flush_result = file.flush();
-    match flush_result {
-        Ok(_) => {}
-
-        Err(_) => {
-            return Err(String::from("Failed to flush file").into());
-        }
+    if file.flush().is_err() {
+        return Err(String::from("Failed to flush file").into());
     }
     Ok(())
 }
