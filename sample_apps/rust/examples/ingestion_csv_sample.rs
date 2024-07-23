@@ -5,12 +5,16 @@ use std::{error::Error, str::FromStr};
 pub mod utils;
 use crate::utils::timestream_helper;
 use clap::Parser;
+use std::io::Write;
+use std::{thread, time::Duration};
 
-async fn ingest_data(args: &timestream_helper::Args) -> Result<(), Box<dyn Error>> {
-    let client = timestream_helper::get_connection(&args.region).await?;
-
+async fn ingest_data(
+    client: &timestream_write::Client,
+    args: &timestream_helper::Args,
+) -> Result<(), Box<dyn Error>> {
     let mut records: Vec<timestream_write::types::Record> = Vec::new();
     let mut csv_reader = Reader::from_path("../data/sample.csv")?;
+    let mut records_ingested: usize = 0;
     for record in csv_reader.records() {
         let record_result = record.expect("Failed to read csv record");
 
@@ -60,10 +64,15 @@ async fn ingest_data(args: &timestream_helper::Args) -> Result<(), Box<dyn Error
                 .set_records(Some(std::mem::take(&mut records)))
                 .send()
                 .await?;
+
+            records_ingested += 100;
+            print!("\r{} records ingested", records_ingested);
+            std::io::stdout().flush()?;
         }
     }
 
     if !records.is_empty() {
+        records_ingested += records.len();
         client
             .write_records()
             .database_name(&args.database_name)
@@ -71,6 +80,9 @@ async fn ingest_data(args: &timestream_helper::Args) -> Result<(), Box<dyn Error
             .set_records(Some(records))
             .send()
             .await?;
+
+        print!("\r{} records ingested", records_ingested);
+        std::io::stdout().flush()?;
     }
     Ok(())
 }
@@ -94,7 +106,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .map(|e| e.is_resource_not_found_exception())
             == Some(true)
         {
-            timestream_helper::create_database(&args).await?;
+            timestream_helper::create_database(&client, &args).await?;
         } else {
             panic!(
                 "Failed to describe the database {:?}, Error: {:?}",
@@ -115,7 +127,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .map(|e| e.is_resource_not_found_exception())
             == Some(true)
         {
-            timestream_helper::create_table(&args).await?;
+            // Sleep to avoid any errors shortly after table creation
+            timestream_helper::create_table(&client, &args).await?;
+            for i in (0..30).rev() {
+                print!("\rcountdown: {} to avoid any errors on table creation", i);
+                std::io::stdout().flush()?;
+                thread::sleep(Duration::from_millis(1000));
+            }
+            println!("\nBeginning ingestion");
         } else {
             panic!(
                 "Failed to describe the table {:?}, Error: {:?}",
@@ -124,6 +143,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    ingest_data(&args).await?;
+    ingest_data(&client, &args).await?;
     Ok(())
 }

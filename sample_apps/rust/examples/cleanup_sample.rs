@@ -51,6 +51,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 .table_name(&args.table_name)
                 .send()
                 .await?;
+            println!("Successfully deleted table {:?}", args.table_name);
         }
 
         Err(describe_table_error) => {
