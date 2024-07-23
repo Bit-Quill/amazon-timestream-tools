@@ -13,10 +13,31 @@ async fn ingest_data(
     args: &timestream_helper::Args,
 ) -> Result<(), Box<dyn Error>> {
     let mut records: Vec<timestream_write::types::Record> = Vec::new();
-    let mut csv_reader = Reader::from_path("../data/sample.csv")?;
+    let mut csv_reader = Reader::from_path("../data/sample-multi.csv")?;
     let mut records_ingested: usize = 0;
     for record in csv_reader.records() {
         let record_result = record.expect("Failed to read csv record");
+
+        let measure_values = vec![
+            aws_sdk_timestreamwrite::types::MeasureValue::builder()
+                .name(&record_result[8])
+                .value(&record_result[9])
+                .r#type(
+                    timestream_write::types::MeasureValueType::from_str(&record_result[10])
+                        .expect("Failed to enumerate measure value type"),
+                )
+                .build()
+                .unwrap(),
+            aws_sdk_timestreamwrite::types::MeasureValue::builder()
+                .name(&record_result[11])
+                .value(&record_result[12])
+                .r#type(
+                    timestream_write::types::MeasureValueType::from_str(&record_result[13])
+                        .expect("Failed to enumerate measure value type"),
+                )
+                .build()
+                .unwrap(),
+        ];
 
         records.push(
             timestream_write::types::Record::builder()
@@ -37,20 +58,17 @@ async fn ingest_data(
                         .build()
                         .unwrap(),
                 ]))
-                .measure_name(&record_result[6])
-                .measure_value(&record_result[7])
-                .measure_value_type(
-                    timestream_write::types::MeasureValueType::from_str(&record_result[8])
-                        .expect("Failed to enumerate measure value type"),
-                )
+                .measure_name(String::from("cpu_memory"))
+                .set_measure_values(Some(measure_values))
+                .set_measure_value_type(Some(timestream_write::types::MeasureValueType::Multi))
                 .time(
-                    NaiveDateTime::parse_from_str(&record_result[9], "%Y-%m-%d %H:%M:%S%.9f")?
+                    NaiveDateTime::parse_from_str(&record_result[6], "%Y-%m-%d %H:%M:%S%.9f")?
                         .and_utc()
                         .timestamp_millis()
                         .to_string(),
                 )
                 .time_unit(
-                    timestream_write::types::TimeUnit::from_str(&record_result[10])
+                    timestream_write::types::TimeUnit::from_str(&record_result[7])
                         .expect("Failed to parse time unit"),
                 )
                 .build(),
@@ -84,6 +102,8 @@ async fn ingest_data(
         print!("\r{} records ingested", records_ingested);
         std::io::stdout().flush()?;
     }
+
+    println!("\nMulti-measure record ingestion complete");
     Ok(())
 }
 
@@ -134,7 +154,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 std::io::stdout().flush()?;
                 thread::sleep(Duration::from_millis(1000));
             }
-            println!("\nBeginning ingestion");
+            println!("\nBeginning ingestion of multi-measure records");
         } else {
             panic!(
                 "Failed to describe the table {:?}, Error: {:?}",

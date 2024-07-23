@@ -9,15 +9,15 @@ static DEFAULT_TABLE_NAME: &str = "host_metrics_sample_application";
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 pub struct Args {
-    // The Timestream for LiveAnalytics database name to use for all queries
+    // The Timestream for LiveAnalytics database name to use for all writes
     #[arg(short, long, default_value = DEFAULT_DATABASE_NAME)]
     pub database_name: String,
 
-    // The name of the AWS region to use for queries
+    // The name of the AWS region to use for writes
     #[arg(short, long, default_value = DEFAULT_REGION)]
     pub region: String,
 
-    // The Timestream for LiveAnalytics table name to use for all queries
+    // The Timestream for LiveAnalytics table name to use for all writes
     #[arg(short, long, default_value = DEFAULT_TABLE_NAME)]
     pub table_name: String,
 }
@@ -32,7 +32,7 @@ pub async fn get_connection(
     let (client, reload) = timestream_write::Client::new(&config)
         .with_endpoint_discovery_enabled()
         .await
-        .expect("Failure to get the write client connection with Timestream");
+        .expect("Failed to get the write client connection with Timestream");
 
     tokio::task::spawn(reload.reload_task());
     Ok(client)
