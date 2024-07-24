@@ -3,9 +3,9 @@ use aws_sdk_timestreamwrite as timestream_write;
 use aws_types::region::Region;
 use clap::Parser;
 
-static DEFAULT_DATABASE_NAME: &str = "devops_multi_sample_application";
-static DEFAULT_REGION: &str = "us-east-1";
-static DEFAULT_TABLE_NAME: &str = "host_metrics_sample_application";
+const DEFAULT_DATABASE_NAME: &str = "devops_multi_sample_application";
+const DEFAULT_REGION: &str = "us-east-1";
+const DEFAULT_TABLE_NAME: &str = "host_metrics_sample_application";
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -24,7 +24,7 @@ pub struct Args {
 }
 
 pub async fn get_connection(
-    region: &String,
+    region: &str,
 ) -> Result<timestream_write::Client, timestream_write::Error> {
     let config = aws_config::defaults(aws_config::BehaviorVersion::latest())
         .region(Region::new(region.to_owned()))
@@ -41,7 +41,7 @@ pub async fn get_connection(
 
 pub async fn create_database(
     client: &timestream_write::Client,
-    database_name: &String,
+    database_name: &str,
 ) -> Result<(), timestream_write::Error> {
     println!("Creating new database {:?}", database_name);
 
@@ -56,8 +56,8 @@ pub async fn create_database(
 
 pub async fn create_table(
     client: &timestream_write::Client,
-    database_name: &String,
-    table_name: &String,
+    database_name: &str,
+    table_name: &str,
 ) -> Result<(), timestream_write::Error> {
     println!("Creating new table {:?}", table_name);
 
@@ -83,7 +83,7 @@ pub async fn create_table(
     Ok(())
 }
 
-pub async fn delete_s3_bucket(bucket_name: &str, region: &String) -> Result<(), aws_sdk_s3::Error> {
+pub async fn delete_s3_bucket(bucket_name: &str, region: &str) -> Result<(), aws_sdk_s3::Error> {
     println!("Deleting s3 bucket {:?}", bucket_name);
     let config = aws_config::defaults(aws_config::BehaviorVersion::latest())
         .region(Region::new(region.to_owned()))
