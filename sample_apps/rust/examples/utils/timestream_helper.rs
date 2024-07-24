@@ -1,3 +1,4 @@
+use anyhow::Result;
 use aws_sdk_timestreamwrite as timestream_write;
 use aws_types::region::Region;
 use clap::Parser;

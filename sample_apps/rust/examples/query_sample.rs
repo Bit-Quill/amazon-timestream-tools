@@ -1,6 +1,6 @@
+use anyhow::{Error, Result};
 use aws_sdk_timestreamquery as timestream_query;
 use clap::Parser;
-use std::error::Error;
 use std::fs;
 pub mod utils;
 use crate::utils::query_common;
@@ -209,7 +209,7 @@ async fn execute_sample_queries(
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() -> Result<(), Error> {
     // Processing command-line arguments
     let args = query_common::Args::parse();
 

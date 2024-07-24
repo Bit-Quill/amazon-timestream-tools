@@ -1,7 +1,8 @@
+use anyhow::{Error, Result};
 use aws_sdk_timestreamwrite as timestream_write;
 use chrono::NaiveDateTime;
 use csv::Reader;
-use std::{error::Error, str::FromStr};
+use std::str::FromStr;
 pub mod utils;
 use crate::utils::timestream_helper;
 use clap::Parser;
@@ -11,7 +12,7 @@ use std::{thread, time::Duration};
 async fn ingest_data(
     client: &timestream_write::Client,
     args: &timestream_helper::Args,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<(), Error> {
     let mut records: Vec<timestream_write::types::Record> = Vec::new();
     let mut csv_reader = Reader::from_path("../data/sample-multi.csv")?;
     let mut records_ingested: usize = 0;
@@ -108,7 +109,7 @@ async fn ingest_data(
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() -> Result<(), Error> {
     let args = timestream_helper::Args::parse();
 
     let client = timestream_helper::get_connection(&args.region)

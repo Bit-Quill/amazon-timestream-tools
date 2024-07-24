@@ -1,10 +1,10 @@
 pub mod utils;
 use crate::utils::timestream_helper;
+use anyhow::{Error, Result};
 use clap::Parser;
-use std::error::Error;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() -> Result<(), Error> {
     let args = timestream_helper::Args::parse();
 
     let client = timestream_helper::get_connection(&args.region)
