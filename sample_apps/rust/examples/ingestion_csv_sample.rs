@@ -16,6 +16,8 @@ async fn ingest_data(
     let mut records: Vec<timestream_write::types::Record> = Vec::new();
     let mut csv_reader = Reader::from_path("../data/sample-multi.csv")?;
     let mut records_ingested: usize = 0;
+    const MAX_TIMESTREAM_BATCH_SIZE: usize = 100;
+
     for record in csv_reader.records() {
         let record_result = record.expect("Failed to read csv record");
 
@@ -75,7 +77,7 @@ async fn ingest_data(
                 .build(),
         );
 
-        if records.len() == 100 {
+        if records.len() == MAX_TIMESTREAM_BATCH_SIZE {
             client
                 .write_records()
                 .database_name(&args.database_name)
@@ -84,7 +86,7 @@ async fn ingest_data(
                 .send()
                 .await?;
 
-            records_ingested += 100;
+            records_ingested += MAX_TIMESTREAM_BATCH_SIZE;
             print!("\r{} records ingested", records_ingested);
             std::io::stdout().flush()?;
         }

@@ -1,6 +1,8 @@
 pub mod utils;
 use crate::utils::timestream_helper;
 use anyhow::{Error, Result};
+use aws_sdk_timestreamwrite as timestream_write;
+use aws_sdk_timestreamwrite::operation::describe_table::DescribeTableOutput;
 use clap::Parser;
 
 #[tokio::main]
@@ -19,32 +21,21 @@ async fn main() -> Result<(), Error> {
         .await
     {
         Ok(describe_table_output) => {
-            if let Some(table) = describe_table_output.table() {
-                if let Some(magnetic_store) = table.magnetic_store_write_properties() {
-                    if magnetic_store.enable_magnetic_store_writes() {
-                        if let Some(rejected_data_location) =
-                            magnetic_store.magnetic_store_rejected_data_location()
-                        {
-                            if let Some(s3_config) = rejected_data_location.s3_configuration() {
-                                let bucket_name = s3_config
-                                    .bucket_name()
-                                    .expect("Failed to retrieve bucket name");
-                                match timestream_helper::delete_s3_bucket(bucket_name, &args.region)
-                                    .await
-                                {
-                                    Ok(_) => {
-                                        println!("s3 bucket {:?} successfully deleted", bucket_name)
-                                    }
-                                    Err(err) => println!(
-                                        "Failed to delete s3 bucket {:?}, err: {:?}",
-                                        bucket_name, err
-                                    ),
-                                }
-                            }
-                        }
+            if let Some(s3_config) = get_magnetic_storage_configuration(&describe_table_output) {
+                let bucket_name = s3_config
+                    .bucket_name()
+                    .expect("Failed to retrieve bucket name");
+                match timestream_helper::delete_s3_bucket(bucket_name, &args.region).await {
+                    Ok(_) => {
+                        println!("Successfully deleted s3 bucket {:?} ", bucket_name)
                     }
+                    Err(err) => println!(
+                        "Failed to delete s3 bucket {:?}, err: {:?}",
+                        bucket_name, err
+                    ),
                 }
             }
+
             client
                 .delete_table()
                 .database_name(&args.database_name)
@@ -111,4 +102,18 @@ async fn main() -> Result<(), Error> {
     }
 
     Ok(())
+}
+
+fn get_magnetic_storage_configuration(
+    describe_table_output: &DescribeTableOutput,
+) -> Option<&timestream_write::types::S3Configuration> {
+    let table = describe_table_output.table()?;
+    let magnetic_store_write_properties = table.magnetic_store_write_properties()?;
+
+    if magnetic_store_write_properties.enable_magnetic_store_writes() {
+        let rejected_data_location =
+            magnetic_store_write_properties.magnetic_store_rejected_data_location()?;
+        return rejected_data_location.s3_configuration();
+    }
+    None
 }
