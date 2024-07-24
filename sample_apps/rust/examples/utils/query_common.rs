@@ -33,7 +33,7 @@ pub struct Args {
 }
 
 pub async fn get_connection(
-    region: &String,
+    region: &str,
 ) -> Result<timestream_query::Client, timestream_query::Error> {
     let config = aws_config::defaults(aws_config::BehaviorVersion::latest())
         .region(Region::new(region.to_owned()))
