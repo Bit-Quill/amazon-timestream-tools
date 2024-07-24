@@ -17,7 +17,7 @@ async fn execute_sample_queries(
     let query_limit: i32 = 200;
     let max_rows: i32 = 200;
 
-    // 1. Find the average, p90, p95, and p99 CPU utilization for a specific EC2 host over the past 2 hours.
+    // 1. Find the average, p90, p95, and p99 CPU utilization for a specific EC2 host.
     let query_1 = format!(
         "SELECT region, az, hostname, BIN(time, 15s) AS binned_timestamp, \
         ROUND(AVG(cpu_utilization), 2) AS avg_cpu_utilization, \
@@ -30,7 +30,7 @@ async fn execute_sample_queries(
         ORDER BY binned_timestamp ASC"
     );
 
-    // 2. Identify EC2 hosts with CPU utilization that is higher by 10%  or more compared to the average CPU utilization of the entire fleet for the past 2 hours.
+    // 2. Identify EC2 hosts with CPU utilization that is higher by 10% or more compared to the average CPU utilization of the entire fleet.
     let query_2 = format!("WITH avg_fleet_utilization AS ( \
         SELECT COUNT(DISTINCT hostname) AS total_host_count, AVG(cpu_utilization) AS fleet_avg_cpu_utilization \
         FROM {database_name}.{table_name} WHERE measure_name = 'metrics' \
@@ -44,7 +44,7 @@ async fn execute_sample_queries(
         WHERE avg_cpu_utilization > 1.03 * fleet_avg_cpu_utilization \
         ORDER BY avg_cpu_utilization DESC");
 
-    // 3. Find the average CPU utilization binned at 30 second intervals for a specific EC2 host over the past 2 hours.
+    // 3. Find the average CPU utilization binned at 30 second intervals for a specific EC2 host.
     let query_3 = format!("SELECT BIN(time, 30s) AS binned_timestamp, ROUND(AVG(cpu_utilization), 2) AS avg_cpu_utilization, \
         hostname FROM {database_name}.{table_name} \
         WHERE measure_name = 'metrics' \
@@ -52,7 +52,7 @@ async fn execute_sample_queries(
         GROUP BY hostname, BIN(time, 30s) \
         ORDER BY binned_timestamp ASC");
 
-    // 4. Find the average CPU utilization binned at 30 second intervals for a specific EC2 host over the past 2 hours, filling in the missing values using linear interpolation.
+    // 4. Find the average CPU utilization binned at 30 second intervals for a specific EC2 host, filling in the missing values using linear interpolation.
     let query_4 = format!("WITH binned_timeseries AS (\
         SELECT hostname, BIN(time, 30s) AS binned_timestamp, ROUND(AVG(cpu_utilization), 2) AS avg_cpu_utilization \
         FROM {database_name}.{table_name} WHERE measure_name = 'metrics' \
@@ -67,7 +67,7 @@ async fn execute_sample_queries(
         FROM interpolated_timeseries \
         CROSS JOIN UNNEST(interpolated_avg_cpu_utilization)");
 
-    // 5. Find the average CPU utilization binned at 30 second intervals for a specific EC2 host over the past 2 hours, filling in the missing values using interpolation based on the last observation carried forward.
+    // 5. Find the average CPU utilization binned at 30 second intervals for a specific EC2 host, filling in the missing values using interpolation based on the last observation carried forward.
     let query_5 = format!("WITH binned_timeseries AS ( \
         SELECT hostname, BIN(time, 30s) AS binned_timestamp, ROUND(AVG(cpu_utilization), 2) AS avg_cpu_utilization \
         FROM {database_name}.{table_name} WHERE measure_name = 'metrics' AND hostname = '{hostname}' \
@@ -79,7 +79,7 @@ async fn execute_sample_queries(
         SELECT time, ROUND(value, 2) AS interpolated_cpu FROM interpolated_timeseries \
         CROSS JOIN UNNEST(interpolated_avg_cpu_utilization)");
 
-    // 6. Find the average CPU utilization binned at 30 second intervals for a specific EC2 host over the past 2 hours, filling in the missing values using interpolation based on a constant value.
+    // 6. Find the average CPU utilization binned at 30 second intervals for a specific EC2 host, filling in the missing values using interpolation based on a constant value.
     let query_6 = format!("WITH binned_timeseries AS ( \
         SELECT hostname, BIN(time, 30s) AS binned_timestamp, ROUND(AVG(cpu_utilization), 2) AS avg_cpu_utilization \
         FROM {database_name}.{table_name} \
@@ -95,7 +95,7 @@ async fn execute_sample_queries(
         FROM interpolated_timeseries \
         CROSS JOIN UNNEST(interpolated_avg_cpu_utilization)");
 
-    // 7. Find the average CPU utilization binned at 30 second intervals for a specific EC2 host over the past 2 hours, filling in the missing values using cubic spline interpolation.
+    // 7. Find the average CPU utilization binned at 30 second intervals for a specific EC2 host, filling in the missing values using cubic spline interpolation.
     let query_7 = format!("WITH binned_timeseries AS (\
         SELECT hostname, BIN(time, 30s) AS binned_timestamp, ROUND(AVG(cpu_utilization), 2) AS avg_cpu_utilization \
         FROM {database_name}.{table_name} \
@@ -109,7 +109,7 @@ async fn execute_sample_queries(
         SELECT time, ROUND(value, 2) AS interpolated_cpu \
         FROM interpolated_timeseries CROSS JOIN UNNEST(interpolated_avg_cpu_utilization)");
 
-    // 8. Find the average CPU utilization binned at 30 second intervals for all EC2 hosts over the past 2 hours, filling in the missing values using linear interpolation.
+    // 8. Find the average CPU utilization binned at 30 second intervals for all EC2 hosts, filling in the missing values using linear interpolation.
     let query_8 = format!("WITH per_host_min_max_timestamp AS (\
         SELECT hostname, min(time) as min_timestamp, max(time) as max_timestamp \
         FROM {database_name}.{table_name} \
@@ -129,7 +129,7 @@ async fn execute_sample_queries(
         GROUP BY hostname \
         ORDER BY avg_cpu_utilization DESC");
 
-    // 9. Find the percentage of measurements with CPU utilization above 70% for a specific EC2 host over the past 2 hours, filling in the missing values using linear interpolation.
+    // 9. Find the percentage of measurements with CPU utilization above 70% for a specific EC2 host, filling in the missing values using linear interpolation.
     let query_9 = format!("WITH time_series_view AS (\
         SELECT INTERPOLATE_LINEAR(\
         CREATE_TIME_SERIES(time, ROUND(cpu_utilization,2)), \
@@ -144,7 +144,7 @@ async fn execute_sample_queries(
         s -> IF(s.count_total = 0, NULL, CAST(s.count_high AS DOUBLE) / s.count_total)), 4) AS fraction_cpu_above_threshold \
         FROM time_series_view");
 
-    // 10. List the measurements with CPU utilization lower than 75% for a specific EC2 host over the past 2 hours, filling in the missing values using linear interpolation.
+    // 10. List the measurements with CPU utilization lower than 75% for a specific EC2 host, filling in the missing values using linear interpolation.
     let query_10 = format!("WITH time_series_view AS (\
         SELECT min(time) AS oldest_time, INTERPOLATE_LINEAR(\
         CREATE_TIME_SERIES(time, ROUND(cpu_utilization, 2)),\
@@ -155,7 +155,7 @@ async fn execute_sample_queries(
         SELECT FILTER(interpolated_cpu_utilization, x -> x.value < 75 AND x.time > oldest_time + 1m) \
         FROM time_series_view");
 
-    // 11. Find the total number of measurements with of CPU utilization of 0% for a specific EC2 host over the past 2 hours, filling in the missing values using linear interpolation.
+    // 11. Find the total number of measurements with of CPU utilization of 0% for a specific EC2 host, filling in the missing values using linear interpolation.
     let query_11 = format!(
         "WITH time_series_view AS (\
         SELECT INTERPOLATE_LINEAR(\
@@ -172,7 +172,7 @@ async fn execute_sample_queries(
         FROM time_series_view"
     );
 
-    // 12. Find the average CPU utilization for a specific EC2 host over the past 2 hours, filling in the missing values using linear interpolation.
+    // 12. Find the average CPU utilization for a specific EC2 host, filling in the missing values using linear interpolation.
     let query_12 = format!(
         "WITH time_series_view AS (\
         SELECT INTERPOLATE_LINEAR(CREATE_TIME_SERIES(time, ROUND(cpu_utilization, 2)), \
