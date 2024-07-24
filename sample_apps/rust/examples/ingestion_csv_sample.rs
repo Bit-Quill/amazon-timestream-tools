@@ -58,7 +58,7 @@ async fn ingest_data(
                         .build()
                         .unwrap(),
                 ]))
-                .measure_name(String::from("cpu_memory"))
+                .measure_name(String::from("metrics"))
                 .set_measure_values(Some(measure_values))
                 .set_measure_value_type(Some(timestream_write::types::MeasureValueType::Multi))
                 .time(
