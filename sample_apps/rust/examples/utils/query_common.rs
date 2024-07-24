@@ -6,10 +6,10 @@ use clap::Parser;
 use std::fs;
 use std::io::Write;
 
-static DEFAULT_DATABASE_NAME: &str = "devops_multi_sample_application";
-static DEFAULT_OUTPUT_FILE: &str = "query_results.log";
-static DEFAULT_REGION: &str = "us-east-1";
-static DEFAULT_TABLE_NAME: &str = "host_metrics_sample_application";
+const DEFAULT_DATABASE_NAME: &str = "devops_multi_sample_application";
+const DEFAULT_OUTPUT_FILE: &str = "query_results.log";
+const DEFAULT_REGION: &str = "us-east-1";
+const DEFAULT_TABLE_NAME: &str = "host_metrics_sample_application";
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]

@@ -3,9 +3,9 @@ use aws_sdk_timestreamwrite as timestream_write;
 use aws_types::region::Region;
 use clap::Parser;
 
-static DEFAULT_DATABASE_NAME: &str = "devops_multi_sample_application";
-static DEFAULT_REGION: &str = "us-east-1";
-static DEFAULT_TABLE_NAME: &str = "host_metrics_sample_application";
+const DEFAULT_DATABASE_NAME: &str = "devops_multi_sample_application";
+const DEFAULT_REGION: &str = "us-east-1";
+const DEFAULT_TABLE_NAME: &str = "host_metrics_sample_application";
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
