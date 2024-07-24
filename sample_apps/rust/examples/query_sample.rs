@@ -6,9 +6,9 @@ pub mod utils;
 use crate::utils::query_common;
 
 async fn execute_sample_queries(
-    region: String,
-    database_name: String,
-    table_name: String,
+    region: &str,
+    database_name: &str,
+    table_name: &str,
     f: &fs::File,
 ) -> Result<(), timestream_query::Error> {
     let client = query_common::get_connection(&region).await.unwrap();
@@ -215,6 +215,6 @@ async fn main() -> Result<(), Error> {
 
     let f = fs::File::create(args.output_file).expect("Error creating log file");
 
-    execute_sample_queries(args.region, args.database_name, args.table_name, &f).await?;
+    execute_sample_queries(&args.region, &args.database_name, &args.table_name, &f).await?;
     Ok(())
 }
