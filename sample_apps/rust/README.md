@@ -3,7 +3,7 @@
 This sample application shows how to:
 1. Create a table enabled with magnetic tier upsert.
 2. Ingest data with multi measure records.
-3. Execute queries and interpret their results.
+3. Execute queries with your terminal inside the `amazon-timestream-tools/sample_apps/rust` directory and interpret their results.
 
 This application populates a table with ~63K rows of sample multi-measure-value data (provided as csv data), and runs sample queries to jumpstart your evaluation and/or proof-of-concept applications with Amazon Timestream for LiveAnalytics.
 
