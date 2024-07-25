@@ -49,12 +49,9 @@ pub async fn get_connection(
 
 pub fn write(mut file: &fs::File, s: String) -> Result<(), Error> {
     let s_formatted = format!("{}\n", s);
-    if file.write(s_formatted.as_bytes()).is_err() {
-        return Err(anyhow!("Failed to write to file"));
-    }
-    if file.flush().is_err() {
-        return Err(anyhow!("Failed to flush file"));
-    }
+    file.write(s_formatted.as_bytes())
+        .map_err(|_| anyhow!("Failed to write to file"))?;
+    file.flush().map_err(|_| anyhow!("Failed to flush file"))?;
     Ok(())
 }
 

@@ -214,6 +214,12 @@ async fn main() -> Result<(), Error> {
 
     let output_file = fs::File::create(args.output_file).expect("Error creating log file");
 
-    execute_sample_queries(&args.region, &args.database_name, &args.table_name, &output_file).await?;
+    execute_sample_queries(
+        &args.region,
+        &args.database_name,
+        &args.table_name,
+        &output_file,
+    )
+    .await?;
     Ok(())
 }
