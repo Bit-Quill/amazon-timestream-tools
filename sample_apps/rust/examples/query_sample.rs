@@ -1,5 +1,4 @@
 use anyhow::{Error, Result};
-use aws_sdk_timestreamquery as timestream_query;
 use clap::Parser;
 use std::fs;
 pub mod utils;
@@ -10,8 +9,8 @@ async fn execute_sample_queries(
     database_name: &str,
     table_name: &str,
     f: &fs::File,
-) -> Result<(), timestream_query::Error> {
-    let client = query_common::get_connection(&region).await.unwrap();
+) -> Result<(), Error> {
+    let client = query_common::get_connection(region).await.unwrap();
 
     let hostname = "host-24Gju";
     let query_limit: i32 = 200;
@@ -198,11 +197,11 @@ async fn execute_sample_queries(
     for (i, query) in queries.iter().enumerate() {
         let msg = format!("Running Query_{} : {}", i + 1, query);
         println!("{}", msg);
-        let _ = query_common::write(f, msg.to_string());
-        let _ = query_common::run_query(query.to_string(), &client, f, max_rows).await;
+        query_common::write(f, msg.to_string())?;
+        query_common::run_query(query.to_string(), &client, f, max_rows).await?;
         let divider = "--------------------------------------------";
         println!("{}", divider);
-        let _ = query_common::write(f, divider.to_string());
+        query_common::write(f, divider.to_string())?;
     }
 
     Ok(())
