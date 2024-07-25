@@ -58,12 +58,14 @@ pub fn write(mut file: &fs::File, s: String) -> Result<(), Error> {
     Ok(())
 }
 
+#[allow(dead_code)]
 pub fn process_scalar_type(data: &types::Datum) -> Result<String, Error> {
     data.scalar_value
         .clone()
         .ok_or(anyhow!("Scalar value is None"))
 }
 
+#[allow(dead_code)]
 pub fn process_time_series_type(
     data: &[types::TimeSeriesDataPoint],
     column_info: &types::ColumnInfo,
@@ -111,6 +113,7 @@ pub fn process_time_series_type(
     Ok(joined_string)
 }
 
+#[allow(dead_code)]
 pub fn process_array_type(
     datum_list: &[types::Datum],
     column_info: &types::ColumnInfo,
@@ -165,6 +168,7 @@ pub fn process_array_type(
     Ok(joined_string)
 }
 
+#[allow(dead_code)]
 pub fn process_row_type(
     data: &[types::Datum],
     metadata: &[types::ColumnInfo],
@@ -243,10 +247,6 @@ pub async fn run_query(
     loop {
         match query_result {
             Ok(query_success) => {
-                for row in query_success.rows() {
-                    let row_string = process_row_type(&row.data, &query_success.column_info)?;
-                    println!("{}", row_string);
-                }
                 num_rows += query_success.rows.len();
                 if let Some(new_next_token) = query_success.next_token {
                     // Set token to paginate through results
