@@ -100,7 +100,7 @@ pub fn process_time_series_type(
                     .ok_or(anyhow!("Row value is None"))?;
                 datum_string.push_str(&process_row_type(&row_value.data, row_column_info)?);
             } else {
-                panic!("Bad data type");
+                return Err(anyhow!("Bad data type"));
             }
             Ok(datum_string)
         })
