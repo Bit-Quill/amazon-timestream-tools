@@ -155,7 +155,7 @@ pub fn process_array_type(
                 datum_string.push_str(&process_row_type(&row_value.data, row_column_info)?);
                 datum_string.push(']');
             } else {
-                panic!("Bad column type");
+                return Err(anyhow!("Bad column type"));
             }
             Ok(datum_string)
         })
@@ -214,7 +214,7 @@ pub fn process_row_type(
                 datum_string.push_str(&process_row_type(&row_value.data, row_column_info)?);
                 datum_string.push(']');
             } else {
-                panic!("Bad column type");
+                return Err(anyhow!("Bad column type"));
             }
             Ok(datum_string)
         })

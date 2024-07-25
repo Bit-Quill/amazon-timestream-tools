@@ -1,4 +1,4 @@
-use anyhow::{Error, Result};
+use anyhow::{anyhow, Error, Result};
 use aws_sdk_timestreamwrite as timestream_write;
 use aws_sdk_timestreamwrite::operation::describe_table::DescribeTableOutput;
 use clap::Parser;
@@ -55,10 +55,11 @@ async fn main() -> Result<(), Error> {
                     args.table_name
                 );
             } else {
-                panic!(
+                return Err(anyhow!(
                     "Failed to describe the table {:?}, Error: {:?}",
-                    args.table_name, describe_table_error
-                );
+                    args.table_name,
+                    describe_table_error
+                ));
             }
         }
     }
@@ -92,10 +93,11 @@ async fn main() -> Result<(), Error> {
                     args.database_name
                 );
             } else {
-                panic!(
+                return Err(anyhow!(
                     "Failed to describe the database {:?}, Error: {:?}",
-                    args.database_name, describe_database_error
-                );
+                    args.database_name,
+                    describe_database_error
+                ));
             }
         }
     }

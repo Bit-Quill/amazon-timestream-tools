@@ -1,4 +1,4 @@
-use anyhow::{Error, Result};
+use anyhow::{anyhow, Error, Result};
 use aws_sdk_timestreamwrite as timestream_write;
 use chrono::NaiveDateTime;
 use clap::Parser;
@@ -130,10 +130,11 @@ async fn main() -> Result<(), Error> {
         {
             timestream_helper::create_database(&client, &args.database_name).await?;
         } else {
-            panic!(
+            return Err(anyhow!(
                 "Failed to describe the database {:?}, Error: {:?}",
-                args.database_name, describe_db_error
-            );
+                args.database_name,
+                describe_db_error
+            ));
         }
     }
 
@@ -158,10 +159,11 @@ async fn main() -> Result<(), Error> {
             }
             println!("\nBeginning ingestion of multi-measure records");
         } else {
-            panic!(
+            return Err(anyhow!(
                 "Failed to describe the table {:?}, Error: {:?}",
-                args.table_name, describe_table_error
-            );
+                args.table_name,
+                describe_table_error
+            ));
         }
     }
 
