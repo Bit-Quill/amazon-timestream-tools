@@ -80,10 +80,6 @@ pub fn process_time_series_type(
             let scalar_type_ref = scalar_type.ok_or(anyhow!("Scalar type is None"));
 
             let datum_value = datum.value.as_ref().ok_or(anyhow!("Datum value is None"))?;
-            let _scalar_value = datum_value
-                .scalar_value
-                .to_owned()
-                .ok_or(anyhow!("Scalar value is None"))?;
 
             if scalar_type_ref.is_ok() && !scalar_type_ref?.as_str().is_empty() {
                 datum_string.push_str(&process_scalar_type(datum_value)?);
