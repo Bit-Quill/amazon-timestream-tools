@@ -12,9 +12,9 @@ async fn execute_sample_queries(
 ) -> Result<(), Error> {
     let client = query_common::get_connection(region).await.unwrap();
 
-    let hostname = "host-24Gju";
-    let query_limit: i32 = 200;
-    let max_rows: i32 = 200;
+    const HOSTNAME: &str = "host-24Gju";
+    const QUERY_LIMIT: i32 = 200;
+    const MAX_ROWS: i32 = 200;
 
     // 1. Find the average, p90, p95, and p99 CPU utilization for a specific EC2 host.
     let query_1 = format!(
@@ -24,7 +24,7 @@ async fn execute_sample_queries(
         ROUND(APPROX_PERCENTILE(cpu_utilization, 0.95), 2) AS p95_cpu_utilization, \
         ROUND(APPROX_PERCENTILE(cpu_utilization, 0.99), 2) AS p99_cpu_utilization \
         FROM {database_name}.{table_name} \
-        WHERE measure_name = 'metrics' AND hostname = '{hostname}' \
+        WHERE measure_name = 'metrics' AND hostname = '{HOSTNAME}' \
         GROUP BY region, hostname, az, BIN(time, 15s) \
         ORDER BY binned_timestamp ASC"
     );
@@ -47,7 +47,7 @@ async fn execute_sample_queries(
     let query_3 = format!("SELECT BIN(time, 30s) AS binned_timestamp, ROUND(AVG(cpu_utilization), 2) AS avg_cpu_utilization, \
         hostname FROM {database_name}.{table_name} \
         WHERE measure_name = 'metrics' \
-        AND hostname = '{hostname}' \
+        AND hostname = '{HOSTNAME}' \
         GROUP BY hostname, BIN(time, 30s) \
         ORDER BY binned_timestamp ASC");
 
@@ -55,7 +55,7 @@ async fn execute_sample_queries(
     let query_4 = format!("WITH binned_timeseries AS (\
         SELECT hostname, BIN(time, 30s) AS binned_timestamp, ROUND(AVG(cpu_utilization), 2) AS avg_cpu_utilization \
         FROM {database_name}.{table_name} WHERE measure_name = 'metrics' \
-        AND hostname = '{hostname}' \
+        AND hostname = '{HOSTNAME}' \
         GROUP BY hostname, BIN(time, 30s)), interpolated_timeseries AS ( \
         SELECT hostname, INTERPOLATE_LINEAR( \
         CREATE_TIME_SERIES(binned_timestamp, avg_cpu_utilization), \
@@ -69,7 +69,7 @@ async fn execute_sample_queries(
     // 5. Find the average CPU utilization binned at 30 second intervals for a specific EC2 host, filling in the missing values using interpolation based on the last observation carried forward.
     let query_5 = format!("WITH binned_timeseries AS ( \
         SELECT hostname, BIN(time, 30s) AS binned_timestamp, ROUND(AVG(cpu_utilization), 2) AS avg_cpu_utilization \
-        FROM {database_name}.{table_name} WHERE measure_name = 'metrics' AND hostname = '{hostname}' \
+        FROM {database_name}.{table_name} WHERE measure_name = 'metrics' AND hostname = '{HOSTNAME}' \
         GROUP BY hostname, BIN(time, 30s)), interpolated_timeseries AS (\
         SELECT hostname, INTERPOLATE_LOCF(CREATE_TIME_SERIES(binned_timestamp, avg_cpu_utilization), \
         SEQUENCE(min(binned_timestamp), max(binned_timestamp), 15s)) AS interpolated_avg_cpu_utilization \
@@ -83,7 +83,7 @@ async fn execute_sample_queries(
         SELECT hostname, BIN(time, 30s) AS binned_timestamp, ROUND(AVG(cpu_utilization), 2) AS avg_cpu_utilization \
         FROM {database_name}.{table_name} \
         WHERE measure_name = 'metrics' \
-        AND hostname = '{hostname}' \
+        AND hostname = '{HOSTNAME}' \
         GROUP BY hostname, BIN(time, 30s)), interpolated_timeseries AS ( \
         SELECT hostname, \
         INTERPOLATE_FILL(CREATE_TIME_SERIES(binned_timestamp, avg_cpu_utilization), \
@@ -98,7 +98,7 @@ async fn execute_sample_queries(
     let query_7 = format!("WITH binned_timeseries AS (\
         SELECT hostname, BIN(time, 30s) AS binned_timestamp, ROUND(AVG(cpu_utilization), 2) AS avg_cpu_utilization \
         FROM {database_name}.{table_name} \
-        WHERE measure_name = 'metrics' AND hostname = '{hostname}' \
+        WHERE measure_name = 'metrics' AND hostname = '{HOSTNAME}' \
         GROUP BY hostname, BIN(time, 30s)), interpolated_timeseries AS (\
         SELECT hostname, INTERPOLATE_SPLINE_CUBIC(\
         CREATE_TIME_SERIES(binned_timestamp, avg_cpu_utilization), \
@@ -134,7 +134,7 @@ async fn execute_sample_queries(
         CREATE_TIME_SERIES(time, ROUND(cpu_utilization,2)), \
         SEQUENCE(min(time), max(time), 10s)) AS interpolated_cpu_utilization \
         FROM {database_name}.{table_name} \
-        WHERE hostname = '{hostname}' AND measure_name = 'metrics' \
+        WHERE hostname = '{HOSTNAME}' AND measure_name = 'metrics' \
         GROUP BY hostname) \
         SELECT FILTER(interpolated_cpu_utilization, x -> x.value > 70.0) AS cpu_above_threshold, \
         REDUCE(FILTER(interpolated_cpu_utilization, x -> x.value > 70.0), 0, (s, x) -> s + 1, s -> s) AS count_cpu_above_threshold, \
@@ -149,7 +149,7 @@ async fn execute_sample_queries(
         CREATE_TIME_SERIES(time, ROUND(cpu_utilization, 2)),\
         SEQUENCE(min(time), max(time), 10s)) AS interpolated_cpu_utilization \
         FROM {database_name}.{table_name} \
-        WHERE hostname = '{hostname}' AND measure_name = 'metrics' \
+        WHERE hostname = '{HOSTNAME}' AND measure_name = 'metrics' \
         GROUP BY hostname) \
         SELECT FILTER(interpolated_cpu_utilization, x -> x.value < 75 AND x.time > oldest_time + 1m) \
         FROM time_series_view");
@@ -161,7 +161,7 @@ async fn execute_sample_queries(
         CREATE_TIME_SERIES(time, ROUND(cpu_utilization, 2)), \
         SEQUENCE(min(time), max(time), 10s)) AS interpolated_cpu_utilization \
         FROM {database_name}.{table_name} \
-        WHERE hostname = '{hostname}' AND measure_name = 'metrics' \
+        WHERE hostname = '{HOSTNAME}' AND measure_name = 'metrics' \
         GROUP BY hostname \
         )\
         SELECT REDUCE(interpolated_cpu_utilization, \
@@ -177,7 +177,7 @@ async fn execute_sample_queries(
         SELECT INTERPOLATE_LINEAR(CREATE_TIME_SERIES(time, ROUND(cpu_utilization, 2)), \
         SEQUENCE(min(time), max(time), 10s)) AS interpolated_cpu_utilization \
         FROM {database_name}.{table_name} \
-        WHERE hostname = '{hostname}' AND measure_name = 'metrics' \
+        WHERE hostname = '{HOSTNAME}' AND measure_name = 'metrics' \
         GROUP BY hostname) \
         SELECT REDUCE(interpolated_cpu_utilization, \
         CAST(ROW(0.0, 0) AS ROW(sum DOUBLE, count INTEGER)), \
@@ -187,7 +187,7 @@ async fn execute_sample_queries(
     );
 
     // 13. Running a query with multiple pages
-    let query_13 = format!("SELECT * FROM {database_name}.{table_name} LIMIT {query_limit}");
+    let query_13 = format!("SELECT * FROM {database_name}.{table_name} LIMIT {QUERY_LIMIT}");
 
     let queries = [
         query_1, query_2, query_3, query_4, query_5, query_6, query_7, query_8, query_9, query_10,
@@ -198,7 +198,7 @@ async fn execute_sample_queries(
         let msg = format!("Running Query_{} : {}", i + 1, query);
         println!("{}", msg);
         query_common::write(f, msg.to_string())?;
-        query_common::run_query(query.to_string(), &client, f, max_rows).await?;
+        query_common::run_query(query.to_string(), &client, f, MAX_ROWS).await?;
         let divider = "--------------------------------------------";
         println!("{}", divider);
         query_common::write(f, divider.to_string())?;
