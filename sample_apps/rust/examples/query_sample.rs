@@ -212,8 +212,8 @@ async fn main() -> Result<(), Error> {
     // Processing command-line arguments
     let args = query_common::Args::parse();
 
-    let f = fs::File::create(args.output_file).expect("Error creating log file");
+    let output_file = fs::File::create(args.output_file).expect("Error creating log file");
 
-    execute_sample_queries(&args.region, &args.database_name, &args.table_name, &f).await?;
+    execute_sample_queries(&args.region, &args.database_name, &args.table_name, &output_file).await?;
     Ok(())
 }
