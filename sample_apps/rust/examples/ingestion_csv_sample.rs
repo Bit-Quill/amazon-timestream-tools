@@ -30,7 +30,7 @@ async fn ingest_data(
                         .expect("Failed to enumerate measure value type"),
                 )
                 .build()
-                .unwrap(),
+                .expect("Failed to build measure value"),
             aws_sdk_timestreamwrite::types::MeasureValue::builder()
                 .name(&record_result[11])
                 .value(&record_result[12])
@@ -39,7 +39,7 @@ async fn ingest_data(
                         .expect("Failed to enumerate measure value type"),
                 )
                 .build()
-                .unwrap(),
+                .expect("Failed to build measure value"),
         ];
 
         records.push(
@@ -49,17 +49,17 @@ async fn ingest_data(
                         .name(&record_result[0])
                         .value(&record_result[1])
                         .build()
-                        .unwrap(),
+                        .expect("Failed to build dimension"),
                     timestream_write::types::Dimension::builder()
                         .name(&record_result[2])
                         .value(&record_result[3])
                         .build()
-                        .unwrap(),
+                        .expect("Failed to build dimension"),
                     timestream_write::types::Dimension::builder()
                         .name(&record_result[4])
                         .value(&record_result[5])
                         .build()
-                        .unwrap(),
+                        .expect("Failed to build dimension"),
                 ]))
                 .measure_name(String::from("metrics"))
                 .set_measure_values(Some(measure_values))

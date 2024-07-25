@@ -101,7 +101,9 @@ pub async fn delete_s3_bucket(bucket_name: &str, region: &str) -> Result<(), aws
         client
             .delete_object()
             .set_bucket(Some(bucket_name.to_owned()))
-            .set_key(Some(object.key().unwrap().to_owned()))
+            .set_key(Some(
+                object.key().expect("Failed to get object key").to_owned(),
+            ))
             .send()
             .await?;
     }
@@ -117,7 +119,12 @@ pub async fn delete_s3_bucket(bucket_name: &str, region: &str) -> Result<(), aws
             client
                 .delete_object()
                 .set_bucket(Some(bucket_name.to_owned()))
-                .set_key(Some(delete_marker.key().unwrap().to_owned()))
+                .set_key(Some(
+                    delete_marker
+                        .key()
+                        .expect("Failed to get delete marker key")
+                        .to_owned(),
+                ))
                 .send()
                 .await?;
         }
@@ -126,17 +133,30 @@ pub async fn delete_s3_bucket(bucket_name: &str, region: &str) -> Result<(), aws
             client
                 .delete_object()
                 .set_bucket(Some(bucket_name.to_owned()))
-                .set_key(Some(version.key().unwrap().to_owned()))
+                .set_key(Some(
+                    version.key().expect("Failed to get version key").to_owned(),
+                ))
                 .send()
                 .await?;
         }
 
-        if object_versions.is_truncated().unwrap() {
+        if object_versions
+            .is_truncated()
+            .expect("Failed to get object versions is_truncated value")
+        {
             object_versions = client
                 .list_object_versions()
                 .set_bucket(Some(bucket_name.to_owned()))
-                .key_marker(object_versions.next_key_marker().unwrap())
-                .version_id_marker(object_versions.next_version_id_marker().unwrap())
+                .key_marker(
+                    object_versions
+                        .next_key_marker()
+                        .expect("Failed to get next key marker"),
+                )
+                .version_id_marker(
+                    object_versions
+                        .next_version_id_marker()
+                        .expect("Failed to get next version ID marker"),
+                )
                 .send()
                 .await?;
         } else {
