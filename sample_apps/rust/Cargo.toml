@@ -18,3 +18,12 @@ clap = {version = "4.5.8", features = ["derive"]}
 [[example]]
 name = "query_sample"
 path = "examples/query_sample.rs"
+
+[[example]]
+name = "ingestion_csv_sample"
+path = "examples/ingestion_csv_sample.rs"
+
+[[example]]
+name = "cleanup_sample"
+path = "examples/cleanup_sample.rs"
+

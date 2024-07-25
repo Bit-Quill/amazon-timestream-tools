@@ -1,9 +1,8 @@
-pub mod utils;
-use crate::utils::timestream_helper;
 use anyhow::{Error, Result};
 use aws_sdk_timestreamwrite as timestream_write;
 use aws_sdk_timestreamwrite::operation::describe_table::DescribeTableOutput;
 use clap::Parser;
+use sample_timestream_app::utils::timestream_helper;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {

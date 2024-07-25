@@ -1,12 +1,11 @@
 use anyhow::{Error, Result};
 use aws_sdk_timestreamwrite as timestream_write;
 use chrono::NaiveDateTime;
-use csv::Reader;
-use std::str::FromStr;
-pub mod utils;
-use crate::utils::timestream_helper;
 use clap::Parser;
+use csv::Reader;
+use sample_timestream_app::utils::timestream_helper;
 use std::io::Write;
+use std::str::FromStr;
 use std::{thread, time::Duration};
 
 async fn ingest_data(

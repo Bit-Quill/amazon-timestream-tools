@@ -1,8 +1,7 @@
 use anyhow::{Error, Result};
 use clap::Parser;
+use sample_timestream_app::utils::query_common::{get_connection, run_query, write, Args};
 use std::fs;
-pub mod utils;
-use crate::utils::query_common;
 
 async fn execute_sample_queries(
     region: &str,
@@ -10,7 +9,7 @@ async fn execute_sample_queries(
     table_name: &str,
     f: &fs::File,
 ) -> Result<(), Error> {
-    let client = query_common::get_connection(region)
+    let client = get_connection(region)
         .await
         .expect("Failed to get connection to Timestream");
 
@@ -199,11 +198,11 @@ async fn execute_sample_queries(
     for (i, query) in queries.iter().enumerate() {
         let msg = format!("Running Query_{} : {}", i + 1, query);
         println!("{}", msg);
-        query_common::write(f, msg.to_string())?;
-        query_common::run_query(query.to_string(), &client, f, MAX_ROWS).await?;
+        write(f, msg.to_string())?;
+        run_query(query.to_string(), &client, f, MAX_ROWS).await?;
         let divider = "--------------------------------------------";
         println!("{}", divider);
-        query_common::write(f, divider.to_string())?;
+        write(f, divider.to_string())?;
     }
 
     Ok(())
@@ -212,7 +211,7 @@ async fn execute_sample_queries(
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     // Processing command-line arguments
-    let args = query_common::Args::parse();
+    let args = Args::parse();
 
     let output_file = fs::File::create(args.output_file).expect("Error creating log file");
 
