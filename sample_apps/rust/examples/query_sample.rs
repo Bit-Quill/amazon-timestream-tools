@@ -10,7 +10,9 @@ async fn execute_sample_queries(
     table_name: &str,
     f: &fs::File,
 ) -> Result<(), Error> {
-    let client = query_common::get_connection(region).await.unwrap();
+    let client = query_common::get_connection(region)
+        .await
+        .expect("Failed to get connection to Timestream");
 
     const HOSTNAME: &str = "host-24Gju";
     const QUERY_LIMIT: i32 = 200;
