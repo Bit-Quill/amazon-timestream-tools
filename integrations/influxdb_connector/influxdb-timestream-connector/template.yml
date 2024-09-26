@@ -273,7 +273,6 @@ Resources:
           enable_mag_store_writes: !Ref EnableMagStoreWrites
           mag_store_retention_period: !Ref MagStoreRetentionPeriod
           mem_store_retention_period: !Ref MemStoreRetentionPeriod
-          RUST_LOG: trace
       PackageType: Zip
       Timeout: !Ref LambdaTimeoutInSeconds
       MemorySize: !Ref LambdaMemorySize
