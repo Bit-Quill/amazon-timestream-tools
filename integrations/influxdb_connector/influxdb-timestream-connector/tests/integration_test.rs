@@ -876,9 +876,7 @@ async fn test_mtmm_no_precision() -> Result<(), Error> {
             .expect("Failed to create nanosecond timestamp")
     );
 
-    let request = Request::builder()
-        .method("POST")
-        .body(Body::Text(point))?;
+    let request = Request::builder().method("POST").body(Body::Text(point))?;
 
     let response = influxdb_timestream_connector::lambda_handler(&client, request)
         .await?
@@ -905,9 +903,7 @@ async fn test_mtmm_empty_point() -> Result<(), Error> {
 
     let point = String::new();
 
-    let request = Request::builder()
-        .method("POST")
-        .body(Body::Text(point))?;
+    let request = Request::builder().method("POST").body(Body::Text(point))?;
 
     let response = influxdb_timestream_connector::lambda_handler(&client, request)
         .await?
