@@ -13,5 +13,5 @@ To use the pre-commit hook:
     ```
     pre-commit install
     ```
-3. Now, whenever `git commit` is run, `aws-secrets` will scan for secrets.
+3. Now, whenever `git commit` is run, `git-secrets` will scan for secrets.
 
