@@ -90,7 +90,7 @@ The following parameters are available when deploying the connector as part of a
 
 ##### Viewing REST API Gateway Logs
 
-By default, execution logging is enabled for the REST API Gateway.
+By default, access logging is enabled for the REST API Gateway.
 
 To view logs:
 

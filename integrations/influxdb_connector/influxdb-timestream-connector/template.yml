@@ -112,12 +112,45 @@ Resources:
       HttpMethod: POST
       Integration:
         IntegrationHttpMethod: POST
-        Type: AWS_PROXY
+        Type: AWS
+        PassthroughBehavior: NEVER
+        RequestTemplates:
+          text/plain: |
+            {
+              "body": "$util.escapeJavaScript($input.body).replaceAll(\"\\'\", \"'\")"
+            }
+          text/plain; charset=utf-8: |
+            {
+              "body": "$util.escapeJavaScript($input.body).replaceAll(\"\\'\", \"'\")"
+            }
+          text/csv: |
+            {
+              "body": "$util.escapeJavaScript($input.body).replaceAll(\"\\'\", \"'\")"
+            }
+          application/json: |
+            {
+              "body": "$util.escapeJavaScript($input.body).replaceAll(\"\\'\", \"'\")"
+            }
         Uri: !Sub
           - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaArn}/invocations
           - LambdaArn: !GetAtt LambdaFunction.Arn
+        RequestParameters:
+          integration.request.header.X-Amz-Invocation-Type: "'Event'"
+        IntegrationResponses:
+          - StatusCode: 500
+            SelectionPattern: '.*'
+            ResponseTemplates:
+              application/json: |
+                {
+                  "error": "Internal error",
+                  "message": "$util.escapeJavaScript($input.path('$.errorMessage'))"
+                }
+          - StatusCode: 202
       MethodResponses:
-        - StatusCode: 200
+        - StatusCode: 500
+          ResponseModels:
+            application/json: Error
+        - StatusCode: 202 # Accepted but not yet processed
           ResponseModels:
             application/json: Empty
 
@@ -141,7 +174,8 @@ Resources:
           MetricsEnabled: true
       AccessLogSetting:
         DestinationArn: !GetAtt RestApiGatewayLogGroup.Arn
-        Format: '{"requestId":"$context.requestId","ip":"$context.identity.sourceIp","caller":"$context.identity.caller","user":"$context.identity.user","requestTime":"$context.requestTime","httpMethod":"$context.httpMethod","resourcePath":"$context.resourcePath","status":"$context.status","protocol":"$context.protocol","responseLength":"$context.responseLength","errorMessage":"$context.error.message"}'
+        Format: |
+          {"requestId":"$context.requestId","ip":"$context.identity.sourceIp","contentType":"$context.requestOverride.header.Content-Type","caller":"$context.identity.caller","user":"$context.identity.user","requestTime":"$context.requestTime","httpMethod":"$context.httpMethod","resourcePath":"$context.resourcePath","status":"$context.status","protocol":"$context.protocol","responseLength":"$context.responseLength","errorMessage":"$context.error.message"}
       TracingEnabled: true
       Variables:
         lambdaAlias: !Ref RestApiGatewayStageName
@@ -263,6 +297,13 @@ Resources:
             RestApiId: !Ref RestApiGateway
             Path: /api/v2/write
             Method: POST
+      EventInvokeConfig:
+        DestinationConfig:
+          OnFailure:
+            Type: SQS
+            Destination: !GetAtt LambdaDeadLetterQueue.Arn
+        MaximumEventAgeInSeconds: 3600
+        MaximumRetryAttempts: 0
       Environment:
         Variables:
           database_name: !Ref DatabaseName
@@ -276,7 +317,7 @@ Resources:
       PackageType: Zip
       Timeout: !Ref LambdaTimeoutInSeconds
       MemorySize: !Ref LambdaMemorySize
-
+  
 Outputs:
   Endpoint:
     Value: !Sub https://${RestApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${RestApiGatewayStageName}

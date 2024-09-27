@@ -110,10 +110,6 @@ pub async fn lambda_handler(
             .header("content-type", "text/html")
             .body(Body::Empty)
             .map_err(Box::new)?),
-        Err(error) => Ok(Response::builder()
-            .status(400)
-            .header("content-type", "text/html")
-            .body(Body::Text(error.to_string()))
-            .map_err(Box::new)?),
+        Err(error) => Err(anyhow!(error.to_string())),
     }
 }
