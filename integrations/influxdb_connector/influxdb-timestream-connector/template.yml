@@ -113,23 +113,211 @@ Resources:
       Integration:
         IntegrationHttpMethod: POST
         Type: AWS
-        PassthroughBehavior: NEVER
+        PassthroughBehavior: WHEN_NO_MATCH
         RequestTemplates:
           text/plain: |
             {
-              "body": "$util.escapeJavaScript($input.body).replaceAll(\"\\'\", \"'\")"
+              "resource": "$context.resourcePath",
+              "path": "$context.path",
+              "httpMethod": "$context.httpMethod",
+              "body" : "$util.escapeJavaScript($input.body)",
+              "headers": {
+                #foreach($param in $input.params().header.keySet())
+                "$param": "$util.escapeJavaScript($input.params().header.get($param))" #if($foreach.hasNext),#end
+                #end
+              },
+              "queryStringParameters": {
+                #foreach($param in $input.params().querystring.keySet())
+                "$param": "$util.escapeJavaScript($input.params().querystring.get($param))" #if($foreach.hasNext),#end
+                #end
+              },
+              "pathParameters": {
+                #foreach($param in $input.params().path.keySet())
+                "$param": "$util.escapeJavaScript($input.params().path.get($param))" #if($foreach.hasNext),#end
+                #end
+              },
+              "requestContext": {
+                "accountId": "$context.identity.accountId",
+                "resourceId": "$context.resourceId",
+                "stage": "$context.stage",
+                "requestId": "$context.requestId",
+                "requestTimeEpoch": "$context.requestTimeEpoch",
+                "identity": {
+                  "cognitoIdentityPoolId": "$context.identity.cognitoIdentityPoolId",
+                  "accountId": "$context.identity.accountId",
+                  "cognitoIdentityId": "$context.identity.cognitoIdentityId",
+                  "caller": "$context.identity.caller",
+                  "apiKey": "$context.apiKey",
+                  "sourceIp": "$context.identity.sourceIp",
+                  "cognitoAuthenticationType": "$context.identity.cognitoAuthenticationType",
+                  "cognitoAuthenticationProvider": "$context.identity.cognitoAuthenticationProvider",
+                  "userArn": "$context.identity.userArn",
+                  "userAgent": "$context.identity.userAgent",
+                  "user": "$context.identity.user"
+                },
+                "resourcePath": "$context.resourcePath",
+                "httpMethod": "$context.httpMethod",
+                "apiId": "$context.apiId"
+              },
+              "stageVariables": {
+                #foreach($key in $stageVariables.keySet())
+                "$key": "$util.escapeJavaScript($stageVariables.get($key))" #if($foreach.hasNext),#end
+                #end
+              },
+              "isBase64Encoded": false
             }
           text/plain; charset=utf-8: |
             {
-              "body": "$util.escapeJavaScript($input.body).replaceAll(\"\\'\", \"'\")"
+              "resource": "$context.resourcePath",
+              "path": "$context.path",
+              "httpMethod": "$context.httpMethod",
+              "body" : "$util.escapeJavaScript($input.body)",
+              "headers": {
+                #foreach($param in $input.params().header.keySet())
+                "$param": "$util.escapeJavaScript($input.params().header.get($param))" #if($foreach.hasNext),#end
+                #end
+              },
+              "queryStringParameters": {
+                #foreach($param in $input.params().querystring.keySet())
+                "$param": "$util.escapeJavaScript($input.params().querystring.get($param))" #if($foreach.hasNext),#end
+                #end
+              },
+              "pathParameters": {
+                #foreach($param in $input.params().path.keySet())
+                "$param": "$util.escapeJavaScript($input.params().path.get($param))" #if($foreach.hasNext),#end
+                #end
+              },
+              "requestContext": {
+                "accountId": "$context.identity.accountId",
+                "resourceId": "$context.resourceId",
+                "stage": "$context.stage",
+                "requestId": "$context.requestId",
+                "requestTimeEpoch": "$context.requestTimeEpoch",
+                "identity": {
+                  "cognitoIdentityPoolId": "$context.identity.cognitoIdentityPoolId",
+                  "accountId": "$context.identity.accountId",
+                  "cognitoIdentityId": "$context.identity.cognitoIdentityId",
+                  "caller": "$context.identity.caller",
+                  "apiKey": "$context.apiKey",
+                  "sourceIp": "$context.identity.sourceIp",
+                  "cognitoAuthenticationType": "$context.identity.cognitoAuthenticationType",
+                  "cognitoAuthenticationProvider": "$context.identity.cognitoAuthenticationProvider",
+                  "userArn": "$context.identity.userArn",
+                  "userAgent": "$context.identity.userAgent",
+                  "user": "$context.identity.user"
+                },
+                "resourcePath": "$context.resourcePath",
+                "httpMethod": "$context.httpMethod",
+                "apiId": "$context.apiId"
+              },
+              "stageVariables": {
+                #foreach($key in $stageVariables.keySet())
+                "$key": "$util.escapeJavaScript($stageVariables.get($key))" #if($foreach.hasNext),#end
+                #end
+              },
+              "isBase64Encoded": false
             }
           text/csv: |
             {
-              "body": "$util.escapeJavaScript($input.body).replaceAll(\"\\'\", \"'\")"
+              "resource": "$context.resourcePath",
+              "path": "$context.path",
+              "httpMethod": "$context.httpMethod",
+              "body" : "$util.escapeJavaScript($input.body)",
+              "headers": {
+                #foreach($param in $input.params().header.keySet())
+                "$param": "$util.escapeJavaScript($input.params().header.get($param))" #if($foreach.hasNext),#end
+                #end
+              },
+              "queryStringParameters": {
+                #foreach($param in $input.params().querystring.keySet())
+                "$param": "$util.escapeJavaScript($input.params().querystring.get($param))" #if($foreach.hasNext),#end
+                #end
+              },
+              "pathParameters": {
+                #foreach($param in $input.params().path.keySet())
+                "$param": "$util.escapeJavaScript($input.params().path.get($param))" #if($foreach.hasNext),#end
+                #end
+              },
+              "requestContext": {
+                "accountId": "$context.identity.accountId",
+                "resourceId": "$context.resourceId",
+                "stage": "$context.stage",
+                "requestId": "$context.requestId",
+                "requestTimeEpoch": "$context.requestTimeEpoch",
+                "identity": {
+                  "cognitoIdentityPoolId": "$context.identity.cognitoIdentityPoolId",
+                  "accountId": "$context.identity.accountId",
+                  "cognitoIdentityId": "$context.identity.cognitoIdentityId",
+                  "caller": "$context.identity.caller",
+                  "apiKey": "$context.apiKey",
+                  "sourceIp": "$context.identity.sourceIp",
+                  "cognitoAuthenticationType": "$context.identity.cognitoAuthenticationType",
+                  "cognitoAuthenticationProvider": "$context.identity.cognitoAuthenticationProvider",
+                  "userArn": "$context.identity.userArn",
+                  "userAgent": "$context.identity.userAgent",
+                  "user": "$context.identity.user"
+                },
+                "resourcePath": "$context.resourcePath",
+                "httpMethod": "$context.httpMethod",
+                "apiId": "$context.apiId"
+              },
+              "stageVariables": {
+                #foreach($key in $stageVariables.keySet())
+                "$key": "$util.escapeJavaScript($stageVariables.get($key))" #if($foreach.hasNext),#end
+                #end
+              },
+              "isBase64Encoded": false
             }
           application/json: |
             {
-              "body": "$util.escapeJavaScript($input.body).replaceAll(\"\\'\", \"'\")"
+              "path": "$context.path",
+              "headers": {
+                #foreach($param in $input.params().header.keySet())
+                "$param": "$util.escapeJavaScript($input.params().header.get($param))" #if($foreach.hasNext),#end
+                #end
+              },
+              "pathParameters": {
+                #foreach($param in $input.params().path.keySet())
+                "$param": "$util.escapeJavaScript($input.params().path.get($param))" #if($foreach.hasNext),#end
+                #end
+              },
+              "resource": "$context.resourcePath",
+              "httpMethod": "$context.httpMethod",
+              "body": "$util.escapeJavaScript($input.body)",
+              "queryStringParameters": {
+                #foreach($param in $input.params().querystring.keySet())
+                "$param": "$util.escapeJavaScript($input.params().querystring.get($param))" #if($foreach.hasNext),#end
+                #end
+              },
+              "requestContext": {
+                "accountId": "$context.identity.accountId",
+                "resourceId": "$context.resourceId",
+                "stage": "$context.stage",
+                "requestId": "$context.requestId",
+                "requestTimeEpoch": "$context.requestTimeEpoch",
+                "identity": {
+                  "cognitoIdentityPoolId": "$context.identity.cognitoIdentityPoolId",
+                  "accountId": "$context.identity.accountId",
+                  "cognitoIdentityId": "$context.identity.cognitoIdentityId",
+                  "caller": "$context.identity.caller",
+                  "apiKey": "$context.apiKey",
+                  "sourceIp": "$context.identity.sourceIp",
+                  "cognitoAuthenticationType": "$context.identity.cognitoAuthenticationType",
+                  "cognitoAuthenticationProvider": "$context.identity.cognitoAuthenticationProvider",
+                  "userArn": "$context.identity.userArn",
+                  "userAgent": "$context.identity.userAgent",
+                  "user": "$context.identity.user"
+                },
+                "resourcePath": "$context.resourcePath",
+                "httpMethod": "$context.httpMethod",
+                "apiId": "$context.apiId"
+              },
+              "stageVariables": {
+                #foreach($key in $stageVariables.keySet())
+                "$key": "$util.escapeJavaScript($stageVariables.get($key))" #if($foreach.hasNext),#end
+                #end
+              },
+              "isBase64Encoded": false
             }
         Uri: !Sub
           - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaArn}/invocations
@@ -175,7 +363,7 @@ Resources:
       AccessLogSetting:
         DestinationArn: !GetAtt RestApiGatewayLogGroup.Arn
         Format: |
-          {"requestId":"$context.requestId","ip":"$context.identity.sourceIp","contentType":"$context.requestOverride.header.Content-Type","caller":"$context.identity.caller","user":"$context.identity.user","requestTime":"$context.requestTime","httpMethod":"$context.httpMethod","resourcePath":"$context.resourcePath","status":"$context.status","protocol":"$context.protocol","responseLength":"$context.responseLength","errorMessage":"$context.error.message"}
+          {"requestId":"$context.requestId","ip":"$context.identity.sourceIp","caller":"$context.identity.caller","user":"$context.identity.user","requestTime":"$context.requestTime","httpMethod":"$context.httpMethod","resourcePath":"$context.resourcePath","status":"$context.status","protocol":"$context.protocol","responseLength":"$context.responseLength","errorMessage":"$context.error.message"}
       TracingEnabled: true
       Variables:
         lambdaAlias: !Ref RestApiGatewayStageName
