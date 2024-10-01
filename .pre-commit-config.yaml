@@ -4,6 +4,7 @@ repos:
     hooks:
       - id: git-secrets
         entry: /usr/bin/env
+        verbose: True
         args:
           # Using a bash script to ensure aws secrets rules is always installed.
           - bash
