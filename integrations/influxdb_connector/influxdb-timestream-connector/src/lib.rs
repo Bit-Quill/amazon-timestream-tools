@@ -1,10 +1,10 @@
 use anyhow::{anyhow, Error, Result};
 use aws_sdk_timestreamwrite as timestream_write;
-use lambda_http::{Body, IntoResponse, Request, RequestExt, Response};
+use lambda_runtime::LambdaEvent;
 use line_protocol_parser::*;
 use records_builder::*;
+use serde_json::{json, Value};
 use std::collections::HashMap;
-use std::io::prelude::*;
 use std::{str, thread, time};
 use timestream_utils::*;
 
@@ -87,29 +87,49 @@ async fn handle_multi_table_ingestion(
 
 pub async fn lambda_handler(
     client: &timestream_write::Client,
-    event: Request,
-) -> Result<impl IntoResponse, Error> {
+    event: LambdaEvent<Value>,
+) -> Result<Value, Error> {
     // Handler for lambda runtime
+    let (event, _context) = event.into_parts();
 
-    let precision = match event
-        .query_string_parameters_ref()
-        .and_then(|params| params.first("precision"))
-    {
-        Some("ms") => timestream_write::types::TimeUnit::Milliseconds,
-        Some("us") => timestream_write::types::TimeUnit::Microseconds,
-        Some("s") => timestream_write::types::TimeUnit::Seconds,
-        _ => timestream_write::types::TimeUnit::Nanoseconds,
-    };
+    // Get the "precision" query parameter, if included.
+    // Query parameters can be included with different spellings.
+    // AWS services use "queryParameters", the InfluxDB Go client
+    // uses "queryStringParameters"
+    let precision: timestream_write::types::TimeUnit = event
+        .as_object()
+        .and_then(|map| {
+            map.keys()
+                .find(|key| {
+                    let key_lower = key.to_lowercase();
+                    key_lower.starts_with("query") && key_lower.ends_with("parameters")
+                })
+                .and_then(|query_parameters_key| map.get(query_parameters_key))
+        })
+        .and_then(|parameters| {
+            parameters
+                .get("precision")
+                .and_then(|user_precision| user_precision.as_str())
+        })
+        .map_or(
+            timestream_write::types::TimeUnit::Nanoseconds,
+            |precision_str| match precision_str {
+                "ms" => timestream_write::types::TimeUnit::Milliseconds,
+                "us" => timestream_write::types::TimeUnit::Microseconds,
+                "s" => timestream_write::types::TimeUnit::Seconds,
+                _ => timestream_write::types::TimeUnit::Nanoseconds,
+            },
+        );
 
-    let data: Result<Vec<u8>, _> = event.body().bytes().collect();
-    let data = data?;
+    let data = event
+        .get("body")
+        .expect("No body was included in the request")
+        .as_str()
+        .expect("Failed to convert body to &str")
+        .as_bytes();
 
-    match handle_body(client, &data, &precision).await {
-        Ok(_) => Ok(Response::builder()
-            .status(200)
-            .header("content-type", "text/html")
-            .body(Body::Empty)
-            .map_err(Box::new)?),
+    match handle_body(client, data, &precision).await {
+        Ok(_) => Ok(json!({ "status": 200, "body": "" })),
         Err(error) => Err(anyhow!(error.to_string())),
     }
 }
