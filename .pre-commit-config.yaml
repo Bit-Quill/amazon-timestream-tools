@@ -8,4 +8,11 @@ repos:
           # Using a bash script to ensure aws secrets rules is always installed.
           - bash
           - -c
-          - echo "Scanning with aws-secrets" && git-secrets --register-aws && git-secrets --pre_commit_hook
+          - |
+            echo "Scanning with git-secrets..."
+            git-secrets --register-aws
+            if ! git-secrets --pre_commit_hook; then
+              echo "Error: Potential secrets detected. Please review your changes."
+              exit 1
+            fi
+            echo "No secrets detected."
