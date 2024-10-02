@@ -6,8 +6,8 @@ Metadata:
     Description: This serverless application deployes an AWS Lambda function and an Amazon REST API Gateway that listens for POST requests with line protocol bodies. The line protocol data will be translated and stored in Timestream for LiveAnalytics. This application allows configuration over the resources it creates.
     Author: Amazon Timestream
     SpdxLicenseId: MIT-0
-    #LicenseUrl: LICENSE TODO: Fix path and reference an S3 bucket for SAR deployment
-    #ReadmeUrl: README.md TODO: Fix path and reference an S3 bucket for SAR deployment
+    LicenseUrl: ../../../LICENSE
+    ReadmeUrl: ./README.md
     HomePageUrl: https://aws.amazon.com/timestream/
     SemanticVersion: 1.0.0
 
@@ -587,5 +587,10 @@ Resources:
   
 Outputs:
   Endpoint:
+    Description: The endpoint for the REST API Gateway.
     Value: !Sub https://${RestApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${RestApiGatewayStageName}
+  LambdaDeadLetterQueueName:
+    Description: The name of the dead letter queue used by the Lambda function.
+    Condition: IsAsyncEnabled
+    Value: !GetAtt LambdaDeadLetterQueue.QueueName
 

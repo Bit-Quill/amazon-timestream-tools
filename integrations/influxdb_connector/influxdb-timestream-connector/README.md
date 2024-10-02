@@ -86,6 +86,19 @@ The following parameters are available when deploying the connector as part of a
     ```
 6. Once the stack has finished deploying, take note of the output `Endpoint` value. This value will be used as the endpoint for all write requests and is analogous to an [InfluxDB host address](https://docs.influxdata.com/influxdb/v2/reference/urls/) and is used in the same way, for example, `<endpoint>/api/v2/write`.
 
+#### Lambda Dead Letter Queue
+
+If the connector was deployed with async invocation, then all client requests will be returned a response with a `202` status code, indicating that the request has been received and is being processed. If the request fails, the client will not be notified. Instead, failed requests will either be [logged by the REST API Gateway](#viewing-rest-api-gateway-logs) or be added to the Lambda's dead letter queue, where the failed request can be reviewed in full. The name of the dead letter queue is provided as the `LambdaDeadLetterQueueName` output when deploying the stack.
+
+To access the Lambda's dead letter queue and view any possible stored messages:
+
+1. Take note of the dead letter queue's name as provided by the `LambdaDeadLetterQueueName` output upon successful stack deployment.
+2. Visit the [Amazon SQS console](https://console.aws.amazon.com/sqs/v3/home).
+3. In the navigation pane, choose **Queues**.
+4. Find and select the SQS queue with the same name as indicated by `LambdaDeadLetterQueueName`.
+5. Choose **Send and receive messages**.
+6. Choose **Poll for messages**.
+
 #### Stack Logs
 
 ##### Viewing REST API Gateway Logs
