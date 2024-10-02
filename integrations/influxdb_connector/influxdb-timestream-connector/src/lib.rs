@@ -129,7 +129,14 @@ pub async fn lambda_handler(
         .as_bytes();
 
     match handle_body(client, data, &precision).await {
-        Ok(_) => Ok(json!({ "status": 200, "body": "" })),
+        Ok(_) => Ok(json!({
+            "statusCode": 200,
+            "body": "{\"message\": \"Success\"}",
+            "isBase64Encoded": false,
+            "headers": {
+                "Content-Type": "application/json"
+            }
+        })),
         Err(error) => Err(anyhow!(error.to_string())),
     }
 }
