@@ -299,3 +299,8 @@ Due to the connector translating line protocol to Timestream records, line proto
 ### Line Protocol Tag Requirement
 
 In order to ingest to Timestream for LiveAnalytics, every line protocol point must include at least one tag.
+
+### Query String Parameters
+
+The connector expects query string parameters to be included as `queryParameters` or `queryStringParameters` in requests.
+
