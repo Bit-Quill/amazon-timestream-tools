@@ -20,6 +20,12 @@ Parameters:
     Type: String
     Default: influxdb-measure
     Description: The value to use in records as the measure name.
+  EnableAsyncInvocation:
+    Type: String
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
   EnableDatabaseCreation:
     Type: String
     AllowedValues:
@@ -76,6 +82,10 @@ Parameters:
     Default: 1200
     Description: The number of burst requests per second that the REST API Gateway permits.
 
+Conditions:
+  IsAsyncEnabled: !Equals [ !Ref EnableAsyncInvocation, "true" ]
+  IsSyncEnabled: !Equals [ !Ref EnableAsyncInvocation, "false" ]
+
 Resources:
   RestApiGateway:
     Type: AWS::ApiGateway::RestApi
@@ -103,13 +113,51 @@ Resources:
       PathPart: write
       RestApiId: !Ref RestApiGateway
 
-  RestApiGatewayPostMethod:
+  SyncRestApiGatewayPostMethod:
     Type: AWS::ApiGateway::Method
+    Condition: IsSyncEnabled
     Properties:
       ResourceId: !Ref WriteResource
       RestApiId: !Ref RestApiGateway
       AuthorizationType: AWS_IAM
       HttpMethod: POST
+      ApiKeyRequired: false
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaArn}/invocations
+          - LambdaArn: !GetAtt LambdaFunction.Arn
+        IntegrationResponses:
+          - StatusCode: '200'
+            SelectionPattern: '2\d{2}'
+            ResponseTemplates:
+              application/json: |
+                {
+                  "statusCode": 200,
+                  "body": "$input.body"
+                }
+          - StatusCode: '500'
+            SelectionPattern: '5\d{2}'
+            ResponseTemplates:
+              application/json: |
+                {
+                  "statusCode": "Internal error",
+                  "error": "$util.escapeJavaScript($input.path('$.errorMessage'))"
+                }
+      MethodResponses:
+        - StatusCode: '200' # Synchronous response, success
+        - StatusCode: '500'
+
+  AsyncRestApiGatewayPostMethod:
+    Type: AWS::ApiGateway::Method
+    Condition: IsAsyncEnabled
+    Properties:
+      ResourceId: !Ref WriteResource
+      RestApiId: !Ref RestApiGateway
+      AuthorizationType: AWS_IAM
+      HttpMethod: POST
+      ApiKeyRequired: false
       Integration:
         IntegrationHttpMethod: POST
         Type: AWS
@@ -325,35 +373,32 @@ Resources:
         RequestParameters:
           integration.request.header.X-Amz-Invocation-Type: "'Event'"
         IntegrationResponses:
-          - StatusCode: 500
-            SelectionPattern: '.*'
-            ResponseTemplates:
-              application/json: |
-                {
-                  "error": "Internal error",
-                  "message": "$util.escapeJavaScript($input.path('$.errorMessage'))"
-                }
-          - StatusCode: 202
+          - StatusCode: '202'
       MethodResponses:
-        - StatusCode: 500
-          ResponseModels:
-            application/json: Error
-        - StatusCode: 202 # Accepted but not yet processed
-          ResponseModels:
-            application/json: Empty
+        - StatusCode: '202' # Asynchronous response, accepted but not yet processed
 
-  RestApiGatewayDeployment:
+  AsyncRestApiGatewayDeployment:
     Type: AWS::ApiGateway::Deployment
-    DependsOn: RestApiGatewayPostMethod
+    Condition: IsAsyncEnabled
+    DependsOn: AsyncRestApiGatewayPostMethod
     Properties:
       RestApiId: !Ref RestApiGateway
 
-  RestApiGatewayStage:
+  SyncRestApiGatewayDeployment:
+    Type: AWS::ApiGateway::Deployment
+    Condition: IsSyncEnabled
+    DependsOn: SyncRestApiGatewayPostMethod
+    Properties:
+      RestApiId: !Ref RestApiGateway
+
+  AsyncRestApiGatewayStage:
     Type: AWS::ApiGateway::Stage
+    Condition: IsAsyncEnabled
+    DependsOn: AsyncRestApiGatewayDeployment
     Properties:
       StageName: !Ref RestApiGatewayStageName
       RestApiId: !Ref RestApiGateway
-      DeploymentId: !Ref RestApiGatewayDeployment
+      DeploymentId: !Ref AsyncRestApiGatewayDeployment
       MethodSettings:
         - DataTraceEnabled: true
           HttpMethod: "*"
@@ -368,9 +413,43 @@ Resources:
       Variables:
         lambdaAlias: !Ref RestApiGatewayStageName
 
-  RestApiGatewayUsagePlan:
+  SyncRestApiGatewayStage:
+    Type: AWS::ApiGateway::Stage
+    Condition: IsSyncEnabled
+    DependsOn: SyncRestApiGatewayDeployment
+    Properties:
+      StageName: !Ref RestApiGatewayStageName
+      RestApiId: !Ref RestApiGateway
+      DeploymentId: !Ref SyncRestApiGatewayDeployment
+      MethodSettings:
+        - DataTraceEnabled: true
+          HttpMethod: "*"
+          ResourcePath: "/*"
+          LoggingLevel: INFO
+          MetricsEnabled: true
+      AccessLogSetting:
+        DestinationArn: !GetAtt RestApiGatewayLogGroup.Arn
+        Format: |
+          {"requestId":"$context.requestId","ip":"$context.identity.sourceIp","caller":"$context.identity.caller","user":"$context.identity.user","requestTime":"$context.requestTime","httpMethod":"$context.httpMethod","resourcePath":"$context.resourcePath","status":"$context.status","protocol":"$context.protocol","responseLength":"$context.responseLength","errorMessage":"$context.error.message"}
+      TracingEnabled: true
+      Variables:
+        lambdaAlias: !Ref RestApiGatewayStageName
+
+  AsyncRestApiGatewayUsagePlan:
     Type: AWS::ApiGateway::UsagePlan
-    DependsOn: RestApiGatewayStage
+    Condition: IsAsyncEnabled
+    DependsOn: AsyncRestApiGatewayStage
+    Properties:
+      ApiStages:
+        - ApiId: !Ref RestApiGateway
+          Stage: !Ref RestApiGatewayStageName
+      Throttle:
+        BurstLimit: !Ref WriteThrottlingBurstLimit
+
+  SyncRestApiGatewayUsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    Condition: IsSyncEnabled
+    DependsOn: SyncRestApiGatewayStage
     Properties:
       ApiStages:
         - ApiId: !Ref RestApiGateway
