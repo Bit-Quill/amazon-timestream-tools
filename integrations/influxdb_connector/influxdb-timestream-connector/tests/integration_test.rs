@@ -2,10 +2,9 @@ use anyhow::Error;
 use aws_credential_types::Credentials;
 use aws_sdk_timestreamwrite as timestream_write;
 use aws_types::region::Region;
-use lambda_http::http::StatusCode;
-use lambda_http::{http::Request, IntoResponse};
-use lambda_http::{Body, RequestExt};
+use lambda_runtime::{Context, LambdaEvent};
 use rand::{distributions::uniform::SampleUniform, distributions::Alphanumeric, Rng};
+use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::{env, thread, time};
 
@@ -116,16 +115,80 @@ async fn test_mtmm_basic() -> Result<(), Error> {
     );
 
     let query_parameters = HashMap::from([("precision".to_string(), "ms".to_string())]);
-    let request = Request::builder()
-        .body(Body::Text(point))?
-        .with_query_string_parameters(query_parameters);
+    let request = LambdaEvent::<Value>::new(
+        json!({ "queryStringParameters": query_parameters, "body": point }),
+        Context::default(),
+    );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request)
-        .await?
-        .into_response()
-        .await;
-    println!("Response: {}: {:?}", response.status(), response.body());
-    assert!(response.status() == StatusCode::OK);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
+    println!("Response: {}: {:?}", response["status"], response["body"]);
+    assert!(response["status"] == 200);
+
+    let mut cleanup_batch =
+        CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    cleanup_batch.cleanup().await;
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_mtmm_unusual_query_parameters() -> Result<(), Error> {
+    // Tests ingesting a single point with a query parameters key with unusual spelling.
+    set_environment_variables();
+    let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
+        .await
+        .expect("Failed to get client");
+
+    let lp_measurement_name = String::from("readings");
+
+    let point = format!(
+        "{},tag1={} field1={}i {}\n",
+        lp_measurement_name,
+        random_string(9),
+        random_number(0, 100001),
+        chrono::offset::Utc::now().timestamp_millis()
+    );
+
+    let query_parameters = HashMap::from([("precision".to_string(), "ms".to_string())]);
+    let request = LambdaEvent::<Value>::new(
+        json!({ "QUERYtestStrparaMETERS": query_parameters, "body": point }),
+        Context::default(),
+    );
+
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
+    println!("Response: {}: {:?}", response["status"], response["body"]);
+    assert!(response["status"] == 200);
+
+    let mut cleanup_batch =
+        CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    cleanup_batch.cleanup().await;
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_mtmm_no_query_parameters() -> Result<(), Error> {
+    // Tests ingesting a single point without query parameters.
+    set_environment_variables();
+    let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
+        .await
+        .expect("Failed to get client");
+
+    let lp_measurement_name = String::from("readings");
+
+    let point = format!(
+        "{},tag1={} field1={}i {}\n",
+        lp_measurement_name,
+        random_string(9),
+        random_number(0, 100001),
+        chrono::offset::Utc::now().timestamp_millis()
+    );
+
+    let request = LambdaEvent::<Value>::new(json!({ "body": point }), Context::default());
+
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
+    println!("Response: {}: {:?}", response["status"], response["body"]);
+    assert!(response["status"] == 200);
 
     let mut cleanup_batch =
         CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
@@ -137,6 +200,8 @@ async fn test_mtmm_basic() -> Result<(), Error> {
 #[tokio::test]
 async fn test_mtmm_multiple_timestamps() -> Result<(), Error> {
     // Tests ingesting a single point with two timestamps.
+    // Note, the connector either returns JSON with a 200 status code or an Error. This is so that
+    // the dead letter queue works when the connector is deployed as part of a stack.
     set_environment_variables();
     let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
         .await
@@ -154,16 +219,17 @@ async fn test_mtmm_multiple_timestamps() -> Result<(), Error> {
     );
 
     let query_parameters = HashMap::from([("precision".to_string(), "ms".to_string())]);
-    let request = Request::builder()
-        .body(Body::Text(point))?
-        .with_query_string_parameters(query_parameters);
+    let request = LambdaEvent::<Value>::new(
+        json!({ "queryStringParameters": query_parameters, "body": point }),
+        Context::default(),
+    );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request)
-        .await?
-        .into_response()
-        .await;
-    println!("Response: {}: {:?}", response.status(), response.body());
-    assert!(response.status() != StatusCode::OK);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
+    assert!(response.is_err());
+
+    let mut cleanup_batch =
+        CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    cleanup_batch.cleanup().await;
 
     Ok(())
 }
@@ -196,16 +262,14 @@ async fn test_mtmm_many_tags_many_fields() -> Result<(), Error> {
     point.push_str(&format!(" {}\n", chrono::Utc::now().timestamp_millis()));
 
     let query_parameters = HashMap::from([("precision".to_string(), "ms".to_string())]);
-    let request = Request::builder()
-        .body(Body::Text(point))?
-        .with_query_string_parameters(query_parameters);
+    let request = LambdaEvent::<Value>::new(
+        json!({ "queryStringParameters": query_parameters, "body": point }),
+        Context::default(),
+    );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request)
-        .await?
-        .into_response()
-        .await;
-    println!("Response: {}: {:?}", response.status(), response.body());
-    assert!(response.status() == StatusCode::OK);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
+    println!("Response: {}: {:?}", response["status"], response["body"]);
+    assert!(response["status"] == 200);
 
     let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
         .await
@@ -236,16 +300,14 @@ async fn test_mtmm_float() -> Result<(), Error> {
     );
 
     let query_parameters = HashMap::from([("precision".to_string(), "ms".to_string())]);
-    let request = Request::builder()
-        .body(Body::Text(point))?
-        .with_query_string_parameters(query_parameters);
+    let request = LambdaEvent::<Value>::new(
+        json!({ "queryStringParameters": query_parameters, "body": point }),
+        Context::default(),
+    );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request)
-        .await?
-        .into_response()
-        .await;
-    println!("Response: {}: {:?}", response.status(), response.body());
-    assert!(response.status() == StatusCode::OK);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
+    println!("Response: {}: {:?}", response["status"], response["body"]);
+    assert!(response["status"] == 200);
 
     let mut cleanup_batch =
         CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
@@ -273,16 +335,14 @@ async fn test_mtmm_string() -> Result<(), Error> {
     );
 
     let query_parameters = HashMap::from([("precision".to_string(), "ms".to_string())]);
-    let request = Request::builder()
-        .body(Body::Text(point))?
-        .with_query_string_parameters(query_parameters);
+    let request = LambdaEvent::<Value>::new(
+        json!({ "queryStringParameters": query_parameters, "body": point }),
+        Context::default(),
+    );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request)
-        .await?
-        .into_response()
-        .await;
-    println!("Response: {}: {:?}", response.status(), response.body());
-    assert!(response.status() == StatusCode::OK);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
+    println!("Response: {}: {:?}", response["status"], response["body"]);
+    assert!(response["status"] == 200);
 
     let mut cleanup_batch =
         CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
@@ -310,16 +370,14 @@ async fn test_mtmm_bool() -> Result<(), Error> {
     );
 
     let query_parameters = HashMap::from([("precision".to_string(), "ms".to_string())]);
-    let request = Request::builder()
-        .body(Body::Text(point))?
-        .with_query_string_parameters(query_parameters);
+    let request = LambdaEvent::<Value>::new(
+        json!({ "queryStringParameters": query_parameters, "body": point }),
+        Context::default(),
+    );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request)
-        .await?
-        .into_response()
-        .await;
-    println!("Response: {}: {:?}", response.status(), response.body());
-    assert!(response.status() == StatusCode::OK);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
+    println!("Response: {}: {:?}", response["status"], response["body"]);
+    assert!(response["status"] == 200);
 
     let mut cleanup_batch =
         CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
@@ -351,16 +409,14 @@ async fn test_mtmm_max_tag_length() -> Result<(), Error> {
     );
 
     let query_parameters = HashMap::from([("precision".to_string(), "ms".to_string())]);
-    let request = Request::builder()
-        .body(Body::Text(point))?
-        .with_query_string_parameters(query_parameters);
+    let request = LambdaEvent::<Value>::new(
+        json!({ "queryStringParameters": query_parameters, "body": point }),
+        Context::default(),
+    );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request)
-        .await?
-        .into_response()
-        .await;
-    println!("Response: {}: {:?}", response.status(), response.body());
-    assert!(response.status() == StatusCode::OK);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
+    println!("Response: {}: {:?}", response["status"], response["body"]);
+    assert!(response["status"] == 200);
 
     let mut cleanup_batch =
         CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
@@ -392,16 +448,13 @@ async fn test_mtmm_beyond_max_tag_length() -> Result<(), Error> {
     );
 
     let query_parameters = HashMap::from([("precision".to_string(), "ms".to_string())]);
-    let request = Request::builder()
-        .body(Body::Text(point))?
-        .with_query_string_parameters(query_parameters);
+    let request = LambdaEvent::<Value>::new(
+        json!({ "queryStringParameters": query_parameters, "body": point }),
+        Context::default(),
+    );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request)
-        .await?
-        .into_response()
-        .await;
-    println!("Response: {}: {:?}", response.status(), response.body());
-    assert!(response.status() != StatusCode::OK);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
+    assert!(response.is_err());
 
     let mut cleanup_batch =
         CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
@@ -432,16 +485,14 @@ async fn test_mtmm_max_field_length() -> Result<(), Error> {
     );
 
     let query_parameters = HashMap::from([("precision".to_string(), "ms".to_string())]);
-    let request = Request::builder()
-        .body(Body::Text(point))?
-        .with_query_string_parameters(query_parameters);
+    let request = LambdaEvent::<Value>::new(
+        json!({ "queryStringParameters": query_parameters, "body": point }),
+        Context::default(),
+    );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request)
-        .await?
-        .into_response()
-        .await;
-    println!("Response: {}: {:?}", response.status(), response.body());
-    assert!(response.status() == StatusCode::OK);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
+    println!("Response: {}: {:?}", response["status"], response["body"]);
+    assert!(response["status"] == 200);
 
     let mut cleanup_batch =
         CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
@@ -472,16 +523,13 @@ async fn test_mtmm_beyond_max_field_length() -> Result<(), Error> {
     );
 
     let query_parameters = HashMap::from([("precision".to_string(), "ms".to_string())]);
-    let request = Request::builder()
-        .body(Body::Text(point))?
-        .with_query_string_parameters(query_parameters);
+    let request = LambdaEvent::<Value>::new(
+        json!({ "queryStringParameters": query_parameters, "body": point }),
+        Context::default(),
+    );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request)
-        .await?
-        .into_response()
-        .await;
-    println!("Response: {}: {:?}", response.status(), response.body());
-    assert!(response.status() != StatusCode::OK);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
+    assert!(response.is_err());
 
     let mut cleanup_batch =
         CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
@@ -516,16 +564,14 @@ async fn test_mtmm_max_unique_field_keys() -> Result<(), Error> {
     }
 
     let query_parameters = HashMap::from([("precision".to_string(), "ms".to_string())]);
-    let request = Request::builder()
-        .body(Body::Text(lp_batch))?
-        .with_query_string_parameters(query_parameters);
+    let request = LambdaEvent::<Value>::new(
+        json!({ "queryStringParameters": query_parameters, "body": lp_batch }),
+        Context::default(),
+    );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request)
-        .await?
-        .into_response()
-        .await;
-    println!("Response: {}: {:?}", response.status(), response.body());
-    assert!(response.status() == StatusCode::OK);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
+    println!("Response: {}: {:?}", response["status"], response["body"]);
+    assert!(response["status"] == 200);
 
     let mut cleanup_batch =
         CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
@@ -560,16 +606,14 @@ async fn test_mtmm_beyond_max_unique_field_keys() -> Result<(), Error> {
     }
 
     let query_parameters = HashMap::from([("precision".to_string(), "ms".to_string())]);
-    let request = Request::builder()
-        .body(Body::Text(lp_batch))?
-        .with_query_string_parameters(query_parameters);
+    let request = LambdaEvent::<Value>::new(
+        json!({ "queryStringParameters": query_parameters, "body": lp_batch }),
+        Context::default(),
+    );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request)
-        .await?
-        .into_response()
-        .await;
-    println!("Response: {}: {:?}", response.status(), response.body());
-    assert!(response.status() != StatusCode::OK);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
+    println!("Response: {:?}", response);
+    assert!(response.is_err());
 
     let mut cleanup_batch =
         CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
@@ -604,16 +648,14 @@ async fn test_mtmm_max_unique_tag_keys() -> Result<(), Error> {
     }
 
     let query_parameters = HashMap::from([("precision".to_string(), "ms".to_string())]);
-    let request = Request::builder()
-        .body(Body::Text(lp_batch))?
-        .with_query_string_parameters(query_parameters);
+    let request = LambdaEvent::<Value>::new(
+        json!({ "queryStringParameters": query_parameters, "body": lp_batch }),
+        Context::default(),
+    );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request)
-        .await?
-        .into_response()
-        .await;
-    println!("Response: {}: {:?}", response.status(), response.body());
-    assert!(response.status() == StatusCode::OK);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
+    println!("Response: {}: {:?}", response["status"], response["body"]);
+    assert!(response["status"] == 200);
 
     let mut cleanup_batch =
         CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
@@ -648,16 +690,14 @@ async fn test_mtmm_beyond_max_unique_tag_keys() -> Result<(), Error> {
     }
 
     let query_parameters = HashMap::from([("precision".to_string(), "ms".to_string())]);
-    let request = Request::builder()
-        .body(Body::Text(lp_batch))?
-        .with_query_string_parameters(query_parameters);
+    let request = LambdaEvent::<Value>::new(
+        json!({ "queryStringParameters": query_parameters, "body": lp_batch }),
+        Context::default(),
+    );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request)
-        .await?
-        .into_response()
-        .await;
-    println!("Response: {}: {:?}", response.status(), response.body());
-    assert!(response.status() != StatusCode::OK);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
+    println!("Response: {:?}", response);
+    assert!(response.is_err());
 
     let mut cleanup_batch =
         CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
@@ -687,16 +727,14 @@ async fn test_mtmm_max_table_name_length() -> Result<(), Error> {
     );
 
     let query_parameters = HashMap::from([("precision".to_string(), "ms".to_string())]);
-    let request = Request::builder()
-        .body(Body::Text(point))?
-        .with_query_string_parameters(query_parameters);
+    let request = LambdaEvent::<Value>::new(
+        json!({ "queryStringParameters": query_parameters, "body": point }),
+        Context::default(),
+    );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request)
-        .await?
-        .into_response()
-        .await;
-    println!("Response: {}: {:?}", response.status(), response.body());
-    assert!(response.status() == StatusCode::OK);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
+    println!("Response: {}: {:?}", response["status"], response["body"]);
+    assert!(response["status"] == 200);
 
     let mut cleanup_batch =
         CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
@@ -706,7 +744,7 @@ async fn test_mtmm_max_table_name_length() -> Result<(), Error> {
 }
 
 #[tokio::test]
-async fn test_mtmm_beyond_max_table_name_length() {
+async fn test_mtmm_beyond_max_table_name_length() -> Result<(), Error> {
     // Tests ingesting a single point with measurement with length
     // exceeding the maximum number of bytes a Timestream table name can
     // have.
@@ -726,19 +764,19 @@ async fn test_mtmm_beyond_max_table_name_length() {
     );
 
     let query_parameters = HashMap::from([("precision".to_string(), "ms".to_string())]);
-    let request = Request::builder()
-        .body(Body::Text(point))
-        .expect("Failed to create request")
-        .with_query_string_parameters(query_parameters);
+    let request = LambdaEvent::<Value>::new(
+        json!({ "queryStringParameters": query_parameters, "body": point }),
+        Context::default(),
+    );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request)
-        .await
-        .expect("Failed to send request to lambda handler")
-        .into_response()
-        .await;
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
+    assert!(response.is_err());
 
-    println!("Response: {}: {:?}", response.status(), response.body());
-    assert!(response.status() != StatusCode::OK);
+    let mut cleanup_batch =
+        CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    cleanup_batch.cleanup().await;
+
+    Ok(())
 }
 
 #[tokio::test]
@@ -762,16 +800,14 @@ async fn test_mtmm_nanosecond_precision() -> Result<(), Error> {
     );
 
     let query_parameters = HashMap::from([("precision".to_string(), "ns".to_string())]);
-    let request = Request::builder()
-        .body(Body::Text(point))?
-        .with_query_string_parameters(query_parameters);
+    let request = LambdaEvent::<Value>::new(
+        json!({ "queryStringParameters": query_parameters, "body": point }),
+        Context::default(),
+    );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request)
-        .await?
-        .into_response()
-        .await;
-    println!("Response: {}: {:?}", response.status(), response.body());
-    assert!(response.status() == StatusCode::OK);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
+    println!("Response: {}: {:?}", response["status"], response["body"]);
+    assert!(response["status"] == 200);
 
     let mut cleanup_batch =
         CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
@@ -799,16 +835,14 @@ async fn test_mtmm_microsecond_precision() -> Result<(), Error> {
     );
 
     let query_parameters = HashMap::from([("precision".to_string(), "us".to_string())]);
-    let request = Request::builder()
-        .body(Body::Text(point))?
-        .with_query_string_parameters(query_parameters);
+    let request = LambdaEvent::<Value>::new(
+        json!({ "queryStringParameters": query_parameters, "body": point }),
+        Context::default(),
+    );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request)
-        .await?
-        .into_response()
-        .await;
-    println!("Response: {}: {:?}", response.status(), response.body());
-    assert!(response.status() == StatusCode::OK);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
+    println!("Response: {}: {:?}", response["status"], response["body"]);
+    assert!(response["status"] == 200);
 
     let mut cleanup_batch =
         CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
@@ -836,16 +870,14 @@ async fn test_mtmm_second_precision() -> Result<(), Error> {
     );
 
     let query_parameters = HashMap::from([("precision".to_string(), "s".to_string())]);
-    let request = Request::builder()
-        .body(Body::Text(point))?
-        .with_query_string_parameters(query_parameters);
+    let request = LambdaEvent::<Value>::new(
+        json!({ "queryStringParameters": query_parameters, "body": point }),
+        Context::default(),
+    );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request)
-        .await?
-        .into_response()
-        .await;
-    println!("Response: {}: {:?}", response.status(), response.body());
-    assert!(response.status() == StatusCode::OK);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
+    println!("Response: {}: {:?}", response["status"], response["body"]);
+    assert!(response["status"] == 200);
 
     let mut cleanup_batch =
         CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
@@ -876,17 +908,15 @@ async fn test_mtmm_no_precision() -> Result<(), Error> {
             .expect("Failed to create nanosecond timestamp")
     );
 
-    let request = Request::builder()
-        .method("POST")
-        .body(Body::Text(point))?;
+    let request = LambdaEvent::<Value>::new(
+        json!({ "queryStringParameters": "", "body": point }),
+        Context::default(),
+    );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request)
-        .await?
-        .into_response()
-        .await;
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
 
-    println!("Response: {}: {:?}", response.status(), response.body());
-    assert!(response.status() == StatusCode::OK);
+    println!("Response: {}: {:?}", response["status"], response["body"]);
+    assert!(response["status"] == 200);
 
     let mut cleanup_batch =
         CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
@@ -905,17 +935,15 @@ async fn test_mtmm_empty_point() -> Result<(), Error> {
 
     let point = String::new();
 
-    let request = Request::builder()
-        .method("POST")
-        .body(Body::Text(point))?;
+    let request = LambdaEvent::<Value>::new(
+        json!({ "queryStringParameters": "", "body": point }),
+        Context::default(),
+    );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request)
-        .await?
-        .into_response()
-        .await;
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
 
-    println!("Response: {}: {:?}", response.status(), response.body());
-    assert!(response.status() == StatusCode::OK);
+    println!("Response: {}: {:?}", response["status"], response["body"]);
+    assert!(response["status"] == 200);
 
     Ok(())
 }
@@ -939,16 +967,14 @@ pub async fn test_mtmm_small_timestamp() -> Result<(), Error> {
     );
 
     let query_parameters = HashMap::from([("precision".to_string(), "ms".to_string())]);
-    let request = Request::builder()
-        .body(Body::Text(point))?
-        .with_query_string_parameters(query_parameters);
+    let request = LambdaEvent::<Value>::new(
+        json!({ "queryStringParameters": query_parameters, "body": point }),
+        Context::default(),
+    );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request)
-        .await?
-        .into_response()
-        .await;
-    println!("Response: {}: {:?}", response.status(), response.body());
-    assert!(response.status() == StatusCode::OK);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
+    println!("Response: {}: {:?}", response["status"], response["body"]);
+    assert!(response["status"] == 200);
 
     let mut cleanup_batch =
         CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
@@ -984,16 +1010,14 @@ async fn test_mtmm_5_measurements() -> Result<(), Error> {
     }
 
     let query_parameters = HashMap::from([("precision".to_string(), "ms".to_string())]);
-    let request = Request::builder()
-        .body(Body::Text(lp_batch))?
-        .with_query_string_parameters(query_parameters);
+    let request = LambdaEvent::<Value>::new(
+        json!({ "queryStringParameters": query_parameters, "body": lp_batch }),
+        Context::default(),
+    );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request)
-        .await?
-        .into_response()
-        .await;
-    println!("Response: {}: {:?}", response.status(), response.body());
-    assert!(response.status() == StatusCode::OK);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
+    println!("Response: {}: {:?}", response["status"], response["body"]);
+    assert!(response["status"] == 200);
 
     let mut cleanup_batch =
         CleanupBatch::new(client, DATABASE_NAME.to_string(), table_names_to_delete);
@@ -1029,16 +1053,14 @@ async fn test_mtmm_100_measurements() -> Result<(), Error> {
     }
 
     let query_parameters = HashMap::from([("precision".to_string(), "ms".to_string())]);
-    let request = Request::builder()
-        .body(Body::Text(lp_batch))?
-        .with_query_string_parameters(query_parameters);
+    let request = LambdaEvent::<Value>::new(
+        json!({ "queryStringParameters": query_parameters, "body": lp_batch }),
+        Context::default(),
+    );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request)
-        .await?
-        .into_response()
-        .await;
-    println!("Response: {}: {:?}", response.status(), response.body());
-    assert!(response.status() == StatusCode::OK);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
+    println!("Response: {}: {:?}", response["status"], response["body"]);
+    assert!(response["status"] == 200);
 
     let mut cleanup_batch =
         CleanupBatch::new(client, DATABASE_NAME.to_string(), table_names_to_delete);
@@ -1072,16 +1094,14 @@ async fn test_mtmm_5000_batch() -> Result<(), Error> {
     }
 
     let query_parameters = HashMap::from([("precision".to_string(), "ms".to_string())]);
-    let request = Request::builder()
-        .body(Body::Text(lp_batch))?
-        .with_query_string_parameters(query_parameters);
+    let request = LambdaEvent::<Value>::new(
+        json!({ "queryStringParameters": query_parameters, "body": lp_batch }),
+        Context::default(),
+    );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request)
-        .await?
-        .into_response()
-        .await;
-    println!("Response: {}: {:?}", response.status(), response.body());
-    assert!(response.status() == StatusCode::OK);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
+    println!("Response: {}: {:?}", response["status"], response["body"]);
+    assert!(response["status"] == 200);
 
     let mut cleanup_batch =
         CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
@@ -1119,12 +1139,12 @@ async fn test_mtmm_no_credentials() {
     );
 
     let query_parameters = HashMap::from([("precision".to_string(), "ms".to_string())]);
-    let request = Request::builder()
-        .body(Body::Text(point))
-        .expect("Failed to created request")
-        .with_query_string_parameters(query_parameters);
+    let request = LambdaEvent::<Value>::new(
+        json!({ "queryStringParameters": query_parameters, "body": point }),
+        Context::default(),
+    );
 
-    let _response = influxdb_timestream_connector::lambda_handler(&client, request).await;
+    let _ = influxdb_timestream_connector::lambda_handler(&client, request).await;
 }
 
 #[tokio::test]
@@ -1162,10 +1182,10 @@ async fn test_mtmm_incorrect_credentials() {
     );
 
     let query_parameters = HashMap::from([("precision".to_string(), "ms".to_string())]);
-    let request = Request::builder()
-        .body(Body::Text(point))
-        .expect("Failed to created request")
-        .with_query_string_parameters(query_parameters);
+    let request = LambdaEvent::<Value>::new(
+        json!({ "queryStringParameters": query_parameters, "body": point }),
+        Context::default(),
+    );
 
-    let _response = influxdb_timestream_connector::lambda_handler(&client, request).await;
+    let _ = influxdb_timestream_connector::lambda_handler(&client, request).await;
 }

@@ -1,10 +1,10 @@
 use anyhow::{anyhow, Error, Result};
 use aws_sdk_timestreamwrite as timestream_write;
-use lambda_http::{Body, IntoResponse, Request, RequestExt, Response};
+use lambda_runtime::LambdaEvent;
 use line_protocol_parser::*;
 use records_builder::*;
+use serde_json::{json, Value};
 use std::collections::HashMap;
-use std::io::prelude::*;
 use std::{str, thread, time};
 use timestream_utils::*;
 
@@ -85,35 +85,76 @@ async fn handle_multi_table_ingestion(
     Ok(())
 }
 
+pub fn get_precision(event: &Value) -> Option<&str> {
+    // Retrieves the optional "precision" query string parameter from a serde_json::Value
+
+    // Query string parameters may be included as "queryStringParameters"
+    if let Some(precision) = event.get("queryStringParameters")
+        .and_then(|query_string_parameters| query_string_parameters.get("precision")) {
+            // event["queryStringParameters"]["precision"] may be an object
+            if let Some(precision_str) = precision.as_str() {
+                return Some(precision_str);
+            // event["queryStringParameters"]["precision"] may be an array. This is common from requests
+            // originating form AWS services, such as when the connector is ran with the cargo lambda watch command
+            } else if let Some(precision_array) = precision.as_array() {
+                if let Some(precision_value) = precision_array.first().and_then(|value| value.as_str()) {
+                    return Some(precision_value);
+                }
+            }
+    }
+
+    // Query string parameters may be included as simply "queryParameters"
+    if let Some(precision) = event.get("queryParameters")
+        .and_then(|query_string_parameters| query_string_parameters.get("precision")) {
+            if let Some(precision_str) = precision.as_str() {
+                return Some(precision_str);
+            } else if let Some(precision_array) = precision.as_array() {
+                if let Some(precision_value) = precision_array.first().and_then(|value| value.as_str()) {
+                    return Some(precision_value);
+                }
+            }
+    }
+
+    None
+}
+
 pub async fn lambda_handler(
     client: &timestream_write::Client,
-    event: Request,
-) -> Result<impl IntoResponse, Error> {
+    event: LambdaEvent<Value>,
+) -> Result<Value, Error> {
     // Handler for lambda runtime
 
-    let precision = match event
-        .query_string_parameters_ref()
-        .and_then(|params| params.first("precision"))
-    {
+    let (event, _context) = event.into_parts();
+
+    let precision = match get_precision(&event) {
         Some("ms") => timestream_write::types::TimeUnit::Milliseconds,
         Some("us") => timestream_write::types::TimeUnit::Microseconds,
         Some("s") => timestream_write::types::TimeUnit::Seconds,
         _ => timestream_write::types::TimeUnit::Nanoseconds,
     };
 
-    let data: Result<Vec<u8>, _> = event.body().bytes().collect();
-    let data = data?;
+    let data = event
+        .get("body")
+        .expect("No body was included in the request")
+        .as_str()
+        .expect("Failed to convert body to &str")
+        .as_bytes();
 
-    match handle_body(client, &data, &precision).await {
-        Ok(_) => Ok(Response::builder()
-            .status(200)
-            .header("content-type", "text/html")
-            .body(Body::Empty)
-            .map_err(Box::new)?),
-        Err(error) => Ok(Response::builder()
-            .status(400)
-            .header("content-type", "text/html")
-            .body(Body::Text(error.to_string()))
-            .map_err(Box::new)?),
+    match handle_body(client, data, &precision).await {
+        // This is the format required for custom Lambda responses
+        // https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-develop-integrations-lambda.html
+        Ok(_) => Ok(json!({
+            "statusCode": 200,
+            "body": "{\"message\": \"Success\"}",
+            "isBase64Encoded": false,
+            "headers": {
+                "Content-Type": "application/json"
+            },
+            "cookies": []
+        })),
+        // An Err is required in order to send messages to the Lambda's
+        // dead letter queue, when the connector is deployed as part of a stack
+        // with asynchronous invocation
+        Err(error) => Err(anyhow!(error.to_string())),
     }
 }

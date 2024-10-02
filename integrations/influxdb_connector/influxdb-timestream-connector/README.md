@@ -14,7 +14,7 @@ The following diagram shows a high-level overview of the connector's architectur
 
 ### Multi-Table Multi-Measure
 
-The following table shows how the connector maps line protocol elements to Timestream for LiveAnalytics record elements.
+The following table shows how the connector maps line protocol elements to Timestream for LiveAnalytics record attributes.
 
 | Line Protocol Element | Timestream Record Attribute |
 |-----------------------|---------------------------|
@@ -23,7 +23,7 @@ The following table shows how the connector maps line protocol elements to Times
 | Fields                | Measures                  |
 | Measurements          | Table names               |
 
-A Timestream record's `measure_name` field is not derived from any element of ingested line protocol. Due to the multi-measure record translation, the connector sets the `measure_name` for each multi-measure record to the value of a Lambda environment variable.
+A Timestream record's `measure_name` field is not derived from any element of ingested line protocol. Due to the multi-measure record translation, the connector sets the `measure_name` for each multi-measure record to the value of a Lambda environment variable. When [deployed as part of a CloudFormation stack](#aws-cloudformation-deployment), this can be customized by overriding the `MeasureNameForMultiMeasureRecords` parameter. When [deployed locally](#local-deployment), this can be customized by setting the `measure_name_for_multi_measure_records` environment variable.
 
 The following example shows the translation of a single line protocol point into a Timestream for LiveAnalytics table, using a Timestamp with second precision and a Lambda environment variable configured to `influxdb-measure`:
 
@@ -47,30 +47,70 @@ The InfluxDB Timestream connector can be deployed within an AWS CloudFormation s
 
 #### Deploying a CloudFormation Stack Using SAM CLI
 
-The stack can be deployed using the [AWS SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html) and `template.yml`.
+The stack can be deployed using the [AWS SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/using-sam-cli.html), [Cargo Lambda](https://www.cargo-lambda.info/) to package the code, and `template.yml`.
 
-1. Run the following command replacing `<region>` with the AWS region you want to deploy in and provide parameter overrides as desired:
+##### Stack Parameters
+
+The following parameters are available when deploying the connector as part of a CloudFormation stack. An example of setting these parameters is included in step 4 of the [SAM deployment steps](#sam-deployment-steps).
+
+| Parameter     | Description | Default Value |
+|---------------|-------------|---------------|
+| `DatabaseName`  | The name of the database to use for ingestion. | `influxdb-line-protocol` |
+| `LambdaMemorySize` | The size of the memory in MB allocated per invocation of the function. | `512` |
+| `LambdaName` | The name to use for the Lambda function. | `influxdb-timestream-connector-lambda` |
+| `LambdaTimeoutInSeconds` | The number of seconds to run the Lambda function before timing out. | `30` |
+| `MeasureNameForMultiMeasureRecords` | The value to use in records as the `measure_name`, as shown in the [example line protocol to Timestream records translation](#resulting-cpu_load_short-timestream-for-liveanalytics-table). | `influxdb-measure` |
+| `RestApiGatewayName` | The name to use for the REST API Gateway. | `InfluxDB-Timestream-Connector-REST-API-Gateway` |
+| `RestApiGatewayStageName` | The name to use for the REST API Gateway stage. | `dev` |
+| `RestApiGatewayTimeoutInMillis` | The maximum number of milliseconds a REST API Gateway event will wait before timing out. | `30000` |
+| `WriteThrottlingBurstLimit` | The number of burst requests per second that the REST API Gateway permits. | `1200` |
+
+##### SAM Deployment Steps
+
+1. [Download and install the AWS SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html).
+2. [Download and install Rust](https://www.rust-lang.org/tools/install).
+3. [Download and install Cargo Lambda](https://www.cargo-lambda.info/guide/installation.html).
+4. Run the following command to package the binary in `target/lambda/influxdb-timestream-connector/bootstrap.zip`, where `template.yml` expects it to be, and cross compile for Linux ARM:
+    ```
+    cargo lambda build --release --arm64 --output-format zip
+    ```
+5. Run the following command, replacing `<region>` with the AWS region you want to deploy in, `<stack name>` with your desired stack name and providing parameter overrides as desired. Note that this example command uses `--resolve-s3` to automatically create an S3 bucket to use for packaging and deployment and `--capabilities CAPABILITY_IAM` to allow the creation of IAM roles.
 
     ```shell
-    sam --region <region> --parameter-overrides ParameterKey=exampleKey,ParameterValue=exampleValue deploy template.yml
+    sam deploy template.yml \
+        --region <region> \
+        --stack-name <stack name> \
+        --resolve-s3 \
+        --capabilities CAPABILITY_IAM \
+        --parameter-overrides ParameterKey=exampleKey,ParameterValue=exampleValue
     ```
-2. Once the stack has finished deploying, take note of the output "Endpoint" value. This value will be used as the endpoint for all write requests, for example, `<endpoint>/api/v2/write`.
+6. Once the stack has finished deploying, take note of the output `Endpoint` value. This value will be used as the endpoint for all write requests and is analogous to an [InfluxDB host address](https://docs.influxdata.com/influxdb/v2/reference/urls/) and is used in the same way, for example, `<endpoint>/api/v2/write`.
+
+#### Lambda Dead Letter Queue
+
+If the connector was deployed with async invocation, then all client requests will be returned a response with a `202` status code, indicating that the request has been received and is being processed. If the request fails, the client will not be notified. Instead, failed requests will either be [logged by the REST API Gateway](#viewing-rest-api-gateway-logs) or be added to the Lambda's dead letter queue, where the failed request can be reviewed in full. The name of the dead letter queue is provided as the `LambdaDeadLetterQueueName` output when deploying the stack.
+
+To access the Lambda's dead letter queue and view any possible stored messages:
+
+1. Take note of the dead letter queue's name as provided by the `LambdaDeadLetterQueueName` output upon successful stack deployment.
+2. Visit the [Amazon SQS console](https://console.aws.amazon.com/sqs/v3/home).
+3. In the navigation pane, choose **Queues**.
+4. Find and select the SQS queue with the same name as indicated by `LambdaDeadLetterQueueName`.
+5. Choose **Send and receive messages**.
+6. Choose **Poll for messages**.
 
 #### Stack Logs
 
 ##### Viewing REST API Gateway Logs
 
-By default, execution and access logging is enabled for the REST API Gateway.
+By default, access logging is enabled for the REST API Gateway.
 
 To view logs:
 
 1. Visit the [AWS CloudFormation console](https://console.aws.amazon.com/cloudformation/home).
 2. In the navigation pane, choose **Stacks**.
 3. Choose your deployed stack from the list of stacks.
-4. In the **Resources** tab choose the **Physical ID** of the REST API Gateway.
-5. In the navigation pane, under **Monitor**, choose **Logging**.
-6. From the dropdown menu, select the currently deployed stage.
-7. Choose **View logs in CloudWatch**.
+4. In the **Resources** tab choose the **Physical ID** of the `RestApiGatewayLogGroup` resource.
 
 ##### Viewing Lambda Logs
 
@@ -89,17 +129,18 @@ To view logs:
 The connector can be run locally using [Cargo Lambda](https://www.cargo-lambda.info/guide/what-is-cargo-lambda.html).
 
 1. [Download and install Rust](https://www.rust-lang.org/tools/install).
-2. [Download and install Cargo Lambda](https://www.cargo-lambda.info/guide/installation.html).
-3. Configure the following environment variables:
+2. [Configure your AWS credentials for use by the AWS SDK for Rust](https://docs.aws.amazon.com/sdkref/latest/guide/creds-config-files.html).
+3. [Download and install Cargo Lambda](https://www.cargo-lambda.info/guide/installation.html).
+4. Configure the following environment variables:
     - `region` string: the AWS region to use. Defaults to `us-east-1`.
     - `database_name` string: the Timestream for LiveAnalytics database name to use. Defaults to `influxdb-line-protocol`.
     - `measure_name_for_multi_measure_records` string: the value to use in records as the measure name. Defaults to `influxdb-measure`.
-4. To run the connector on `http://localhost:9000` execute the following command:
+5. To run the connector on `http://localhost:9000` execute the following command:
 
     ```shell
     cargo lambda watch
     ```
-5. Send all requests to `http://localhost:9000/api/v2/write`.
+6. Send all requests to `http://localhost:9000/api/v2/write`.
 
 ## Security
 
@@ -203,7 +244,10 @@ To configure the sample application and ingest all line protocol data contained 
 5. Run the sample Go client:
     - With the connector deployed in a CloudFormation stack, replacing `<region>` with the AWS region you deployed your stack in and `<endpoint>` with the endpoint of your deployed REST API Gateway:
         ```shell
-        go run line-protocol-client-demo.go --region <region> --service execute-api --endpoint <endpoint>
+        go run line-protocol-client-demo.go \
+            --region <region> \
+            --service execute-api \
+            --endpoint <endpoint>
         ```
     - With the connector deployed locally:
         ```shell
@@ -255,3 +299,8 @@ Due to the connector translating line protocol to Timestream records, line proto
 ### Line Protocol Tag Requirement
 
 In order to ingest to Timestream for LiveAnalytics, every line protocol point must include at least one tag.
+
+### Query String Parameters
+
+The connector expects query string parameters to be included as `queryParameters` or `queryStringParameters` in requests.
+
