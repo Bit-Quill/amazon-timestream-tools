@@ -59,7 +59,7 @@ Parameters:
       - 'false'
     Default: 'true'
   EnforceCustomPartitionKey:
-    Description: Whether to only allow the ingestion of records that contain the custom partition key. Defaults to 'false'.
+    Description: Whether to only allow the ingestion of records that contain the custom partition key.
     Type: String
     AllowedValues:
       - 'true'
