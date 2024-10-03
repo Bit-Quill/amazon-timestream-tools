@@ -13,11 +13,11 @@ Metadata:
 
 Parameters:
   CustomPartitionKeyDimension:
-    Description: The dimension to use as the parition key. This parameter is required if the CustomPartitionKeyType parameter is set to 'dimension'.
+    Description: The dimension to use as the partition key. This parameter is required if the CustomPartitionKeyType parameter is set to 'dimension'.
     Type: String
     Default: ''
   CustomPartitionKeyType:
-    Description: The type of custom parition key to use. Valid options are 'dimension' or 'measure'. The 'dimension' option requires the CustomPartitionKeyDimension parameter to also be set. If this parameter is not provided, newly-created tables will use default paritioning and none of the parameters relating to custom partition keys will be used.
+    Description: The type of custom partition key to use. Valid options are 'dimension' or 'measure'. The 'dimension' option requires the CustomPartitionKeyDimension parameter to also be set. If this parameter is not provided, newly-created tables will use default partitioning and none of the parameters relating to custom partition keys will be used.
     Type: String
     AllowedValues:
       - 'dimension'
@@ -59,7 +59,7 @@ Parameters:
       - 'false'
     Default: 'true'
   EnforceCustomPartitionKey:
-    Description: Whether to only allow the ingestion of records that contain the custom parition key. Defaults to 'false'.
+    Description: Whether to only allow the ingestion of records that contain the custom partition key. Defaults to 'false'.
     Type: String
     AllowedValues:
       - 'true'
