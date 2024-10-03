@@ -105,11 +105,11 @@ Parameters:
     Description: The number of burst requests per second that the REST API Gateway permits.
 
 Conditions:
-  IsAsyncEnabled: !Equals [ !Ref EnableAsyncInvocation, "true" ]
-  IsSyncEnabled: !Equals [ !Ref EnableAsyncInvocation, "false" ]
-  CustomPartitionKeyTypeProvided: !Not [ !Equals [ !Ref CustomPartitionKeyType, "" ] ]
-  CustomPartitionKeyDimensionProvided: !Not [ !Equals [ !Ref CustomPartitionKeyDimension, "" ] ]
-  EnforceCustomPartitionKeyProvided: !Not [ !Equals [ !Ref EnforceCustomPartitionKey, "" ] ]
+  IsAsyncEnabled: !Equals [ !Ref EnableAsyncInvocation, 'true' ]
+  IsSyncEnabled: !Equals [ !Ref EnableAsyncInvocation, 'false' ]
+  CustomPartitionKeyTypeProvided: !Not [ !Equals [ !Ref CustomPartitionKeyType, '' ] ]
+  CustomPartitionKeyDimensionProvided: !Not [ !Equals [ !Ref CustomPartitionKeyDimension, '' ] ]
+  EnforceCustomPartitionKeyProvided: !Not [ !Equals [ !Ref EnforceCustomPartitionKey, '' ] ]
 
 Resources:
   RestApiGateway:
