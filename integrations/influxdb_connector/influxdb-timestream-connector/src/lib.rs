@@ -89,30 +89,36 @@ pub fn get_precision(event: &Value) -> Option<&str> {
     // Retrieves the optional "precision" query string parameter from a serde_json::Value
 
     // Query string parameters may be included as "queryStringParameters"
-    if let Some(precision) = event.get("queryStringParameters")
-        .and_then(|query_string_parameters| query_string_parameters.get("precision")) {
-            // event["queryStringParameters"]["precision"] may be an object
-            if let Some(precision_str) = precision.as_str() {
-                return Some(precision_str);
-            // event["queryStringParameters"]["precision"] may be an array. This is common from requests
-            // originating form AWS services, such as when the connector is ran with the cargo lambda watch command
-            } else if let Some(precision_array) = precision.as_array() {
-                if let Some(precision_value) = precision_array.first().and_then(|value| value.as_str()) {
-                    return Some(precision_value);
-                }
+    if let Some(precision) = event
+        .get("queryStringParameters")
+        .and_then(|query_string_parameters| query_string_parameters.get("precision"))
+    {
+        // event["queryStringParameters"]["precision"] may be an object
+        if let Some(precision_str) = precision.as_str() {
+            return Some(precision_str);
+        // event["queryStringParameters"]["precision"] may be an array. This is common from requests
+        // originating form AWS services, such as when the connector is ran with the cargo lambda watch command
+        } else if let Some(precision_array) = precision.as_array() {
+            if let Some(precision_value) = precision_array.first().and_then(|value| value.as_str())
+            {
+                return Some(precision_value);
             }
+        }
     }
 
     // Query string parameters may be included as simply "queryParameters"
-    if let Some(precision) = event.get("queryParameters")
-        .and_then(|query_string_parameters| query_string_parameters.get("precision")) {
-            if let Some(precision_str) = precision.as_str() {
-                return Some(precision_str);
-            } else if let Some(precision_array) = precision.as_array() {
-                if let Some(precision_value) = precision_array.first().and_then(|value| value.as_str()) {
-                    return Some(precision_value);
-                }
+    if let Some(precision) = event
+        .get("queryParameters")
+        .and_then(|query_string_parameters| query_string_parameters.get("precision"))
+    {
+        if let Some(precision_str) = precision.as_str() {
+            return Some(precision_str);
+        } else if let Some(precision_array) = precision.as_array() {
+            if let Some(precision_value) = precision_array.first().and_then(|value| value.as_str())
+            {
+                return Some(precision_value);
             }
+        }
     }
 
     None

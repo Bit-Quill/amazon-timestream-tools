@@ -61,8 +61,26 @@ pub async fn create_table(
             .set_enable_magnetic_store_writes(Some(table_config.enable_mag_store_writes))
             .build()?;
 
+    // Customer-defined partition key configuration
+    let table_schema = if table_config.custom_partition_key_type.is_some() {
+        let partition_key = timestream_write::types::PartitionKey::builder()
+            .set_type(table_config.custom_partition_key_type)
+            .set_name(table_config.custom_partition_key_dimension)
+            .set_enforcement_in_record(table_config.enforce_custom_partition_key)
+            .build()?;
+
+        Some(
+            timestream_write::types::Schema::builder()
+                .set_composite_partition_key(Some(vec![partition_key]))
+                .build(),
+        )
+    } else {
+        None
+    };
+
     client
         .create_table()
+        .set_schema(table_schema)
         .set_table_name(Some(table_name.to_owned()))
         .set_database_name(Some(database_name.to_owned()))
         .set_retention_properties(Some(retention_properties))
