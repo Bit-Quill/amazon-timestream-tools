@@ -332,6 +332,42 @@ To configure the sample application and ingest all line protocol data contained 
 | `ServiceQuotaExceededException` | 400 | The instance quota of resource exceeded for this account. | Confirm you are not exceeding Timestream for LiveAnalytics' quotas. If you are not exceeding any quotas, check the list of [line protocol limitations](#line-protocol-limitations) below, specifically the number of unique measurement names. |
 | `ThrottlingException` | 400 | Too many requests were made by a user and they exceeded the service quotas. The request was throttled. | Decrease the rate of your requests. |
 
+## Testing
+
+### Requirements
+
+1. [Configure your AWS credentials for use by the AWS SDK for Rust](https://docs.aws.amazon.com/sdkref/latest/guide/creds-config-files.html).
+2. Ensure your IAM permissions contain the permissions listed in 
+
+### Integration Tests
+
+To run all integration tests, use the following command, from the project root:
+
+```shell
+cargo test --test '*' -- --test-threads=1
+```
+
+> **NOTE**: It is important to use the flag `--test-threads=1` in order to avoid throttling errors, as the integration tests will create and delete tables.
+
+To run a specific integration test, use the following command:
+
+```shell
+cargo test <integration test name>
+```
+
+### Unit Tests
+
+To run all unit tests, use the following command:
+
+```shell
+cargo test --lib
+```
+
+To run a single unit test, use the following command:
+
+```shell
+cargo test <unit test name>
+```
 
 ## Limitations
 
@@ -352,6 +388,10 @@ Due to the connector translating line protocol to Timestream records, line proto
 | Maximum unique field key values. | 1024 |
 | Latest valid timestamp. | Fifteen minutes in the future from the current time. |
 | Oldest valid timestamp. | `mag_store_retention_period` days before the current time. |
+
+### Database and Table Creation Delay
+
+There is a delay of one second added before deleting or creating a table or database. This is because of Timestream for LiveAnalytics' "Throttle rate for CRUD APIs" [quota](https://docs.aws.amazon.com/timestream/latest/developerguide/ts-limits.html#limits.default) of one table/database deletion/creation per second.
 
 ## Caveats
 
