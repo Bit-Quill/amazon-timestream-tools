@@ -86,7 +86,7 @@ Resources:
   RestApiGateway:
     Type: AWS::ApiGateway::RestApi
     Properties:
-      Name: !Sub "${RestApiGatewayName}-${AWS::StackId}"
+      Name: !Sub "${RestApiGatewayName}-${AWS::StackName}"
 
   ApiResource:
     Type: AWS::ApiGateway::Resource
