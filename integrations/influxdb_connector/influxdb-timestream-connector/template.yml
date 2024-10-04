@@ -190,23 +190,12 @@ Resources:
         RequestTemplates:
           text/plain: |
             {
-              "resource": "$context.resourcePath",
               "path": "$context.path",
               "httpMethod": "$context.httpMethod",
               "body" : "$util.escapeJavaScript($input.body)",
-              "headers": {
-                #foreach($param in $input.params().header.keySet())
-                "$param": "$util.escapeJavaScript($input.params().header.get($param))" #if($foreach.hasNext),#end
-                #end
-              },
               "queryStringParameters": {
                 #foreach($param in $input.params().querystring.keySet())
                 "$param": "$util.escapeJavaScript($input.params().querystring.get($param))" #if($foreach.hasNext),#end
-                #end
-              },
-              "pathParameters": {
-                #foreach($param in $input.params().path.keySet())
-                "$param": "$util.escapeJavaScript($input.params().path.get($param))" #if($foreach.hasNext),#end
                 #end
               },
               "requestContext": {
@@ -231,33 +220,17 @@ Resources:
                 "resourcePath": "$context.resourcePath",
                 "httpMethod": "$context.httpMethod",
                 "apiId": "$context.apiId"
-              },
-              "stageVariables": {
-                #foreach($key in $stageVariables.keySet())
-                "$key": "$util.escapeJavaScript($stageVariables.get($key))" #if($foreach.hasNext),#end
-                #end
               },
               "isBase64Encoded": false
             }
           text/plain; charset=utf-8: |
             {
-              "resource": "$context.resourcePath",
               "path": "$context.path",
               "httpMethod": "$context.httpMethod",
               "body" : "$util.escapeJavaScript($input.body)",
-              "headers": {
-                #foreach($param in $input.params().header.keySet())
-                "$param": "$util.escapeJavaScript($input.params().header.get($param))" #if($foreach.hasNext),#end
-                #end
-              },
               "queryStringParameters": {
                 #foreach($param in $input.params().querystring.keySet())
                 "$param": "$util.escapeJavaScript($input.params().querystring.get($param))" #if($foreach.hasNext),#end
-                #end
-              },
-              "pathParameters": {
-                #foreach($param in $input.params().path.keySet())
-                "$param": "$util.escapeJavaScript($input.params().path.get($param))" #if($foreach.hasNext),#end
                 #end
               },
               "requestContext": {
@@ -282,33 +255,17 @@ Resources:
                 "resourcePath": "$context.resourcePath",
                 "httpMethod": "$context.httpMethod",
                 "apiId": "$context.apiId"
-              },
-              "stageVariables": {
-                #foreach($key in $stageVariables.keySet())
-                "$key": "$util.escapeJavaScript($stageVariables.get($key))" #if($foreach.hasNext),#end
-                #end
               },
               "isBase64Encoded": false
             }
           text/csv: |
             {
-              "resource": "$context.resourcePath",
               "path": "$context.path",
               "httpMethod": "$context.httpMethod",
               "body" : "$util.escapeJavaScript($input.body)",
-              "headers": {
-                #foreach($param in $input.params().header.keySet())
-                "$param": "$util.escapeJavaScript($input.params().header.get($param))" #if($foreach.hasNext),#end
-                #end
-              },
               "queryStringParameters": {
                 #foreach($param in $input.params().querystring.keySet())
                 "$param": "$util.escapeJavaScript($input.params().querystring.get($param))" #if($foreach.hasNext),#end
-                #end
-              },
-              "pathParameters": {
-                #foreach($param in $input.params().path.keySet())
-                "$param": "$util.escapeJavaScript($input.params().path.get($param))" #if($foreach.hasNext),#end
                 #end
               },
               "requestContext": {
@@ -333,30 +290,14 @@ Resources:
                 "resourcePath": "$context.resourcePath",
                 "httpMethod": "$context.httpMethod",
                 "apiId": "$context.apiId"
-              },
-              "stageVariables": {
-                #foreach($key in $stageVariables.keySet())
-                "$key": "$util.escapeJavaScript($stageVariables.get($key))" #if($foreach.hasNext),#end
-                #end
               },
               "isBase64Encoded": false
             }
           application/json: |
             {
               "path": "$context.path",
-              "headers": {
-                #foreach($param in $input.params().header.keySet())
-                "$param": "$util.escapeJavaScript($input.params().header.get($param))" #if($foreach.hasNext),#end
-                #end
-              },
-              "pathParameters": {
-                #foreach($param in $input.params().path.keySet())
-                "$param": "$util.escapeJavaScript($input.params().path.get($param))" #if($foreach.hasNext),#end
-                #end
-              },
-              "resource": "$context.resourcePath",
               "httpMethod": "$context.httpMethod",
-              "body": "$util.escapeJavaScript($input.body)",
+              "body" : "$util.escapeJavaScript($input.body)",
               "queryStringParameters": {
                 #foreach($param in $input.params().querystring.keySet())
                 "$param": "$util.escapeJavaScript($input.params().querystring.get($param))" #if($foreach.hasNext),#end
@@ -384,11 +325,6 @@ Resources:
                 "resourcePath": "$context.resourcePath",
                 "httpMethod": "$context.httpMethod",
                 "apiId": "$context.apiId"
-              },
-              "stageVariables": {
-                #foreach($key in $stageVariables.keySet())
-                "$key": "$util.escapeJavaScript($stageVariables.get($key))" #if($foreach.hasNext),#end
-                #end
               },
               "isBase64Encoded": false
             }
