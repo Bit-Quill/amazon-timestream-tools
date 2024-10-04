@@ -89,25 +89,13 @@ pub fn get_precision(event: &Value) -> Option<&str> {
     // Retrieves the optional "precision" query string parameter from a serde_json::Value
 
     // Query string parameters may be included as "queryStringParameters"
-    if let Some(precision) = event.get("queryStringParameters")
+    if let Some(precision) = event.get("queryStringParameters").or_else(|| event.get("queryParameters"))
         .and_then(|query_string_parameters| query_string_parameters.get("precision")) {
             // event["queryStringParameters"]["precision"] may be an object
             if let Some(precision_str) = precision.as_str() {
                 return Some(precision_str);
             // event["queryStringParameters"]["precision"] may be an array. This is common from requests
             // originating from AWS services, such as when the connector is ran with the cargo lambda watch command
-            } else if let Some(precision_array) = precision.as_array() {
-                if let Some(precision_value) = precision_array.first().and_then(|value| value.as_str()) {
-                    return Some(precision_value);
-                }
-            }
-    }
-
-    // Query string parameters may be included as simply "queryParameters"
-    if let Some(precision) = event.get("queryParameters")
-        .and_then(|query_string_parameters| query_string_parameters.get("precision")) {
-            if let Some(precision_str) = precision.as_str() {
-                return Some(precision_str);
             } else if let Some(precision_array) = precision.as_array() {
                 if let Some(precision_value) = precision_array.first().and_then(|value| value.as_str()) {
                     return Some(precision_value);
@@ -157,4 +145,83 @@ pub async fn lambda_handler(
         // with asynchronous invocation
         Err(error) => Err(anyhow!(error.to_string())),
     }
+}
+
+#[cfg(test)]
+
+#[test]
+pub fn test_get_precision_query_string_parameters_array() -> Result<(), Error> {
+    let fake_event_value = json!({ "queryStringParameters": { "precision": ["ms"] } });
+    let precision = get_precision(&fake_event_value);
+    assert!(precision.is_some());
+    assert!(precision.expect("Failed to get precision") == "ms");
+    Ok(())
+}
+
+#[test]
+pub fn test_get_precision_query_string_parameters_object() -> Result<(), Error> {
+    let fake_event_value = json!({ "queryStringParameters": { "precision": "ms" } });
+    let precision = get_precision(&fake_event_value);
+    assert!(precision.is_some());
+    assert!(precision.expect("Failed to get precision") == "ms");
+    Ok(())
+}
+
+#[test]
+pub fn test_get_precision_query_string_parameters_object_nanoseconds() -> Result<(), Error> {
+    let fake_event_value = json!({ "queryStringParameters": { "precision": "ns" } });
+    let precision = get_precision(&fake_event_value);
+    assert!(precision.is_some());
+    assert!(precision.expect("Failed to get precision") == "ns");
+    Ok(())
+}
+
+#[test]
+pub fn test_get_precision_query_string_parameters_object_microseconds() -> Result<(), Error> {
+    let fake_event_value = json!({ "queryStringParameters": { "precision": "us" } });
+    let precision = get_precision(&fake_event_value);
+    assert!(precision.is_some());
+    assert!(precision.expect("Failed to get precision") == "us");
+    Ok(())
+}
+
+#[test]
+pub fn test_get_precision_query_string_parameters_object_seconds() -> Result<(), Error> {
+    let fake_event_value = json!({ "queryStringParameters": { "precision": "s" } });
+    let precision = get_precision(&fake_event_value);
+    assert!(precision.is_some());
+    assert!(precision.expect("Failed to get precision") == "s");
+    Ok(())
+}
+
+#[test]
+pub fn test_get_precision_query_parameters_array() -> Result<(), Error> {
+    let fake_event_value = json!({ "queryParameters": { "precision": ["ms"] } });
+    let precision = get_precision(&fake_event_value);
+    assert!(precision.is_some());
+    assert!(precision.expect("Failed to get precision") == "ms");
+    Ok(())
+}
+
+#[test]
+pub fn test_get_precision_query_parameters_object() -> Result<(), Error> {
+    let fake_event_value = json!({ "queryParameters": { "precision": "ms" } });
+    let precision = get_precision(&fake_event_value);
+    assert!(precision.is_some());
+    assert!(precision.expect("Failed to get precision") == "ms");
+    Ok(())
+}
+
+#[test]
+pub fn test_get_precision_incorrect_query_parameters_key() -> Result<(), Error> {
+    let fake_event_value = json!({ "nomatch": { "precision": "ms" } });
+    assert!(get_precision(&fake_event_value).is_none());
+    Ok(())
+}
+
+#[test]
+pub fn test_get_precision_incorrect_precision_key() -> Result<(), Error> {
+    let fake_event_value = json!({ "queryStringParameters": { "nomatch": "ms" } });
+    assert!(get_precision(&fake_event_value).is_none());
+    Ok(())
 }
