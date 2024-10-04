@@ -278,7 +278,15 @@ To configure the sample application and ingest all line protocol data contained 
 ### Requirements
 
 1. [Configure your AWS credentials for use by the AWS SDK for Rust](https://docs.aws.amazon.com/sdkref/latest/guide/creds-config-files.html).
-2. Ensure your IAM permissions contain the permissions listed in 
+2. Ensure your IAM permissions include the permissions listed in the [IAM Execution Permissions](#iam-execution-permissions) section.
+
+### All Tests
+
+To run all tests, including integration tests and unit tests, use the following command:
+
+```shell
+cargo test -- --test-threads=1
+```
 
 ### Integration Tests
 

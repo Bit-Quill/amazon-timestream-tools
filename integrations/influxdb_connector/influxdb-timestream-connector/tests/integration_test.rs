@@ -14,25 +14,22 @@ static MAX_TIMESTREAM_TABLE_NAME_LENGTH: usize = 256;
 
 // A batch of resources to be deleted at the end of a test.
 struct CleanupBatch {
-    client: timestream_write::Client,
     database_name: String,
     table_names_to_delete: Vec<String>,
 }
 
 impl CleanupBatch {
     pub fn new(
-        client: timestream_write::Client,
         database_name: String,
         table_names_to_delete: Vec<String>,
     ) -> CleanupBatch {
         CleanupBatch {
-            client,
             database_name,
             table_names_to_delete,
         }
     }
 
-    async fn cleanup(&mut self) {
+    async fn cleanup(&mut self, client: &timestream_write::Client) {
         for table_name_to_delete in self.table_names_to_delete.iter() {
             println!(
                 "Deleting table {} in database {}",
@@ -41,8 +38,7 @@ impl CleanupBatch {
             thread::sleep(time::Duration::from_secs(
                 influxdb_timestream_connector::TIMESTREAM_API_WAIT_SECONDS,
             ));
-            let result = self
-                .client
+            let result = client
                 .delete_table()
                 .database_name(&self.database_name)
                 .table_name(table_name_to_delete)
@@ -125,9 +121,55 @@ async fn test_mtmm_basic() -> Result<(), Error> {
     assert!(response["statusCode"] == 200);
 
     let mut cleanup_batch =
-        CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
-    cleanup_batch.cleanup().await;
+        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    cleanup_batch.cleanup(&client).await;
 
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_mtmm_create_database() -> Result<(), Error> {
+    // Tests ingesting a single point and creating a database.
+    set_environment_variables();
+    let test_create_database_name = "test_create_database_influxdb_timestream_connector_integ";
+    env::set_var("database_name", test_create_database_name);
+    let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
+        .await
+        .expect("Failed to get client");
+
+    let lp_measurement_name = String::from("readings");
+
+    let point = format!(
+        "{},tag1={} field1={}i {}\n",
+        lp_measurement_name,
+        random_string(9),
+        random_number(0, 100001),
+        chrono::offset::Utc::now().timestamp_millis()
+    );
+
+    let query_parameters = HashMap::from([("precision".to_string(), "ms".to_string())]);
+    let request = LambdaEvent::<Value>::new(
+        json!({ "queryStringParameters": query_parameters, "body": point }),
+        Context::default(),
+    );
+
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
+    println!("Response: {:?}", response);
+
+    let mut cleanup_batch =
+        CleanupBatch::new(test_create_database_name.to_string(), vec![lp_measurement_name]);
+    cleanup_batch.cleanup(&client).await;
+    let database_delete_response = client
+        .delete_database()
+        .database_name(test_create_database_name)
+        .send()
+        .await;
+    if database_delete_response.is_err() {
+        println!("The database {} failed to delete", test_create_database_name);
+    }
+
+    assert!(response.is_ok());
+    assert!(response?["statusCode"] == 200);
     Ok(())
 }
 
@@ -160,8 +202,8 @@ async fn test_mtmm_unusual_query_parameters() -> Result<(), Error> {
     assert!(response["statusCode"] == 200);
 
     let mut cleanup_batch =
-        CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
-    cleanup_batch.cleanup().await;
+        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    cleanup_batch.cleanup(&client).await;
 
     Ok(())
 }
@@ -191,8 +233,8 @@ async fn test_mtmm_no_query_parameters() -> Result<(), Error> {
     assert!(response["statusCode"] == 200);
 
     let mut cleanup_batch =
-        CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
-    cleanup_batch.cleanup().await;
+        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    cleanup_batch.cleanup(&client).await;
 
     Ok(())
 }
@@ -228,8 +270,8 @@ async fn test_mtmm_multiple_timestamps() -> Result<(), Error> {
     assert!(response.is_err());
 
     let mut cleanup_batch =
-        CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
-    cleanup_batch.cleanup().await;
+        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    cleanup_batch.cleanup(&client).await;
 
     Ok(())
 }
@@ -275,8 +317,8 @@ async fn test_mtmm_many_tags_many_fields() -> Result<(), Error> {
         .await
         .expect("Failed to get client");
     let mut cleanup_batch =
-        CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
-    cleanup_batch.cleanup().await;
+        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    cleanup_batch.cleanup(&client).await;
 
     Ok(())
 }
@@ -310,8 +352,8 @@ async fn test_mtmm_float() -> Result<(), Error> {
     assert!(response["statusCode"] == 200);
 
     let mut cleanup_batch =
-        CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
-    cleanup_batch.cleanup().await;
+        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    cleanup_batch.cleanup(&client).await;
 
     Ok(())
 }
@@ -345,8 +387,8 @@ async fn test_mtmm_string() -> Result<(), Error> {
     assert!(response["statusCode"] == 200);
 
     let mut cleanup_batch =
-        CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
-    cleanup_batch.cleanup().await;
+        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    cleanup_batch.cleanup(&client).await;
 
     Ok(())
 }
@@ -380,8 +422,8 @@ async fn test_mtmm_bool() -> Result<(), Error> {
     assert!(response["statusCode"] == 200);
 
     let mut cleanup_batch =
-        CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
-    cleanup_batch.cleanup().await;
+        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    cleanup_batch.cleanup(&client).await;
 
     Ok(())
 }
@@ -419,8 +461,8 @@ async fn test_mtmm_max_tag_length() -> Result<(), Error> {
     assert!(response["statusCode"] == 200);
 
     let mut cleanup_batch =
-        CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
-    cleanup_batch.cleanup().await;
+        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    cleanup_batch.cleanup(&client).await;
 
     Ok(())
 }
@@ -457,8 +499,8 @@ async fn test_mtmm_beyond_max_tag_length() -> Result<(), Error> {
     assert!(response.is_err());
 
     let mut cleanup_batch =
-        CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
-    cleanup_batch.cleanup().await;
+        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    cleanup_batch.cleanup(&client).await;
 
     Ok(())
 }
@@ -495,8 +537,8 @@ async fn test_mtmm_max_field_length() -> Result<(), Error> {
     assert!(response["statusCode"] == 200);
 
     let mut cleanup_batch =
-        CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
-    cleanup_batch.cleanup().await;
+        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    cleanup_batch.cleanup(&client).await;
 
     Ok(())
 }
@@ -532,8 +574,8 @@ async fn test_mtmm_beyond_max_field_length() -> Result<(), Error> {
     assert!(response.is_err());
 
     let mut cleanup_batch =
-        CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
-    cleanup_batch.cleanup().await;
+        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    cleanup_batch.cleanup(&client).await;
 
     Ok(())
 }
@@ -574,8 +616,8 @@ async fn test_mtmm_max_unique_field_keys() -> Result<(), Error> {
     assert!(response["statusCode"] == 200);
 
     let mut cleanup_batch =
-        CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
-    cleanup_batch.cleanup().await;
+        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    cleanup_batch.cleanup(&client).await;
 
     Ok(())
 }
@@ -616,8 +658,8 @@ async fn test_mtmm_beyond_max_unique_field_keys() -> Result<(), Error> {
     assert!(response.is_err());
 
     let mut cleanup_batch =
-        CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
-    cleanup_batch.cleanup().await;
+        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    cleanup_batch.cleanup(&client).await;
 
     Ok(())
 }
@@ -658,8 +700,8 @@ async fn test_mtmm_max_unique_tag_keys() -> Result<(), Error> {
     assert!(response["statusCode"] == 200);
 
     let mut cleanup_batch =
-        CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
-    cleanup_batch.cleanup().await;
+        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    cleanup_batch.cleanup(&client).await;
 
     Ok(())
 }
@@ -700,8 +742,8 @@ async fn test_mtmm_beyond_max_unique_tag_keys() -> Result<(), Error> {
     assert!(response.is_err());
 
     let mut cleanup_batch =
-        CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
-    cleanup_batch.cleanup().await;
+        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    cleanup_batch.cleanup(&client).await;
 
     Ok(())
 }
@@ -737,8 +779,8 @@ async fn test_mtmm_max_table_name_length() -> Result<(), Error> {
     assert!(response["statusCode"] == 200);
 
     let mut cleanup_batch =
-        CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
-    cleanup_batch.cleanup().await;
+        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    cleanup_batch.cleanup(&client).await;
 
     Ok(())
 }
@@ -773,8 +815,8 @@ async fn test_mtmm_beyond_max_table_name_length() -> Result<(), Error> {
     assert!(response.is_err());
 
     let mut cleanup_batch =
-        CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
-    cleanup_batch.cleanup().await;
+        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    cleanup_batch.cleanup(&client).await;
 
     Ok(())
 }
@@ -810,8 +852,8 @@ async fn test_mtmm_nanosecond_precision() -> Result<(), Error> {
     assert!(response["statusCode"] == 200);
 
     let mut cleanup_batch =
-        CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
-    cleanup_batch.cleanup().await;
+        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    cleanup_batch.cleanup(&client).await;
 
     Ok(())
 }
@@ -845,8 +887,8 @@ async fn test_mtmm_microsecond_precision() -> Result<(), Error> {
     assert!(response["statusCode"] == 200);
 
     let mut cleanup_batch =
-        CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
-    cleanup_batch.cleanup().await;
+        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    cleanup_batch.cleanup(&client).await;
 
     Ok(())
 }
@@ -880,8 +922,8 @@ async fn test_mtmm_second_precision() -> Result<(), Error> {
     assert!(response["statusCode"] == 200);
 
     let mut cleanup_batch =
-        CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
-    cleanup_batch.cleanup().await;
+        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    cleanup_batch.cleanup(&client).await;
 
     Ok(())
 }
@@ -919,8 +961,8 @@ async fn test_mtmm_no_precision() -> Result<(), Error> {
     assert!(response["statusCode"] == 200);
 
     let mut cleanup_batch =
-        CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
-    cleanup_batch.cleanup().await;
+        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    cleanup_batch.cleanup(&client).await;
 
     Ok(())
 }
@@ -977,8 +1019,8 @@ pub async fn test_mtmm_small_timestamp() -> Result<(), Error> {
     assert!(response["statusCode"] == 200);
 
     let mut cleanup_batch =
-        CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
-    cleanup_batch.cleanup().await;
+        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    cleanup_batch.cleanup(&client).await;
 
     Ok(())
 }
@@ -1020,8 +1062,8 @@ async fn test_mtmm_5_measurements() -> Result<(), Error> {
     assert!(response["statusCode"] == 200);
 
     let mut cleanup_batch =
-        CleanupBatch::new(client, DATABASE_NAME.to_string(), table_names_to_delete);
-    cleanup_batch.cleanup().await;
+        CleanupBatch::new(DATABASE_NAME.to_string(), table_names_to_delete);
+    cleanup_batch.cleanup(&client).await;
 
     Ok(())
 }
@@ -1063,8 +1105,8 @@ async fn test_mtmm_100_measurements() -> Result<(), Error> {
     assert!(response["statusCode"] == 200);
 
     let mut cleanup_batch =
-        CleanupBatch::new(client, DATABASE_NAME.to_string(), table_names_to_delete);
-    cleanup_batch.cleanup().await;
+        CleanupBatch::new(DATABASE_NAME.to_string(), table_names_to_delete);
+    cleanup_batch.cleanup(&client).await;
 
     Ok(())
 }
@@ -1104,8 +1146,8 @@ async fn test_mtmm_5000_batch() -> Result<(), Error> {
     assert!(response["statusCode"] == 200);
 
     let mut cleanup_batch =
-        CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
-    cleanup_batch.cleanup().await;
+        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    cleanup_batch.cleanup(&client).await;
 
     Ok(())
 }
