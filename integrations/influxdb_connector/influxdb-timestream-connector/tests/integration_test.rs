@@ -76,6 +76,9 @@ fn set_environment_variables() {
         "measure_name_for_multi_measure_records",
         "test_measure_name",
     );
+    env::remove_var("custom_partition_key_type");
+    env::remove_var("custom_partition_key_dimension");
+    env::remove_var("enforce_custom_partition_key");
 }
 
 fn random_string(n: usize) -> String {
