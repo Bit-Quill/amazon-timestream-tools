@@ -95,7 +95,7 @@ pub fn get_precision(event: &Value) -> Option<&str> {
             if let Some(precision_str) = precision.as_str() {
                 return Some(precision_str);
             // event["queryStringParameters"]["precision"] may be an array. This is common from requests
-            // originating form AWS services, such as when the connector is ran with the cargo lambda watch command
+            // originating from AWS services, such as when the connector is ran with the cargo lambda watch command
             } else if let Some(precision_array) = precision.as_array() {
                 if let Some(precision_value) = precision_array.first().and_then(|value| value.as_str()) {
                     return Some(precision_value);
