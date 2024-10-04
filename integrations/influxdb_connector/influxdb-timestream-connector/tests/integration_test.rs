@@ -119,14 +119,15 @@ async fn test_mtmm_basic() -> Result<(), Error> {
         Context::default(),
     );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
-    println!("Response: {}: {:?}", response["statusCode"], response["body"]);
-    assert!(response["statusCode"] == 200);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
+    println!("Response {:?}", response);
 
     let mut cleanup_batch =
         CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
+    assert!(response.is_ok());
+    assert!(response?["statusCode"] == 200);
     Ok(())
 }
 
@@ -200,14 +201,15 @@ async fn test_mtmm_unusual_query_parameters() -> Result<(), Error> {
         Context::default(),
     );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
-    println!("Response: {}: {:?}", response["statusCode"], response["body"]);
-    assert!(response["statusCode"] == 200);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
+    println!("Response {:?}", response);
 
     let mut cleanup_batch =
         CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
+    assert!(response.is_ok());
+    assert!(response?["statusCode"] == 200);
     Ok(())
 }
 
@@ -231,14 +233,15 @@ async fn test_mtmm_no_query_parameters() -> Result<(), Error> {
 
     let request = LambdaEvent::<Value>::new(json!({ "body": point }), Context::default());
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
-    println!("Response: {}: {:?}", response["statusCode"], response["body"]);
-    assert!(response["statusCode"] == 200);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
+    println!("Response {:?}", response);
 
     let mut cleanup_batch =
         CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
+    assert!(response.is_ok());
+    assert!(response?["statusCode"] == 200);
     Ok(())
 }
 
@@ -270,12 +273,12 @@ async fn test_mtmm_multiple_timestamps() -> Result<(), Error> {
     );
 
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
-    assert!(response.is_err());
 
     let mut cleanup_batch =
         CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
+    assert!(response.is_err());
     Ok(())
 }
 
@@ -312,9 +315,8 @@ async fn test_mtmm_many_tags_many_fields() -> Result<(), Error> {
         Context::default(),
     );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
-    println!("Response: {}: {:?}", response["statusCode"], response["body"]);
-    assert!(response["statusCode"] == 200);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
+    println!("Response {:?}", response);
 
     let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
         .await
@@ -323,6 +325,8 @@ async fn test_mtmm_many_tags_many_fields() -> Result<(), Error> {
         CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
+    assert!(response.is_ok());
+    assert!(response?["statusCode"] == 200);
     Ok(())
 }
 
@@ -350,14 +354,15 @@ async fn test_mtmm_float() -> Result<(), Error> {
         Context::default(),
     );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
-    println!("Response: {}: {:?}", response["statusCode"], response["body"]);
-    assert!(response["statusCode"] == 200);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
+    println!("Response {:?}", response);
 
     let mut cleanup_batch =
         CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
+    assert!(response.is_ok());
+    assert!(response?["statusCode"] == 200);
     Ok(())
 }
 
@@ -385,14 +390,15 @@ async fn test_mtmm_string() -> Result<(), Error> {
         Context::default(),
     );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
-    println!("Response: {}: {:?}", response["statusCode"], response["body"]);
-    assert!(response["statusCode"] == 200);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
+    println!("Response {:?}", response);
 
     let mut cleanup_batch =
         CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
+    assert!(response.is_ok());
+    assert!(response?["statusCode"] == 200);
     Ok(())
 }
 
@@ -420,14 +426,15 @@ async fn test_mtmm_bool() -> Result<(), Error> {
         Context::default(),
     );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
-    println!("Response: {}: {:?}", response["statusCode"], response["body"]);
-    assert!(response["statusCode"] == 200);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
+    println!("Response {:?}", response);
 
     let mut cleanup_batch =
         CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
+    assert!(response.is_ok());
+    assert!(response?["statusCode"] == 200);
     Ok(())
 }
 
@@ -459,14 +466,15 @@ async fn test_mtmm_max_tag_length() -> Result<(), Error> {
         Context::default(),
     );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
-    println!("Response: {}: {:?}", response["statusCode"], response["body"]);
-    assert!(response["statusCode"] == 200);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
+    println!("Response {:?}", response);
 
     let mut cleanup_batch =
         CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
+    assert!(response.is_ok());
+    assert!(response?["statusCode"] == 200);
     Ok(())
 }
 
@@ -499,12 +507,12 @@ async fn test_mtmm_beyond_max_tag_length() -> Result<(), Error> {
     );
 
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
-    assert!(response.is_err());
 
     let mut cleanup_batch =
         CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
+    assert!(response.is_err());
     Ok(())
 }
 
@@ -535,14 +543,15 @@ async fn test_mtmm_max_field_length() -> Result<(), Error> {
         Context::default(),
     );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
-    println!("Response: {}: {:?}", response["statusCode"], response["body"]);
-    assert!(response["statusCode"] == 200);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
+    println!("Response {:?}", response);
 
     let mut cleanup_batch =
         CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
+    assert!(response.is_ok());
+    assert!(response?["statusCode"] == 200);
     Ok(())
 }
 
@@ -574,12 +583,12 @@ async fn test_mtmm_beyond_max_field_length() -> Result<(), Error> {
     );
 
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
-    assert!(response.is_err());
 
     let mut cleanup_batch =
         CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
+    assert!(response.is_err());
     Ok(())
 }
 
@@ -614,14 +623,15 @@ async fn test_mtmm_max_unique_field_keys() -> Result<(), Error> {
         Context::default(),
     );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
-    println!("Response: {}: {:?}", response["statusCode"], response["body"]);
-    assert!(response["statusCode"] == 200);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
+    println!("Response {:?}", response);
 
     let mut cleanup_batch =
         CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
+    assert!(response.is_ok());
+    assert!(response?["statusCode"] == 200);
     Ok(())
 }
 
@@ -658,12 +668,12 @@ async fn test_mtmm_beyond_max_unique_field_keys() -> Result<(), Error> {
 
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
     println!("Response: {:?}", response);
-    assert!(response.is_err());
 
     let mut cleanup_batch =
         CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
+    assert!(response.is_err());
     Ok(())
 }
 
@@ -698,14 +708,15 @@ async fn test_mtmm_max_unique_tag_keys() -> Result<(), Error> {
         Context::default(),
     );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
-    println!("Response: {}: {:?}", response["statusCode"], response["body"]);
-    assert!(response["statusCode"] == 200);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
+    println!("Response {:?}", response);
 
     let mut cleanup_batch =
         CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
+    assert!(response.is_ok());
+    assert!(response?["statusCode"] == 200);
     Ok(())
 }
 
@@ -742,12 +753,12 @@ async fn test_mtmm_beyond_max_unique_tag_keys() -> Result<(), Error> {
 
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
     println!("Response: {:?}", response);
-    assert!(response.is_err());
 
     let mut cleanup_batch =
         CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
+    assert!(response.is_err());
     Ok(())
 }
 
@@ -777,14 +788,15 @@ async fn test_mtmm_max_table_name_length() -> Result<(), Error> {
         Context::default(),
     );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
-    println!("Response: {}: {:?}", response["statusCode"], response["body"]);
-    assert!(response["statusCode"] == 200);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
+    println!("Response {:?}", response);
 
     let mut cleanup_batch =
         CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
+    assert!(response.is_ok());
+    assert!(response?["statusCode"] == 200);
     Ok(())
 }
 
@@ -815,12 +827,12 @@ async fn test_mtmm_beyond_max_table_name_length() -> Result<(), Error> {
     );
 
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
-    assert!(response.is_err());
 
     let mut cleanup_batch =
         CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
+    assert!(response.is_err());
     Ok(())
 }
 
@@ -850,14 +862,15 @@ async fn test_mtmm_nanosecond_precision() -> Result<(), Error> {
         Context::default(),
     );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
-    println!("Response: {}: {:?}", response["statusCode"], response["body"]);
-    assert!(response["statusCode"] == 200);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
+    println!("Response {:?}", response);
 
     let mut cleanup_batch =
         CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
+    assert!(response.is_ok());
+    assert!(response?["statusCode"] == 200);
     Ok(())
 }
 
@@ -885,14 +898,15 @@ async fn test_mtmm_microsecond_precision() -> Result<(), Error> {
         Context::default(),
     );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
-    println!("Response: {}: {:?}", response["statusCode"], response["body"]);
-    assert!(response["statusCode"] == 200);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
+    println!("Response {:?}", response);
 
     let mut cleanup_batch =
         CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
+    assert!(response.is_ok());
+    assert!(response?["statusCode"] == 200);
     Ok(())
 }
 
@@ -920,14 +934,15 @@ async fn test_mtmm_second_precision() -> Result<(), Error> {
         Context::default(),
     );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
-    println!("Response: {}: {:?}", response["statusCode"], response["body"]);
-    assert!(response["statusCode"] == 200);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
+    println!("Response {:?}", response);
 
     let mut cleanup_batch =
         CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
+    assert!(response.is_ok());
+    assert!(response?["statusCode"] == 200);
     Ok(())
 }
 
@@ -958,15 +973,15 @@ async fn test_mtmm_no_precision() -> Result<(), Error> {
         Context::default(),
     );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
-
-    println!("Response: {}: {:?}", response["statusCode"], response["body"]);
-    assert!(response["statusCode"] == 200);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
+    println!("Response {:?}", response);
 
     let mut cleanup_batch =
         CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
+    assert!(response.is_ok());
+    assert!(response?["statusCode"] == 200);
     Ok(())
 }
 
@@ -985,11 +1000,11 @@ async fn test_mtmm_empty_point() -> Result<(), Error> {
         Context::default(),
     );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
+    println!("Response {:?}", response);
 
-    println!("Response: {}: {:?}", response["statusCode"], response["body"]);
-    assert!(response["statusCode"] == 200);
-
+    assert!(response.is_ok());
+    assert!(response?["statusCode"] == 200);
     Ok(())
 }
 
@@ -1017,14 +1032,15 @@ pub async fn test_mtmm_small_timestamp() -> Result<(), Error> {
         Context::default(),
     );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
-    println!("Response: {}: {:?}", response["statusCode"], response["body"]);
-    assert!(response["statusCode"] == 200);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
+    println!("Response {:?}", response);
 
     let mut cleanup_batch =
         CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
+    assert!(response.is_ok());
+    assert!(response?["statusCode"] == 200);
     Ok(())
 }
 
@@ -1060,14 +1076,15 @@ async fn test_mtmm_5_measurements() -> Result<(), Error> {
         Context::default(),
     );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
-    println!("Response: {}: {:?}", response["statusCode"], response["body"]);
-    assert!(response["statusCode"] == 200);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
+    println!("Response {:?}", response);
 
     let mut cleanup_batch =
         CleanupBatch::new(DATABASE_NAME.to_string(), table_names_to_delete);
     cleanup_batch.cleanup(&client).await;
 
+    assert!(response.is_ok());
+    assert!(response?["statusCode"] == 200);
     Ok(())
 }
 
@@ -1103,14 +1120,15 @@ async fn test_mtmm_100_measurements() -> Result<(), Error> {
         Context::default(),
     );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
-    println!("Response: {}: {:?}", response["statusCode"], response["body"]);
-    assert!(response["statusCode"] == 200);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
+    println!("Response {:?}", response);
 
     let mut cleanup_batch =
         CleanupBatch::new(DATABASE_NAME.to_string(), table_names_to_delete);
     cleanup_batch.cleanup(&client).await;
 
+    assert!(response.is_ok());
+    assert!(response?["statusCode"] == 200);
     Ok(())
 }
 
@@ -1144,14 +1162,15 @@ async fn test_mtmm_5000_batch() -> Result<(), Error> {
         Context::default(),
     );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
-    println!("Response: {}: {:?}", response["statusCode"], response["body"]);
-    assert!(response["statusCode"] == 200);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
+    println!("Response {:?}", response);
 
     let mut cleanup_batch =
         CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
+    assert!(response.is_ok());
+    assert!(response?["statusCode"] == 200);
     Ok(())
 }
 
@@ -1263,14 +1282,15 @@ async fn test_mtmm_custom_dimension_partition_key_optional_enforcement() -> Resu
         Context::default(),
     );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
-    println!("Response: {}: {:?}", response["statusCode"], response["body"]);
-    assert!(response["statusCode"] == 200);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
+    println!("Response {:?}", response);
 
     let mut cleanup_batch =
-        CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
-    cleanup_batch.cleanup().await;
+        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    cleanup_batch.cleanup(&client).await;
 
+    assert!(response.is_ok());
+    assert!(response?["statusCode"] == 200);
     Ok(())
 }
 
@@ -1302,14 +1322,15 @@ async fn test_mtmm_custom_dimension_partition_key_required_enforcement_accepted(
         Context::default(),
     );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
-    println!("Response: {}: {:?}", response["statusCode"], response["body"]);
-    assert!(response["statusCode"] == 200);
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
+    println!("Response {:?}", response);
 
     let mut cleanup_batch =
-        CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
-    cleanup_batch.cleanup().await;
+        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    cleanup_batch.cleanup(&client).await;
 
+    assert!(response.is_ok());
+    assert!(response?["statusCode"] == 200);
     Ok(())
 }
 
@@ -1343,12 +1364,12 @@ async fn test_mtmm_custom_dimension_partition_key_required_enforcement_rejected(
 
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
     println!("Response: {:?}", response);
-    assert!(response.is_err());
 
     let mut cleanup_batch =
-        CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
-    cleanup_batch.cleanup().await;
+        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    cleanup_batch.cleanup(&client).await;
 
+    assert!(response.is_err());
     Ok(())
 }
 
@@ -1382,12 +1403,12 @@ async fn test_mtmm_custom_dimension_partition_key_no_dimension() -> Result<(), E
 
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
     println!("Response: {:?}", response);
-    assert!(response.is_err());
 
     let mut cleanup_batch =
-        CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
-    cleanup_batch.cleanup().await;
+        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    cleanup_batch.cleanup(&client).await;
 
+    assert!(response.is_err());
     Ok(())
 }
 
@@ -1421,12 +1442,12 @@ async fn test_mtmm_custom_dimension_partition_key_no_enforcement() -> Result<(),
 
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
     println!("Response: {:?}", response);
-    assert!(response.is_err());
 
     let mut cleanup_batch =
-        CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
-    cleanup_batch.cleanup().await;
+        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    cleanup_batch.cleanup(&client).await;
 
+    assert!(response.is_err());
     Ok(())
 }
 
@@ -1458,14 +1479,15 @@ async fn test_mtmm_custom_measure_partition_key() -> Result<(), Error> {
         Context::default(),
     );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
     println!("Response: {:?}", response);
-    assert!(response["statusCode"] == 200);
 
     let mut cleanup_batch =
-        CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
-    cleanup_batch.cleanup().await;
+        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    cleanup_batch.cleanup(&client).await;
 
+    assert!(response.is_ok());
+    assert!(response?["statusCode"] == 200);
     Ok(())
 }
 
@@ -1497,14 +1519,15 @@ async fn test_mtmm_custom_measure_partition_key_with_dimension() -> Result<(), E
         Context::default(),
     );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
     println!("Response: {:?}", response);
-    assert!(response["statusCode"] == 200);
 
     let mut cleanup_batch =
-        CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
-    cleanup_batch.cleanup().await;
+        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    cleanup_batch.cleanup(&client).await;
 
+    assert!(response.is_ok());
+    assert!(response?["statusCode"] == 200);
     Ok(())
 }
 
@@ -1537,13 +1560,14 @@ async fn test_mtmm_custom_measure_partition_key_with_enforcement() -> Result<(),
         Context::default(),
     );
 
-    let response = influxdb_timestream_connector::lambda_handler(&client, request).await?;
+    let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
     println!("Response: {:?}", response);
-    assert!(response["statusCode"] == 200);
 
     let mut cleanup_batch =
-        CleanupBatch::new(client, DATABASE_NAME.to_string(), vec![lp_measurement_name]);
-    cleanup_batch.cleanup().await;
+        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    cleanup_batch.cleanup(&client).await;
 
+    assert!(response.is_ok());
+    assert!(response?["statusCode"] == 200);
     Ok(())
 }
