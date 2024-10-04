@@ -63,10 +63,6 @@ Parameters:
     MinValue: 128
     MaxValue: 8192
     Description: The memory size of the Lambda function.
-  LambdaName:
-    Type: String
-    AllowedPattern: '[a-zA-Z0-9]+[a-zA-Z0-9-]+[a-zA-Z0-9]+'
-    Default: influxdb-timestream-connector-lambda
   RestApiGatewayTimeoutInMillis:
     Type: Number
     MinValue: 2
@@ -90,7 +86,7 @@ Resources:
   RestApiGateway:
     Type: AWS::ApiGateway::RestApi
     Properties:
-      Name: !Ref RestApiGatewayName
+      Name: !Sub "${RestApiGatewayName}-${AWS::StackId}"
 
   ApiResource:
     Type: AWS::ApiGateway::Resource
@@ -396,7 +392,7 @@ Resources:
   RestApiGatewayLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub "/aws/apigateway/${RestApiGatewayName}"
+      LogGroupName: !Sub "/aws/apigateway/${RestApiGateway.RestApiId}"
       RetentionInDays: 14
 
   RestApiGatewayLogsRole:
@@ -443,7 +439,7 @@ Resources:
                   - logs:PutLogEvents
                 Effect: Allow
                 Resource:
-                  - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${LambdaName}:*
+                  - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*
         - PolicyName: LambdaSQSDlqPolicy
           PolicyDocument:
             Version: 2012-10-17
@@ -489,7 +485,6 @@ Resources:
       Architectures:
         - arm64
       CodeUri: ./target/lambda/influxdb-timestream-connector/bootstrap.zip
-      FunctionName: !Ref LambdaName
       DeadLetterQueue:
         Type: SQS
         TargetArn: !GetAtt LambdaDeadLetterQueue.Arn
