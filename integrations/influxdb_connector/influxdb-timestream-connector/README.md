@@ -155,8 +155,6 @@ The REST API Gateway ensures all requests are authenticated with SigV4. Any Infl
 
 ### IAM Deployment Permissions
 
-[//]: # (TODO: Update deployment policy with least privilege once REST API Gateway deployment has been tested.)
-
 The following is the least privileged IAM permissions for deploying the connector.
 
 ```json
@@ -166,15 +164,108 @@ The following is the least privileged IAM permissions for deploying the connecto
         {
             "Effect": "Allow",
             "Action": [
+                "apigateway:PATCH"
+            ],
+            "Resource": "arn:aws:apigateway:{region}::/account"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "apigateway:POST",
+                "apigateway:GET"
+            ],
+            "Resource": [
+                "arn:aws:apigateway:{region}::/usageplans",
+                "arn:aws:apigateway:{region}::/usageplans/*"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "sqs:CreateQueue",
+                "sqs:GetQueueAttributes"
+            ],
+            "Resource": "arn:aws:sqs:{region}:{account-id}:InfluxDBTimestreamConnector-LambdaDeadLetterQueue-*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "logs:CreateLogGroup",
+                "logs:PutRetentionPolicy"
+            ],
+            "Resource": "arn:aws:logs:{region}:{account-id}:log-group:/aws/apigateway/InfluxDBTimestreamConnector-RestApiGatewayLogGroup*:*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "logs:DescribeLogGroups"
+            ],
+            "Resource": "arn:aws:logs:{region}:{account-id}:log-group::log-stream:"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "cloudformation:ListStacks",
+                "apigateway:POST",
+                "apigateway:GET",
+                "apigateway:PUT",
+                "apigateway:PATCH"
+            ],
+            "Resource": [
+                "arn:aws:apigateway:{region}::/restapis/*",
+                "arn:aws:apigateway:{region}::/restapis",
+                "arn:aws:apigateway:{region}::/tags/*"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetObject",
+                "s3:GetBucketPolicy",
+                "s3:GetBucketLocation",
+                "s3:PutObject",
+                "s3:PutBucketPolicy",
+                "s3:PutBucketTagging",
+                "s3:PutEncryptionConfiguration",
+                "s3:PutBucketVersioning",
+                "s3:PutBucketPublicAccessBlock",
+                "s3:CreateBucket",
+                "s3:DescribeJob",
+                "s3:ListAllMyBuckets"
+            ],
+            "Resource": [
+                "arn:aws:s3:::aws-sam-cli-managed-default*"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "cloudformation:CreateChangeSet",
+                "cloudformation:DescribeStacks",
+                "cloudformation:DescribeStackEvents",
+                "cloudformation:DescribeChangeSet",
+                "cloudformation:ExecuteChangeSet",
+                "cloudformation:CreateStack"
+            ],
+            "Resource": [
+                "arn:aws:cloudformation:{region}:{account-id}:stack/InfluxDBTimestreamConnector/*",
+                "arn:aws:cloudformation:{region}:{account-id}:stack/aws-sam-cli-managed-default/*",
+                "arn:aws:cloudformation:{region}:aws:transform/Serverless-2016-10-31"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
                 "iam:CreateRole",
                 "iam:AttachRolePolicy",
                 "iam:UpdateAssumeRolePolicy",
                 "iam:PassRole",
-                "iam:PutRolePolicy"
+                "iam:PutRolePolicy",
+                "iam:GetRole"
             ],
             "Resource": [
-                "arn:aws:iam::{account-id}:role/AWSLambdaBasicExecutionRole",
-                "arn:aws:iam::{account-id}:role/cargo-lambda-role*"
+                "arn:aws:iam::{account ID}:role/InfluxDBTimestreamConnector-RestApiGatewayLogsRole-*",
+                "arn:aws:iam::{account ID}:role/InfluxDBTimestreamConnector-LambdaExecutionRole-*"
             ]
         },
         {
@@ -185,10 +276,13 @@ The following is the least privileged IAM permissions for deploying the connecto
                 "lambda:GetFunction",
                 "lambda:UpdateFunctionConfiguration",
                 "lambda:GetFunctionConfiguration",
-                "lambda:CreateFunctionUrlConfig"
+                "lambda:CreateFunctionUrlConfig",
+                "lambda:TagResource",
+                "lambda:AddPermission",
+                "lambda:PutFunctionEventInvokeConfig"
             ],
-            "Resource": "arn:aws:lambda:{region}:{account-id}:function:influxdb-timestream-connector"
-        }
+            "Resource": "arn:aws:lambda:{region}:{account-id}:function:InfluxDBTimestreamConnector-LambdaFunction-*"
+        },
     ]
 }
 ```
