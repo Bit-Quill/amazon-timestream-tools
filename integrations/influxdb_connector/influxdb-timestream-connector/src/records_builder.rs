@@ -50,12 +50,16 @@ pub fn get_table_config() -> Result<TableConfig, Error> {
     let custom_partition_key_type = match std::env::var("custom_partition_key_type") {
         Ok(custom_partition_key_type_value) => {
             match custom_partition_key_type_value.to_lowercase().as_str() {
-                DIMENSION_PARTITION_KEY_TYPE => Some(timestream_write::types::PartitionKeyType::Dimension),
-                MEASURE_PARTITION_KEY_TYPE => Some(timestream_write::types::PartitionKeyType::Measure),
+                DIMENSION_PARTITION_KEY_TYPE => {
+                    Some(timestream_write::types::PartitionKeyType::Dimension)
+                }
+                MEASURE_PARTITION_KEY_TYPE => {
+                    Some(timestream_write::types::PartitionKeyType::Measure)
+                }
                 _ => None,
             }
-        },
-        _ => None
+        }
+        _ => None,
     };
 
     // If custom_partition_key_type is "dimension", then enforce_custom_partition_key is required (true or false).
@@ -87,8 +91,8 @@ pub fn get_table_config() -> Result<TableConfig, Error> {
     let custom_partition_key_dimension = match custom_partition_key_type {
         Some(timestream_write::types::PartitionKeyType::Dimension) => {
             Some(std::env::var("custom_partition_key_dimension")?)
-        },
-        _ => None
+        }
+        _ => None,
     };
 
     Ok(TableConfig {

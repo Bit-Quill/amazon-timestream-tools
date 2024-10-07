@@ -19,10 +19,7 @@ struct CleanupBatch {
 }
 
 impl CleanupBatch {
-    pub fn new(
-        database_name: String,
-        table_names_to_delete: Vec<String>,
-    ) -> CleanupBatch {
+    pub fn new(database_name: String, table_names_to_delete: Vec<String>) -> CleanupBatch {
         CleanupBatch {
             database_name,
             table_names_to_delete,
@@ -122,8 +119,7 @@ async fn test_mtmm_basic() -> Result<(), Error> {
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
     println!("Response {:?}", response);
 
-    let mut cleanup_batch =
-        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    let mut cleanup_batch = CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
     assert!(response.is_ok());
@@ -160,8 +156,10 @@ async fn test_mtmm_create_database() -> Result<(), Error> {
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
     println!("Response: {:?}", response);
 
-    let mut cleanup_batch =
-        CleanupBatch::new(test_create_database_name.to_string(), vec![lp_measurement_name]);
+    let mut cleanup_batch = CleanupBatch::new(
+        test_create_database_name.to_string(),
+        vec![lp_measurement_name],
+    );
     cleanup_batch.cleanup(&client).await;
     let database_delete_response = client
         .delete_database()
@@ -169,7 +167,10 @@ async fn test_mtmm_create_database() -> Result<(), Error> {
         .send()
         .await;
     if database_delete_response.is_err() {
-        println!("The database {} failed to delete", test_create_database_name);
+        println!(
+            "The database {} failed to delete",
+            test_create_database_name
+        );
     }
 
     assert!(response.is_ok());
@@ -204,8 +205,7 @@ async fn test_mtmm_unusual_query_parameters() -> Result<(), Error> {
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
     println!("Response {:?}", response);
 
-    let mut cleanup_batch =
-        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    let mut cleanup_batch = CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
     assert!(response.is_ok());
@@ -236,8 +236,7 @@ async fn test_mtmm_no_query_parameters() -> Result<(), Error> {
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
     println!("Response {:?}", response);
 
-    let mut cleanup_batch =
-        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    let mut cleanup_batch = CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
     assert!(response.is_ok());
@@ -274,8 +273,7 @@ async fn test_mtmm_multiple_timestamps() -> Result<(), Error> {
 
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
 
-    let mut cleanup_batch =
-        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    let mut cleanup_batch = CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
     assert!(response.is_err());
@@ -321,8 +319,7 @@ async fn test_mtmm_many_tags_many_fields() -> Result<(), Error> {
     let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
         .await
         .expect("Failed to get client");
-    let mut cleanup_batch =
-        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    let mut cleanup_batch = CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
     assert!(response.is_ok());
@@ -357,8 +354,7 @@ async fn test_mtmm_float() -> Result<(), Error> {
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
     println!("Response {:?}", response);
 
-    let mut cleanup_batch =
-        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    let mut cleanup_batch = CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
     assert!(response.is_ok());
@@ -393,8 +389,7 @@ async fn test_mtmm_string() -> Result<(), Error> {
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
     println!("Response {:?}", response);
 
-    let mut cleanup_batch =
-        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    let mut cleanup_batch = CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
     assert!(response.is_ok());
@@ -429,8 +424,7 @@ async fn test_mtmm_bool() -> Result<(), Error> {
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
     println!("Response {:?}", response);
 
-    let mut cleanup_batch =
-        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    let mut cleanup_batch = CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
     assert!(response.is_ok());
@@ -469,8 +463,7 @@ async fn test_mtmm_max_tag_length() -> Result<(), Error> {
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
     println!("Response {:?}", response);
 
-    let mut cleanup_batch =
-        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    let mut cleanup_batch = CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
     assert!(response.is_ok());
@@ -508,8 +501,7 @@ async fn test_mtmm_beyond_max_tag_length() -> Result<(), Error> {
 
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
 
-    let mut cleanup_batch =
-        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    let mut cleanup_batch = CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
     assert!(response.is_err());
@@ -546,8 +538,7 @@ async fn test_mtmm_max_field_length() -> Result<(), Error> {
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
     println!("Response {:?}", response);
 
-    let mut cleanup_batch =
-        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    let mut cleanup_batch = CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
     assert!(response.is_ok());
@@ -584,8 +575,7 @@ async fn test_mtmm_beyond_max_field_length() -> Result<(), Error> {
 
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
 
-    let mut cleanup_batch =
-        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    let mut cleanup_batch = CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
     assert!(response.is_err());
@@ -626,8 +616,7 @@ async fn test_mtmm_max_unique_field_keys() -> Result<(), Error> {
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
     println!("Response {:?}", response);
 
-    let mut cleanup_batch =
-        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    let mut cleanup_batch = CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
     assert!(response.is_ok());
@@ -669,8 +658,7 @@ async fn test_mtmm_beyond_max_unique_field_keys() -> Result<(), Error> {
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
     println!("Response: {:?}", response);
 
-    let mut cleanup_batch =
-        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    let mut cleanup_batch = CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
     assert!(response.is_err());
@@ -711,8 +699,7 @@ async fn test_mtmm_max_unique_tag_keys() -> Result<(), Error> {
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
     println!("Response {:?}", response);
 
-    let mut cleanup_batch =
-        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    let mut cleanup_batch = CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
     assert!(response.is_ok());
@@ -754,8 +741,7 @@ async fn test_mtmm_beyond_max_unique_tag_keys() -> Result<(), Error> {
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
     println!("Response: {:?}", response);
 
-    let mut cleanup_batch =
-        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    let mut cleanup_batch = CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
     assert!(response.is_err());
@@ -791,8 +777,7 @@ async fn test_mtmm_max_table_name_length() -> Result<(), Error> {
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
     println!("Response {:?}", response);
 
-    let mut cleanup_batch =
-        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    let mut cleanup_batch = CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
     assert!(response.is_ok());
@@ -828,8 +813,7 @@ async fn test_mtmm_beyond_max_table_name_length() -> Result<(), Error> {
 
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
 
-    let mut cleanup_batch =
-        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    let mut cleanup_batch = CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
     assert!(response.is_err());
@@ -865,8 +849,7 @@ async fn test_mtmm_nanosecond_precision() -> Result<(), Error> {
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
     println!("Response {:?}", response);
 
-    let mut cleanup_batch =
-        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    let mut cleanup_batch = CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
     assert!(response.is_ok());
@@ -901,8 +884,7 @@ async fn test_mtmm_microsecond_precision() -> Result<(), Error> {
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
     println!("Response {:?}", response);
 
-    let mut cleanup_batch =
-        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    let mut cleanup_batch = CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
     assert!(response.is_ok());
@@ -937,8 +919,7 @@ async fn test_mtmm_second_precision() -> Result<(), Error> {
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
     println!("Response {:?}", response);
 
-    let mut cleanup_batch =
-        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    let mut cleanup_batch = CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
     assert!(response.is_ok());
@@ -976,8 +957,7 @@ async fn test_mtmm_no_precision() -> Result<(), Error> {
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
     println!("Response {:?}", response);
 
-    let mut cleanup_batch =
-        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    let mut cleanup_batch = CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
     assert!(response.is_ok());
@@ -1035,8 +1015,7 @@ pub async fn test_mtmm_small_timestamp() -> Result<(), Error> {
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
     println!("Response {:?}", response);
 
-    let mut cleanup_batch =
-        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    let mut cleanup_batch = CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
     assert!(response.is_ok());
@@ -1079,8 +1058,7 @@ async fn test_mtmm_5_measurements() -> Result<(), Error> {
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
     println!("Response {:?}", response);
 
-    let mut cleanup_batch =
-        CleanupBatch::new(DATABASE_NAME.to_string(), table_names_to_delete);
+    let mut cleanup_batch = CleanupBatch::new(DATABASE_NAME.to_string(), table_names_to_delete);
     cleanup_batch.cleanup(&client).await;
 
     assert!(response.is_ok());
@@ -1123,8 +1101,7 @@ async fn test_mtmm_100_measurements() -> Result<(), Error> {
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
     println!("Response {:?}", response);
 
-    let mut cleanup_batch =
-        CleanupBatch::new(DATABASE_NAME.to_string(), table_names_to_delete);
+    let mut cleanup_batch = CleanupBatch::new(DATABASE_NAME.to_string(), table_names_to_delete);
     cleanup_batch.cleanup(&client).await;
 
     assert!(response.is_ok());
@@ -1165,8 +1142,7 @@ async fn test_mtmm_5000_batch() -> Result<(), Error> {
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
     println!("Response {:?}", response);
 
-    let mut cleanup_batch =
-        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    let mut cleanup_batch = CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
     assert!(response.is_ok());
@@ -1285,8 +1261,7 @@ async fn test_mtmm_custom_dimension_partition_key_optional_enforcement() -> Resu
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
     println!("Response {:?}", response);
 
-    let mut cleanup_batch =
-        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    let mut cleanup_batch = CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
     assert!(response.is_ok());
@@ -1295,7 +1270,8 @@ async fn test_mtmm_custom_dimension_partition_key_optional_enforcement() -> Resu
 }
 
 #[tokio::test]
-async fn test_mtmm_custom_dimension_partition_key_required_enforcement_accepted() -> Result<(), Error> {
+async fn test_mtmm_custom_dimension_partition_key_required_enforcement_accepted(
+) -> Result<(), Error> {
     // Tests ingesting a single point and specifying a valid configuration for
     // a custom dimension partition key with required enforcement and a successful ingestion.
     set_environment_variables();
@@ -1325,8 +1301,7 @@ async fn test_mtmm_custom_dimension_partition_key_required_enforcement_accepted(
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
     println!("Response {:?}", response);
 
-    let mut cleanup_batch =
-        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    let mut cleanup_batch = CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
     assert!(response.is_ok());
@@ -1335,7 +1310,8 @@ async fn test_mtmm_custom_dimension_partition_key_required_enforcement_accepted(
 }
 
 #[tokio::test]
-async fn test_mtmm_custom_dimension_partition_key_required_enforcement_rejected() -> Result<(), Error> {
+async fn test_mtmm_custom_dimension_partition_key_required_enforcement_rejected(
+) -> Result<(), Error> {
     // Tests ingesting a single point and specifying a valid configuration for
     // a custom dimension partition key with required enforcement and an unsuccessful ingestion.
     set_environment_variables();
@@ -1365,8 +1341,7 @@ async fn test_mtmm_custom_dimension_partition_key_required_enforcement_rejected(
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
     println!("Response: {:?}", response);
 
-    let mut cleanup_batch =
-        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    let mut cleanup_batch = CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
     assert!(response.is_err());
@@ -1404,8 +1379,7 @@ async fn test_mtmm_custom_dimension_partition_key_no_dimension() -> Result<(), E
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
     println!("Response: {:?}", response);
 
-    let mut cleanup_batch =
-        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    let mut cleanup_batch = CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
     assert!(response.is_err());
@@ -1443,8 +1417,7 @@ async fn test_mtmm_custom_dimension_partition_key_no_enforcement() -> Result<(),
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
     println!("Response: {:?}", response);
 
-    let mut cleanup_batch =
-        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    let mut cleanup_batch = CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
     assert!(response.is_err());
@@ -1482,8 +1455,7 @@ async fn test_mtmm_custom_measure_partition_key() -> Result<(), Error> {
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
     println!("Response: {:?}", response);
 
-    let mut cleanup_batch =
-        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    let mut cleanup_batch = CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
     assert!(response.is_ok());
@@ -1522,8 +1494,7 @@ async fn test_mtmm_custom_measure_partition_key_with_dimension() -> Result<(), E
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
     println!("Response: {:?}", response);
 
-    let mut cleanup_batch =
-        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    let mut cleanup_batch = CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
     assert!(response.is_ok());
@@ -1563,8 +1534,7 @@ async fn test_mtmm_custom_measure_partition_key_with_enforcement() -> Result<(),
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
     println!("Response: {:?}", response);
 
-    let mut cleanup_batch =
-        CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
+    let mut cleanup_batch = CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
     assert!(response.is_ok());
