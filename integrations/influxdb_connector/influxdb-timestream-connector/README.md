@@ -56,7 +56,7 @@ The following parameters are available when deploying the connector as part of a
 | Parameter     | Description | Default Value |
 |---------------|-------------|---------------|
 | `DatabaseName`  | The name of the database to use for ingestion. | `influxdb-line-protocol` |
-| `LambdaMemorySize` | The size of the memory in MB allocated per invocation of the function. | `512` |
+| `LambdaMemorySize` | The size of the memory in MB allocated per invocation of the function. | `128` |
 | `LambdaName` | The name to use for the Lambda function. | `influxdb-timestream-connector-lambda` |
 | `LambdaTimeoutInSeconds` | The number of seconds to run the Lambda function before timing out. | `30` |
 | `MeasureNameForMultiMeasureRecords` | The value to use in records as the `measure_name`, as shown in the [example line protocol to Timestream records translation](#resulting-cpu_load_short-timestream-for-liveanalytics-table). | `influxdb-measure` |

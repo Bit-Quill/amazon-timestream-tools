@@ -59,7 +59,7 @@ Parameters:
     Description: The default stage name of the REST API Gateway.
   LambdaMemorySize:
     Type: Number
-    Default: 512
+    Default: 128
     MinValue: 128
     MaxValue: 8192
     Description: The memory size of the Lambda function.
