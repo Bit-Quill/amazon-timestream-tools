@@ -153,6 +153,8 @@ The REST API Gateway ensures all requests are authenticated with SigV4. Any Infl
 
 ## IAM Permissions
 
+The following permissions are the least required permissions for deploying and executing the connector. These permissions assume the stack is named `InfluxDBTimestreamConnector`.
+
 ### IAM Deployment Permissions
 
 The following is the least privileged IAM permissions for deploying the connector.
