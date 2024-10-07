@@ -266,8 +266,8 @@ The following is the least privileged IAM permissions for deploying the connecto
                 "iam:GetRole"
             ],
             "Resource": [
-                "arn:aws:iam::{account ID}:role/InfluxDBTimestreamConnector-RestApiGatewayLogsRole-*",
-                "arn:aws:iam::{account ID}:role/InfluxDBTimestreamConnector-LambdaExecutionRole-*"
+                "arn:aws:iam::{account-id}:role/InfluxDBTimestreamConnector-RestApiGatewayLogsRole-*",
+                "arn:aws:iam::{account-id}:role/InfluxDBTimestreamConnector-LambdaExecutionRole-*"
             ]
         },
         {
