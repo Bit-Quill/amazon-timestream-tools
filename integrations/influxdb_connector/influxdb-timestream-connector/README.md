@@ -74,15 +74,14 @@ The following parameters are available when deploying the connector as part of a
     ```
     cargo lambda build --release --arm64 --output-format zip
     ```
-5. Run the following command, replacing `<region>` with the AWS region you want to deploy in, `<stack name>` with your desired stack name and providing parameter overrides as desired. Note that this example command uses `--resolve-s3` to automatically create an S3 bucket to use for packaging and deployment and `--capabilities CAPABILITY_IAM` to allow the creation of IAM roles.
+5. Run the following command, replacing `<region>` with the AWS region you want to deploy in and providing parameter overrides as desired. Note that this example command uses the provided `samconfig.toml` file and by default sets the name of the stack to `InfluxDBTimestreamConnector`.
 
     ```shell
     sam deploy template.yml \
         --region <region> \
-        --stack-name <stack name> \
-        --resolve-s3 \
-        --capabilities CAPABILITY_IAM \
-        --parameter-overrides ParameterKey=exampleKey,ParameterValue=exampleValue
+        --parameter-overrides \
+            ParameterKey1=ParameterValue1 \
+            ParameterKey2=ParameterValue2
     ```
 6. Once the stack has finished deploying, take note of the output `Endpoint` value. This value will be used as the endpoint for all write requests and is analogous to an [InfluxDB host address](https://docs.influxdata.com/influxdb/v2/reference/urls/) and is used in the same way, for example, `<endpoint>/api/v2/write`.
 
