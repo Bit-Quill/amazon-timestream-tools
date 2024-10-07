@@ -101,7 +101,6 @@ pub fn get_precision(event: &Value) -> Option<&str> {
                     return Some(precision_value);
                 }
             }
-
     }
 
     None

@@ -62,7 +62,7 @@ The following parameters are available when deploying the connector as part of a
 | `EnableTableCreation` | Whether to allow table creation upon ingestion of records. When using multi-table multi measure schema, each unique line protocol measurement in a request will result in the creation of a new table with the same name as the measurement. | `true` |
 | `EnableMagStoreWrites` | if `EnableTableCreation` is `true`, whether to enable mag store writes. | `true` |
 | `EnforceCustomPartitionKey` | Whether to only allow the ingestion of records that contain the custom partition key. Valid options are `true` or `false`. | |
-| `LambdaMemorySize` | The size of the memory in MB allocated per invocation of the function. | `512` |
+| `LambdaMemorySize` | The size of the memory in MB allocated per invocation of the function. | `128` |
 | `LambdaName` | The name to use for the Lambda function. | `influxdb-timestream-connector-lambda` |
 | `LambdaTimeoutInSeconds` | The number of seconds to run the Lambda function before timing out. | `30` |
 | `MagStoreRetentionPeriod` | If `EnableTableCreation` is `true`, the number of days in which data must be stored in the magnetic store. | `8000` |

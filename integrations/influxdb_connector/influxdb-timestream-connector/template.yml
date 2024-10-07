@@ -81,7 +81,7 @@ Parameters:
     Description: The default stage name of the REST API Gateway.
   LambdaMemorySize:
     Type: Number
-    Default: 512
+    Default: 128
     MinValue: 128
     MaxValue: 8192
     Description: The memory size of the Lambda function.
@@ -115,7 +115,7 @@ Resources:
   RestApiGateway:
     Type: AWS::ApiGateway::RestApi
     Properties:
-      Name: !Ref RestApiGatewayName
+      Name: !Sub "${RestApiGatewayName}-${AWS::StackName}"
 
   ApiResource:
     Type: AWS::ApiGateway::Resource
@@ -468,7 +468,7 @@ Resources:
                   - logs:PutLogEvents
                 Effect: Allow
                 Resource:
-                  - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${LambdaName}:*
+                  - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*
         - PolicyName: LambdaSQSDlqPolicy
           PolicyDocument:
             Version: 2012-10-17
@@ -514,7 +514,6 @@ Resources:
       Architectures:
         - arm64
       CodeUri: ./target/lambda/influxdb-timestream-connector/bootstrap.zip
-      FunctionName: !Ref LambdaName
       DeadLetterQueue:
         Type: SQS
         TargetArn: !GetAtt LambdaDeadLetterQueue.Arn
