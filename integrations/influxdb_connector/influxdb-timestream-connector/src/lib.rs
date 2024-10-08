@@ -133,16 +133,27 @@ pub async fn lambda_handler(
         .as_bytes();
 
     match handle_body(client, data, &precision).await {
-        // This is the format required for custom Lambda responses
+        // This is the format required for custom Lambda 1.0 responses
         // https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-develop-integrations-lambda.html
-        Ok(_) => Ok(json!({
-            "statusCode": 200,
-            "body": "{\"message\": \"Success\"}",
-            "isBase64Encoded": false,
-            "headers": {
-                "Content-Type": "application/json"
+        Ok(_) => {
+            let mut response = json!({
+                "statusCode": 200,
+                "body": "{\"message\": \"Success\"}",
+                "isBase64Encoded": false,
+                "headers": {
+                    "Content-Type": "application/json"
+                }
+            });
+            // cargo lambda watch expects a Lambda response in 2.0 format.
+            // This means a "cookies" array must be added to the response.
+            // If this "cookies" array is present and the connector is deployed
+            // with synchronous invocation in a stack, users will receive a
+            // 502 error
+            if std::env::var("local_invocation").is_ok() {
+                response["cookies"] = json!([]);
             }
-        })),
+            Ok(response)
+        }
         // An Err is required in order to send messages to the Lambda's
         // dead letter queue, when the connector is deployed as part of a stack
         // with asynchronous invocation
