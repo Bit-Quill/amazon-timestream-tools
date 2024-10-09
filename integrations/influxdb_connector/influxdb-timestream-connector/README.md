@@ -437,6 +437,35 @@ Due to the connector translating line protocol to Timestream records, line proto
 
 There is a delay of one second added before deleting or creating a table or database. This is because of Timestream for LiveAnalytics' "Throttle rate for CRUD APIs" [quota](https://docs.aws.amazon.com/timestream/latest/developerguide/ts-limits.html#limits.default) of one table/database deletion/creation per second.
 
+## Troubleshooting
+
+### Cargo Lambda Build Error "can't find crate for core"
+
+This error can happen when running `cargo lambda build` on macOS. This error may include the message "the `aarch64-unknown-linux-gnu` target may not be installed."
+
+#### Solution
+
+This error can happen on macOS when Rust is installed with `brew`.
+
+Remove `brew`'s version of Rust:
+
+```shell
+brew uninstall rust
+```
+
+Install Rust by following the installation instructions on its [official site](https://www.rust-lang.org/tools/install).
+
+### Table Already Exists Error
+
+Error in full: ConflictException: Timestream was unable to process this request because it contains resource that already exists.
+
+When using multi-table multi measure schema and ingesting line protocol data in parallel with measurements that do not yet have corresponding tables in Timestream for LiveAnalytics, a ConflictException can occur. This happens when two or more concurrent Lambda function instances attempt to create a new table.
+
+#### Solution
+
+1. Consider creating the tables before ingestion, using each unique measurement in the line protocol data as the table names.
+2. Re-ingest failed requests. Failed requests will be stored in the Lambda's dead letter queue.
+
 ## Caveats
 
 ### Line Protocol Tag Requirement
