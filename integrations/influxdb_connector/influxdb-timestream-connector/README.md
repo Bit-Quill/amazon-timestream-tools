@@ -153,7 +153,7 @@ The REST API Gateway ensures all requests are authenticated with SigV4. Any Infl
 
 ## IAM Permissions
 
-The following permissions are the least-privilege permissions for deploying and executing the connector. These permissions assume the stack is named `InfluxDBTimestreamConnector`.
+The following permissions are the least-privilege permissions for deploying and executing the connector. These permissions assume the stack is named `InfluxDBTimestreamConnector` and that the REST API Gateway is named `InfluxDB-Timestream-Connector-REST-API-Gateway`.
 
 ### IAM Deployment Permissions
 
@@ -195,7 +195,7 @@ The following is the least-privilege IAM permissions for deploying the connector
                 "logs:CreateLogGroup",
                 "logs:PutRetentionPolicy"
             ],
-            "Resource": "arn:aws:logs:{region}:{account-id}:log-group:/aws/apigateway/InfluxDBTimestreamConnector-RestApiGatewayLogGroup*:*"
+            "Resource": "arn:aws:logs:{region}:{account-id}:log-group:/aws/apigateway/InfluxDBTimestreamConnector-InfluxDB-Timestream-Connector-REST-API-Gateway*:*"
         },
         {
             "Effect": "Allow",
@@ -207,7 +207,6 @@ The following is the least-privilege IAM permissions for deploying the connector
         {
             "Effect": "Allow",
             "Action": [
-                "cloudformation:ListStacks",
                 "apigateway:POST",
                 "apigateway:GET",
                 "apigateway:PUT",
