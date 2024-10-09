@@ -157,7 +157,7 @@ The following permissions are the least-privilege permissions for deploying and 
 
 ### IAM Deployment Permissions
 
-The following is the least privileged IAM permissions for deploying the connector.
+The following is the least-privileged IAM permissions for deploying the connector.
 
 ```json
 {
