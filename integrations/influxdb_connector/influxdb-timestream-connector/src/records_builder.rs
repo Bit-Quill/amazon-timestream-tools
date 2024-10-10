@@ -190,6 +190,9 @@ pub fn validate_env_variables() -> Result<(), Error> {
             ));
         }
 
+        // Check required environment variables for when custom partition key type is "dimension." If it is "measure,"
+        // no other environment variables are necessary.
+
         let custom_partition_key_dimension = std::env::var("custom_partition_key_dimension");
 
         if custom_partition_key_type == DIMENSION_PARTITION_KEY_TYPE
@@ -206,7 +209,7 @@ pub fn validate_env_variables() -> Result<(), Error> {
             && enforce_custom_partition_key.is_err()
         {
             return Err(anyhow!(
-                format!("enforce_custom_partition_key value must be specified (true or false) when custom_partition_key_type is {MEASURE_PARTITION_KEY_TYPE}")
+                format!("enforce_custom_partition_key value must be specified (true or false) when custom_partition_key_type is {DIMENSION_PARTITION_KEY_TYPE}")
             ));
         }
     }
