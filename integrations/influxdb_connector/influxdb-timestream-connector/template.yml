@@ -421,7 +421,7 @@ Resources:
   RestApiGatewayLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub "/aws/apigateway/${RestApiGatewayName}"
+      LogGroupName: !Sub "/aws/apigateway/${AWS::StackName}-${RestApiGatewayName}"
       RetentionInDays: 14
 
   RestApiGatewayLogsRole:
@@ -468,7 +468,7 @@ Resources:
                   - logs:PutLogEvents
                 Effect: Allow
                 Resource:
-                  - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${AWS::StackName}-LambdaFunction-*:*"
         - PolicyName: LambdaSQSDlqPolicy
           PolicyDocument:
             Version: 2012-10-17

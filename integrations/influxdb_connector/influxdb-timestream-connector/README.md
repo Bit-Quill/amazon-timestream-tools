@@ -82,15 +82,14 @@ The following parameters are available when deploying the connector as part of a
     ```
     cargo lambda build --release --arm64 --output-format zip
     ```
-5. Run the following command, replacing `<region>` with the AWS region you want to deploy in, `<stack name>` with your desired stack name and providing parameter overrides as desired. Note that this example command uses `--resolve-s3` to automatically create an S3 bucket to use for packaging and deployment and `--capabilities CAPABILITY_IAM` to allow the creation of IAM roles.
+5. Run the following command, replacing `<region>` with the AWS region you want to deploy in and providing parameter overrides as desired. Note that this example command uses the provided `samconfig.toml` file and by default sets the name of the stack to `InfluxDBTimestreamConnector`.
 
     ```shell
     sam deploy template.yml \
         --region <region> \
-        --stack-name <stack name> \
-        --resolve-s3 \
-        --capabilities CAPABILITY_IAM \
-        --parameter-overrides ParameterKey=exampleKey,ParameterValue=exampleValue
+        --parameter-overrides \
+            ParameterKey1=ParameterValue1 \
+            ParameterKey2=ParameterValue2
     ```
 6. Once the stack has finished deploying, take note of the output `Endpoint` value. This value will be used as the endpoint for all write requests and is analogous to an [InfluxDB host address](https://docs.influxdata.com/influxdb/v2/reference/urls/) and is used in the same way, for example, `<endpoint>/api/v2/write`.
 
@@ -213,11 +212,11 @@ The REST API Gateway ensures all requests are authenticated with SigV4. Any Infl
 
 ## IAM Permissions
 
+The following permissions are the least-privilege permissions for deploying and executing the connector. These permissions assume the stack is named `InfluxDBTimestreamConnector` and that the REST API Gateway is named `InfluxDB-Timestream-Connector-REST-API-Gateway`.
+
 ### IAM Deployment Permissions
 
-[//]: # (TODO: Update deployment policy with least privilege once REST API Gateway deployment has been tested.)
-
-The following is the least privileged IAM permissions for deploying the connector.
+The following is the least-privilege IAM permissions for deploying the connector.
 
 ```json
 {
@@ -226,15 +225,107 @@ The following is the least privileged IAM permissions for deploying the connecto
         {
             "Effect": "Allow",
             "Action": [
+                "apigateway:PATCH"
+            ],
+            "Resource": "arn:aws:apigateway:{region}::/account"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "apigateway:POST",
+                "apigateway:GET"
+            ],
+            "Resource": [
+                "arn:aws:apigateway:{region}::/usageplans",
+                "arn:aws:apigateway:{region}::/usageplans/*"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "sqs:CreateQueue",
+                "sqs:GetQueueAttributes"
+            ],
+            "Resource": "arn:aws:sqs:{region}:{account-id}:InfluxDBTimestreamConnector-LambdaDeadLetterQueue-*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "logs:CreateLogGroup",
+                "logs:PutRetentionPolicy"
+            ],
+            "Resource": "arn:aws:logs:{region}:{account-id}:log-group:/aws/apigateway/InfluxDBTimestreamConnector-InfluxDB-Timestream-Connector-REST-API-Gateway*:*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "logs:DescribeLogGroups"
+            ],
+            "Resource": "arn:aws:logs:{region}:{account-id}:log-group::log-stream:"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "apigateway:POST",
+                "apigateway:GET",
+                "apigateway:PUT",
+                "apigateway:PATCH"
+            ],
+            "Resource": [
+                "arn:aws:apigateway:{region}::/restapis/*",
+                "arn:aws:apigateway:{region}::/restapis",
+                "arn:aws:apigateway:{region}::/tags/*"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetObject",
+                "s3:GetBucketPolicy",
+                "s3:GetBucketLocation",
+                "s3:PutObject",
+                "s3:PutBucketPolicy",
+                "s3:PutBucketTagging",
+                "s3:PutEncryptionConfiguration",
+                "s3:PutBucketVersioning",
+                "s3:PutBucketPublicAccessBlock",
+                "s3:CreateBucket",
+                "s3:DescribeJob",
+                "s3:ListAllMyBuckets"
+            ],
+            "Resource": [
+                "arn:aws:s3:::aws-sam-cli-managed-default*"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "cloudformation:CreateChangeSet",
+                "cloudformation:DescribeStacks",
+                "cloudformation:DescribeStackEvents",
+                "cloudformation:DescribeChangeSet",
+                "cloudformation:ExecuteChangeSet",
+                "cloudformation:CreateStack"
+            ],
+            "Resource": [
+                "arn:aws:cloudformation:{region}:{account-id}:stack/InfluxDBTimestreamConnector/*",
+                "arn:aws:cloudformation:{region}:{account-id}:stack/aws-sam-cli-managed-default/*",
+                "arn:aws:cloudformation:{region}:aws:transform/Serverless-2016-10-31"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
                 "iam:CreateRole",
                 "iam:AttachRolePolicy",
                 "iam:UpdateAssumeRolePolicy",
                 "iam:PassRole",
-                "iam:PutRolePolicy"
+                "iam:PutRolePolicy",
+                "iam:GetRole"
             ],
             "Resource": [
-                "arn:aws:iam::{account-id}:role/AWSLambdaBasicExecutionRole",
-                "arn:aws:iam::{account-id}:role/cargo-lambda-role*"
+                "arn:aws:iam::{account-id}:role/InfluxDBTimestreamConnector-RestApiGatewayLogsRole-*",
+                "arn:aws:iam::{account-id}:role/InfluxDBTimestreamConnector-LambdaExecutionRole-*"
             ]
         },
         {
@@ -245,10 +336,13 @@ The following is the least privileged IAM permissions for deploying the connecto
                 "lambda:GetFunction",
                 "lambda:UpdateFunctionConfiguration",
                 "lambda:GetFunctionConfiguration",
-                "lambda:CreateFunctionUrlConfig"
+                "lambda:CreateFunctionUrlConfig",
+                "lambda:TagResource",
+                "lambda:AddPermission",
+                "lambda:PutFunctionEventInvokeConfig"
             ],
-            "Resource": "arn:aws:lambda:{region}:{account-id}:function:influxdb-timestream-connector"
-        }
+            "Resource": "arn:aws:lambda:{region}:{account-id}:function:InfluxDBTimestreamConnector-LambdaFunction-*"
+        },
     ]
 }
 ```
@@ -400,6 +494,35 @@ Due to the connector translating line protocol to Timestream records, line proto
 ### Database and Table Creation Delay
 
 There is a delay of one second added before deleting or creating a table or database. This is because of Timestream for LiveAnalytics' "Throttle rate for CRUD APIs" [quota](https://docs.aws.amazon.com/timestream/latest/developerguide/ts-limits.html#limits.default) of one table/database deletion/creation per second.
+
+## Troubleshooting
+
+### Cargo Lambda Build Error "can't find crate for core"
+
+This error can happen when running `cargo lambda build` on macOS. This error may include the message "the `aarch64-unknown-linux-gnu` target may not be installed."
+
+#### Solution
+
+This error can happen on macOS when Rust is installed with `brew`.
+
+Remove `brew`'s version of Rust:
+
+```shell
+brew uninstall rust
+```
+
+Install Rust by following the installation instructions on its [official site](https://www.rust-lang.org/tools/install).
+
+### Table Already Exists Error
+
+Error in full: ConflictException: Timestream was unable to process this request because it contains resource that already exists.
+
+When using multi-table multi measure schema and ingesting line protocol data in parallel with measurements that do not yet have corresponding tables in Timestream for LiveAnalytics, a ConflictException can occur. This happens when two or more concurrent Lambda function instances attempt to create a new table.
+
+#### Solution
+
+1. Consider creating the tables before ingestion, using each unique measurement in the line protocol data as the table names.
+2. Re-ingest failed requests. Failed requests will be stored in the Lambda's dead letter queue.
 
 ## Caveats
 
