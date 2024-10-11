@@ -12,6 +12,18 @@ Metadata:
     SemanticVersion: 1.0.0
 
 Parameters:
+  CustomPartitionKeyDimension:
+    Description: The dimension to use as the partition key. This parameter is required if the CustomPartitionKeyType parameter is set to 'dimension'.
+    Type: String
+    Default: ''
+  CustomPartitionKeyType:
+    Description: The type of custom partition key to use. Valid options are 'dimension' or 'measure'. The 'dimension' option requires the CustomPartitionKeyDimension parameter to also be set. If this parameter is not provided, newly-created tables will use default partitioning and none of the parameters relating to custom partition keys will be used.
+    Type: String
+    AllowedValues:
+      - 'dimension'
+      - 'measure'
+      - ''
+    Default: ''
   DatabaseName:
     Type: String
     Default: influxdb-line-protocol
@@ -22,17 +34,19 @@ Parameters:
     Description: The value to use in records as the measure name.
   EnableAsyncInvocation:
     Type: String
-    Default: 'true'
     AllowedValues:
       - 'true'
       - 'false'
+    Default: 'true'
   EnableDatabaseCreation:
+    Description: Whether to allow database creation upon ingestion of records.
     Type: String
     AllowedValues:
       - 'true'
       - 'false'
     Default: 'true'
   EnableTableCreation:
+    Description: Whether to allow table creation upon ingestion of records. When using multi-table multi measure schema, each unique line protocol measurement in a request will result in the creation of a new table with the same name as the measurement.
     Type: String
     AllowedValues:
       - 'true'
@@ -44,6 +58,14 @@ Parameters:
       - 'true'
       - 'false'
     Default: 'true'
+  EnforceCustomPartitionKey:
+    Description: Whether to only allow the ingestion of records that contain the custom partition key.
+    Type: String
+    AllowedValues:
+      - 'true'
+      - 'false'
+      - ''
+    Default: ''
   MagStoreRetentionPeriod:
     Type: Number
     Default: 8000
@@ -63,6 +85,10 @@ Parameters:
     MinValue: 128
     MaxValue: 8192
     Description: The memory size of the Lambda function.
+  LambdaName:
+    Type: String
+    AllowedPattern: '[a-zA-Z0-9]+[a-zA-Z0-9-]+[a-zA-Z0-9]+'
+    Default: influxdb-timestream-connector-lambda
   RestApiGatewayTimeoutInMillis:
     Type: Number
     MinValue: 2
@@ -79,8 +105,11 @@ Parameters:
     Description: The number of burst requests per second that the REST API Gateway permits.
 
 Conditions:
-  IsAsyncEnabled: !Equals [ !Ref EnableAsyncInvocation, "true" ]
-  IsSyncEnabled: !Equals [ !Ref EnableAsyncInvocation, "false" ]
+  IsAsyncEnabled: !Equals [ !Ref EnableAsyncInvocation, 'true' ]
+  IsSyncEnabled: !Equals [ !Ref EnableAsyncInvocation, 'false' ]
+  CustomPartitionKeyTypeProvided: !Not [ !Equals [ !Ref CustomPartitionKeyType, '' ] ]
+  CustomPartitionKeyDimensionProvided: !Not [ !Equals [ !Ref CustomPartitionKeyDimension, '' ] ]
+  EnforceCustomPartitionKeyProvided: !Not [ !Equals [ !Ref EnforceCustomPartitionKey, '' ] ]
 
 Resources:
   RestApiGateway:
@@ -392,7 +421,7 @@ Resources:
   RestApiGatewayLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub "/aws/apigateway/${RestApiGateway.RestApiId}"
+      LogGroupName: !Sub "/aws/apigateway/${AWS::StackName}-${RestApiGatewayName}"
       RetentionInDays: 14
 
   RestApiGatewayLogsRole:
@@ -439,7 +468,7 @@ Resources:
                   - logs:PutLogEvents
                 Effect: Allow
                 Resource:
-                  - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${AWS::StackName}-LambdaFunction-*:*"
         - PolicyName: LambdaSQSDlqPolicy
           PolicyDocument:
             Version: 2012-10-17
@@ -504,12 +533,15 @@ Resources:
         MaximumRetryAttempts: 0
       Environment:
         Variables:
+          custom_partition_key_type: !If [CustomPartitionKeyTypeProvided, !Ref CustomPartitionKeyType, !Ref "AWS::NoValue"]
+          custom_partition_key_dimension: !If [CustomPartitionKeyDimensionProvided, !Ref CustomPartitionKeyDimension, !Ref "AWS::NoValue"]
           database_name: !Ref DatabaseName
           measure_name_for_multi_measure_records: !Ref MeasureNameForMultiMeasureRecords
           region: !Ref AWS::Region
           enable_database_creation: !Ref EnableDatabaseCreation
           enable_table_creation: !Ref EnableTableCreation
           enable_mag_store_writes: !Ref EnableMagStoreWrites
+          enforce_custom_partition_key: !If [EnforceCustomPartitionKeyProvided, !Ref EnforceCustomPartitionKey, !Ref "AWS::NoValue"]
           mag_store_retention_period: !Ref MagStoreRetentionPeriod
           mem_store_retention_period: !Ref MemStoreRetentionPeriod
       PackageType: Zip

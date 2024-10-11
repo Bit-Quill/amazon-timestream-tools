@@ -55,10 +55,18 @@ The following parameters are available when deploying the connector as part of a
 
 | Parameter     | Description | Default Value |
 |---------------|-------------|---------------|
+| `CustomPartitionKeyDimension` |  The dimension to use as the partition key. This parameter is required if the CustomPartitionKeyType parameter is set to `dimension`. | |
+| `CustomPartitionKeyType` | The type of custom partition key to use. Valid options are `dimension` or `measure`. The `dimension` option requires the CustomPartitionKeyDimension parameter to also be set. If this parameter is not provided, newly-created tables will use default partitioning and none of the parameters relating to custom partition keys will be used. | |
 | `DatabaseName`  | The name of the database to use for ingestion. | `influxdb-line-protocol` |
+| `EnableDatabaseCreation` | Whether to allow database creation upon ingestion of records. | `true` |
+| `EnableTableCreation` | Whether to allow table creation upon ingestion of records. When using multi-table multi measure schema, each unique line protocol measurement in a request will result in the creation of a new table with the same name as the measurement. | `true` |
+| `EnableMagStoreWrites` | if `EnableTableCreation` is `true`, whether to enable mag store writes. | `true` |
+| `EnforceCustomPartitionKey` | Whether to only allow the ingestion of records that contain the custom partition key. Valid options are `true` or `false`. | |
 | `LambdaMemorySize` | The size of the memory in MB allocated per invocation of the function. | `128` |
 | `LambdaName` | The name to use for the Lambda function. | `influxdb-timestream-connector-lambda` |
 | `LambdaTimeoutInSeconds` | The number of seconds to run the Lambda function before timing out. | `30` |
+| `MagStoreRetentionPeriod` | If `EnableTableCreation` is `true`, the number of days in which data must be stored in the magnetic store. | `8000` |
+| `MemStoreRetentionPeriod` | If `EnableTableCreation` is `true`, the number of hours in which data must be stored in the memory store. | `12` |
 | `MeasureNameForMultiMeasureRecords` | The value to use in records as the `measure_name`, as shown in the [example line protocol to Timestream records translation](#resulting-cpu_load_short-timestream-for-liveanalytics-table). | `influxdb-measure` |
 | `RestApiGatewayName` | The name to use for the REST API Gateway. | `InfluxDB-Timestream-Connector-REST-API-Gateway` |
 | `RestApiGatewayStageName` | The name to use for the REST API Gateway stage. | `dev` |
@@ -74,15 +82,14 @@ The following parameters are available when deploying the connector as part of a
     ```
     cargo lambda build --release --arm64 --output-format zip
     ```
-5. Run the following command, replacing `<region>` with the AWS region you want to deploy in, `<stack name>` with your desired stack name and providing parameter overrides as desired. Note that this example command uses `--resolve-s3` to automatically create an S3 bucket to use for packaging and deployment and `--capabilities CAPABILITY_IAM` to allow the creation of IAM roles.
+5. Run the following command, replacing `<region>` with the AWS region you want to deploy in and providing parameter overrides as desired. Note that this example command uses the provided `samconfig.toml` file and by default sets the name of the stack to `InfluxDBTimestreamConnector`.
 
     ```shell
     sam deploy template.yml \
         --region <region> \
-        --stack-name <stack name> \
-        --resolve-s3 \
-        --capabilities CAPABILITY_IAM \
-        --parameter-overrides ParameterKey=exampleKey,ParameterValue=exampleValue
+        --parameter-overrides \
+            ParameterKey1=ParameterValue1 \
+            ParameterKey2=ParameterValue2
     ```
 6. Once the stack has finished deploying, take note of the output `Endpoint` value. This value will be used as the endpoint for all write requests and is analogous to an [InfluxDB host address](https://docs.influxdata.com/influxdb/v2/reference/urls/) and is used in the same way, for example, `<endpoint>/api/v2/write`.
 
@@ -135,12 +142,63 @@ The connector can be run locally using [Cargo Lambda](https://www.cargo-lambda.i
     - `region` string: the AWS region to use. Defaults to `us-east-1`.
     - `database_name` string: the Timestream for LiveAnalytics database name to use. Defaults to `influxdb-line-protocol`.
     - `measure_name_for_multi_measure_records` string: the value to use in records as the measure name. Defaults to `influxdb-measure`.
+    - `enable_database_creation` bool: whether to create a database if the `database_name` database does not already exist in Timestream for LiveAnalytics. Defaults to `true`.
+    - `enable_table_creation` bool: whether to create new tables if they don't already exist. Defaults to `true`.
+        - `enable_mag_store_writes` bool: if `enable_table_creation` is `true`, whether to enable mag store writes. Defaults to `true`.
+        - `mag_store_retention_period` int: if `enable_table_creation` is `true`, the number of days in which data must be stored in the magnetic store. Defaults to `8000`.
+        - `mem_store_retention_period` int: if `enable_table_creation` is `true`, the number of hours in which data must be stored in the memory store. Defaults to `12`.
 5. To run the connector on `http://localhost:9000` execute the following command:
 
     ```shell
     cargo lambda watch
     ```
 6. Send all requests to `http://localhost:9000/api/v2/write`.
+
+## Custom Partition Keys
+
+When the environment variable `enable_table_creation` is `true` and records are ingested using multi-table multi measure ingestion, [custom partition keys](https://aws.amazon.com/blogs/database/introducing-customer-defined-partition-keys-for-amazon-timestream-optimizing-query-performance/) can be defined for the newly-created tables.
+
+To define a custom partition key, set the environment variable `custom_partition_key_type` to either `dimension` or `measure`.
+
+When `custom_partition_key_type` is set to `measure`, the measure will be used to partition the table. No additional environment variables are necessary.
+
+When `custom_partition_key_type` is set to `dimension`, the environment variables `custom_partition_key_dimension` and `enforce_custom_partition_key` must also be defined. `custom_partition_key_dimension` specifies the dimension in which you want to use to partition your table while `enforce_custom_partition_key` determines whether all ingested records **must** contain the custom partition key.
+
+> **NOTE**: Once a partition key has been configured for a table, it cannot be changed or removed.
+
+### Custom Partition Key Examples
+
+#### Local Environment
+
+The following example shows how a custom partition key can be configured for a local environment:
+
+```shell
+# Environment variable values are case-sensitive
+export custom_partition_key_type=dimension;
+
+# One of the tag keys in the example bird migration dataset
+export custom_partition_key_dimension=id;
+export enforce_custom_partition_key=false;
+
+# Run the connector locally
+cargo lambda watch;
+```
+
+#### Deployed Environment
+
+The following example shows how a custom partition key can be configured when deploying the connector as part of a CloudFormation stack:
+
+```shell
+sam deploy template.yml \
+    --region <region> \
+    --stack-name <stack name> \
+    --resolve-s3 \
+    --capabilities CAPABILITY_IAM \
+    --parameter-overrides \
+        CustomPartitionKeyType=dimension \
+        CustomPartitionKeyDimension=id \
+        EnforceCustomPartitionKey=false
+```
 
 ## Security
 
@@ -154,11 +212,11 @@ The REST API Gateway ensures all requests are authenticated with SigV4. Any Infl
 
 ## IAM Permissions
 
+The following permissions are the least-privilege permissions for deploying and executing the connector. These permissions assume the stack is named `InfluxDBTimestreamConnector` and that the REST API Gateway is named `InfluxDB-Timestream-Connector-REST-API-Gateway`.
+
 ### IAM Deployment Permissions
 
-[//]: # (TODO: Update deployment policy with least privilege once REST API Gateway deployment has been tested.)
-
-The following is the least privileged IAM permissions for deploying the connector.
+The following is the least-privilege IAM permissions for deploying the connector.
 
 ```json
 {
@@ -167,15 +225,107 @@ The following is the least privileged IAM permissions for deploying the connecto
         {
             "Effect": "Allow",
             "Action": [
+                "apigateway:PATCH"
+            ],
+            "Resource": "arn:aws:apigateway:{region}::/account"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "apigateway:POST",
+                "apigateway:GET"
+            ],
+            "Resource": [
+                "arn:aws:apigateway:{region}::/usageplans",
+                "arn:aws:apigateway:{region}::/usageplans/*"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "sqs:CreateQueue",
+                "sqs:GetQueueAttributes"
+            ],
+            "Resource": "arn:aws:sqs:{region}:{account-id}:InfluxDBTimestreamConnector-LambdaDeadLetterQueue-*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "logs:CreateLogGroup",
+                "logs:PutRetentionPolicy"
+            ],
+            "Resource": "arn:aws:logs:{region}:{account-id}:log-group:/aws/apigateway/InfluxDBTimestreamConnector-InfluxDB-Timestream-Connector-REST-API-Gateway*:*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "logs:DescribeLogGroups"
+            ],
+            "Resource": "arn:aws:logs:{region}:{account-id}:log-group::log-stream:"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "apigateway:POST",
+                "apigateway:GET",
+                "apigateway:PUT",
+                "apigateway:PATCH"
+            ],
+            "Resource": [
+                "arn:aws:apigateway:{region}::/restapis/*",
+                "arn:aws:apigateway:{region}::/restapis",
+                "arn:aws:apigateway:{region}::/tags/*"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetObject",
+                "s3:GetBucketPolicy",
+                "s3:GetBucketLocation",
+                "s3:PutObject",
+                "s3:PutBucketPolicy",
+                "s3:PutBucketTagging",
+                "s3:PutEncryptionConfiguration",
+                "s3:PutBucketVersioning",
+                "s3:PutBucketPublicAccessBlock",
+                "s3:CreateBucket",
+                "s3:DescribeJob",
+                "s3:ListAllMyBuckets"
+            ],
+            "Resource": [
+                "arn:aws:s3:::aws-sam-cli-managed-default*"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "cloudformation:CreateChangeSet",
+                "cloudformation:DescribeStacks",
+                "cloudformation:DescribeStackEvents",
+                "cloudformation:DescribeChangeSet",
+                "cloudformation:ExecuteChangeSet",
+                "cloudformation:CreateStack"
+            ],
+            "Resource": [
+                "arn:aws:cloudformation:{region}:{account-id}:stack/InfluxDBTimestreamConnector/*",
+                "arn:aws:cloudformation:{region}:{account-id}:stack/aws-sam-cli-managed-default/*",
+                "arn:aws:cloudformation:{region}:aws:transform/Serverless-2016-10-31"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
                 "iam:CreateRole",
                 "iam:AttachRolePolicy",
                 "iam:UpdateAssumeRolePolicy",
                 "iam:PassRole",
-                "iam:PutRolePolicy"
+                "iam:PutRolePolicy",
+                "iam:GetRole"
             ],
             "Resource": [
-                "arn:aws:iam::{account-id}:role/AWSLambdaBasicExecutionRole",
-                "arn:aws:iam::{account-id}:role/cargo-lambda-role*"
+                "arn:aws:iam::{account-id}:role/InfluxDBTimestreamConnector-RestApiGatewayLogsRole-*",
+                "arn:aws:iam::{account-id}:role/InfluxDBTimestreamConnector-LambdaExecutionRole-*"
             ]
         },
         {
@@ -186,10 +336,13 @@ The following is the least privileged IAM permissions for deploying the connecto
                 "lambda:GetFunction",
                 "lambda:UpdateFunctionConfiguration",
                 "lambda:GetFunctionConfiguration",
-                "lambda:CreateFunctionUrlConfig"
+                "lambda:CreateFunctionUrlConfig",
+                "lambda:TagResource",
+                "lambda:AddPermission",
+                "lambda:PutFunctionEventInvokeConfig"
             ],
-            "Resource": "arn:aws:lambda:{region}:{account-id}:function:influxdb-timestream-connector"
-        }
+            "Resource": "arn:aws:lambda:{region}:{account-id}:function:InfluxDBTimestreamConnector-LambdaFunction-*"
+        },
     ]
 }
 ```
@@ -341,6 +494,35 @@ Due to the connector translating line protocol to Timestream records, line proto
 ### Database and Table Creation Delay
 
 There is a delay of one second added before deleting or creating a table or database. This is because of Timestream for LiveAnalytics' "Throttle rate for CRUD APIs" [quota](https://docs.aws.amazon.com/timestream/latest/developerguide/ts-limits.html#limits.default) of one table/database deletion/creation per second.
+
+## Troubleshooting
+
+### Cargo Lambda Build Error "can't find crate for core"
+
+This error can happen when running `cargo lambda build` on macOS. This error may include the message "the `aarch64-unknown-linux-gnu` target may not be installed."
+
+#### Solution
+
+This error can happen on macOS when Rust is installed with `brew`.
+
+Remove `brew`'s version of Rust:
+
+```shell
+brew uninstall rust
+```
+
+Install Rust by following the installation instructions on its [official site](https://www.rust-lang.org/tools/install).
+
+### Table Already Exists Error
+
+Error in full: ConflictException: Timestream was unable to process this request because it contains resource that already exists.
+
+When using multi-table multi measure schema and ingesting line protocol data in parallel with measurements that do not yet have corresponding tables in Timestream for LiveAnalytics, a ConflictException can occur. This happens when two or more concurrent Lambda function instances attempt to create a new table.
+
+#### Solution
+
+1. Consider creating the tables before ingestion, using each unique measurement in the line protocol data as the table names.
+2. Re-ingest failed requests. Failed requests will be stored in the Lambda's dead letter queue.
 
 ## Caveats
 
