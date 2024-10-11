@@ -89,18 +89,22 @@ pub fn get_precision(event: &Value) -> Option<&str> {
     // Retrieves the optional "precision" query string parameter from a serde_json::Value
 
     // Query string parameters may be included as "queryStringParameters"
-    if let Some(precision) = event.get("queryStringParameters").or_else(|| event.get("queryParameters"))
-        .and_then(|query_string_parameters| query_string_parameters.get("precision")) {
-            // event["queryStringParameters"]["precision"] may be an object
-            if let Some(precision_str) = precision.as_str() {
-                return Some(precision_str);
-            // event["queryStringParameters"]["precision"] may be an array. This is common from requests
-            // originating from AWS services, such as when the connector is ran with the cargo lambda watch command
-            } else if let Some(precision_array) = precision.as_array() {
-                if let Some(precision_value) = precision_array.first().and_then(|value| value.as_str()) {
-                    return Some(precision_value);
-                }
+    if let Some(precision) = event
+        .get("queryStringParameters")
+        .or_else(|| event.get("queryParameters"))
+        .and_then(|query_string_parameters| query_string_parameters.get("precision"))
+    {
+        // event["queryStringParameters"]["precision"] may be an object
+        if let Some(precision_str) = precision.as_str() {
+            return Some(precision_str);
+        // event["queryStringParameters"]["precision"] may be an array. This is common from requests
+        // originating from AWS services, such as when the connector is ran with the cargo lambda watch command
+        } else if let Some(precision_array) = precision.as_array() {
+            if let Some(precision_value) = precision_array.first().and_then(|value| value.as_str())
+            {
+                return Some(precision_value);
             }
+        }
     }
 
     None
@@ -148,7 +152,6 @@ pub async fn lambda_handler(
 }
 
 #[cfg(test)]
-
 #[test]
 pub fn test_get_precision_query_string_parameters_array() -> Result<(), Error> {
     let fake_event_value = json!({ "queryStringParameters": { "precision": ["ms"] } });

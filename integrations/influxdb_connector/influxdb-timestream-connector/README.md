@@ -55,10 +55,18 @@ The following parameters are available when deploying the connector as part of a
 
 | Parameter     | Description | Default Value |
 |---------------|-------------|---------------|
+| `CustomPartitionKeyDimension` |  The dimension to use as the partition key. This parameter is required if the CustomPartitionKeyType parameter is set to `dimension`. | |
+| `CustomPartitionKeyType` | The type of custom partition key to use. Valid options are `dimension` or `measure`. The `dimension` option requires the CustomPartitionKeyDimension parameter to also be set. If this parameter is not provided, newly-created tables will use default partitioning and none of the parameters relating to custom partition keys will be used. | |
 | `DatabaseName`  | The name of the database to use for ingestion. | `influxdb-line-protocol` |
+| `EnableDatabaseCreation` | Whether to allow database creation upon ingestion of records. | `true` |
+| `EnableTableCreation` | Whether to allow table creation upon ingestion of records. When using multi-table multi measure schema, each unique line protocol measurement in a request will result in the creation of a new table with the same name as the measurement. | `true` |
+| `EnableMagStoreWrites` | if `EnableTableCreation` is `true`, whether to enable mag store writes. | `true` |
+| `EnforceCustomPartitionKey` | Whether to only allow the ingestion of records that contain the custom partition key. Valid options are `true` or `false`. | |
 | `LambdaMemorySize` | The size of the memory in MB allocated per invocation of the function. | `128` |
 | `LambdaName` | The name to use for the Lambda function. | `influxdb-timestream-connector-lambda` |
 | `LambdaTimeoutInSeconds` | The number of seconds to run the Lambda function before timing out. | `30` |
+| `MagStoreRetentionPeriod` | If `EnableTableCreation` is `true`, the number of days in which data must be stored in the magnetic store. | `8000` |
+| `MemStoreRetentionPeriod` | If `EnableTableCreation` is `true`, the number of hours in which data must be stored in the memory store. | `12` |
 | `MeasureNameForMultiMeasureRecords` | The value to use in records as the `measure_name`, as shown in the [example line protocol to Timestream records translation](#resulting-cpu_load_short-timestream-for-liveanalytics-table). | `influxdb-measure` |
 | `RestApiGatewayName` | The name to use for the REST API Gateway. | `InfluxDB-Timestream-Connector-REST-API-Gateway` |
 | `RestApiGatewayStageName` | The name to use for the REST API Gateway stage. | `dev` |
@@ -134,12 +142,63 @@ The connector can be run locally using [Cargo Lambda](https://www.cargo-lambda.i
     - `region` string: the AWS region to use. Defaults to `us-east-1`.
     - `database_name` string: the Timestream for LiveAnalytics database name to use. Defaults to `influxdb-line-protocol`.
     - `measure_name_for_multi_measure_records` string: the value to use in records as the measure name. Defaults to `influxdb-measure`.
+    - `enable_database_creation` bool: whether to create a database if the `database_name` database does not already exist in Timestream for LiveAnalytics. Defaults to `true`.
+    - `enable_table_creation` bool: whether to create new tables if they don't already exist. Defaults to `true`.
+        - `enable_mag_store_writes` bool: if `enable_table_creation` is `true`, whether to enable mag store writes. Defaults to `true`.
+        - `mag_store_retention_period` int: if `enable_table_creation` is `true`, the number of days in which data must be stored in the magnetic store. Defaults to `8000`.
+        - `mem_store_retention_period` int: if `enable_table_creation` is `true`, the number of hours in which data must be stored in the memory store. Defaults to `12`.
 5. To run the connector on `http://localhost:9000` execute the following command:
 
     ```shell
     cargo lambda watch
     ```
 6. Send all requests to `http://localhost:9000/api/v2/write`.
+
+## Custom Partition Keys
+
+When the environment variable `enable_table_creation` is `true` and records are ingested using multi-table multi measure ingestion, [custom partition keys](https://aws.amazon.com/blogs/database/introducing-customer-defined-partition-keys-for-amazon-timestream-optimizing-query-performance/) can be defined for the newly-created tables.
+
+To define a custom partition key, set the environment variable `custom_partition_key_type` to either `dimension` or `measure`.
+
+When `custom_partition_key_type` is set to `measure`, the measure will be used to partition the table. No additional environment variables are necessary.
+
+When `custom_partition_key_type` is set to `dimension`, the environment variables `custom_partition_key_dimension` and `enforce_custom_partition_key` must also be defined. `custom_partition_key_dimension` specifies the dimension in which you want to use to partition your table while `enforce_custom_partition_key` determines whether all ingested records **must** contain the custom partition key.
+
+> **NOTE**: Once a partition key has been configured for a table, it cannot be changed or removed.
+
+### Custom Partition Key Examples
+
+#### Local Environment
+
+The following example shows how a custom partition key can be configured for a local environment:
+
+```shell
+# Environment variable values are case-sensitive
+export custom_partition_key_type=dimension;
+
+# One of the tag keys in the example bird migration dataset
+export custom_partition_key_dimension=id;
+export enforce_custom_partition_key=false;
+
+# Run the connector locally
+cargo lambda watch;
+```
+
+#### Deployed Environment
+
+The following example shows how a custom partition key can be configured when deploying the connector as part of a CloudFormation stack:
+
+```shell
+sam deploy template.yml \
+    --region <region> \
+    --stack-name <stack name> \
+    --resolve-s3 \
+    --capabilities CAPABILITY_IAM \
+    --parameter-overrides \
+        CustomPartitionKeyType=dimension \
+        CustomPartitionKeyDimension=id \
+        EnforceCustomPartitionKey=false
+```
 
 ## Security
 
