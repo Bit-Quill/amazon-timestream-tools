@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Error, Result};
 use aws_sdk_timestreamwrite as timestream_write;
+use futures::future::join_all;
 use lambda_runtime::LambdaEvent;
 use line_protocol_parser::*;
 use records_builder::*;
@@ -7,6 +8,7 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::{str, thread, time};
 use timestream_utils::*;
+use tokio::task;
 
 pub mod line_protocol_parser;
 pub mod metric;
@@ -78,9 +80,17 @@ async fn handle_multi_table_ingestion(
         }
     }
 
-    for (table_name, mut records) in records.into_iter() {
-        ingest_records(client, &database_name, &table_name, &mut records).await?
+    let mut tasks = Vec::new();
+    for (table_name, records) in records {
+        let task = task::spawn(ingest_records(
+            client.clone(),
+            database_name.clone(),
+            table_name,
+            records,
+        ));
+        tasks.push(task);
     }
+    let _results = join_all(tasks);
 
     Ok(())
 }

@@ -2,7 +2,9 @@ use super::records_builder::TableConfig;
 use anyhow::{anyhow, Error, Result};
 use aws_sdk_timestreamwrite as timestream_write;
 use aws_types::region::Region;
-use std::io::Write;
+use futures::future::join_all;
+use std::time::Instant;
+use tokio::task;
 
 pub async fn get_connection(
     region: &str,
@@ -140,44 +142,66 @@ pub async fn database_exists(
 }
 
 pub async fn ingest_records(
-    client: &timestream_write::Client,
-    database_name: &str,
-    table_name: &str,
-    records: &mut [timestream_write::types::Record],
+    client: timestream_write::Client,
+    database_name: String,
+    table_name: String,
+    records: Vec<timestream_write::types::Record>,
 ) -> Result<(), Error> {
     // Ingest records to Timestream in batches of 100 (Max supported Timestream batch size)
+    let start = Instant::now();
 
     let mut records_ingested: usize = 0;
     const MAX_TIMESTREAM_BATCH_SIZE: usize = 100;
 
-    let mut records_chunked: Vec<Vec<timestream_write::types::Record>> = records
+    let records_chunked: Vec<Vec<timestream_write::types::Record>> = records
         .chunks(MAX_TIMESTREAM_BATCH_SIZE)
         .map(|sub_records| sub_records.to_vec())
         .collect();
-    for chunk in records_chunked.iter_mut() {
+    let mut tasks = Vec::new();
+    for chunk in records_chunked {
         records_ingested += chunk.len();
-        match client
-            .write_records()
-            .database_name(database_name)
-            .table_name(table_name)
-            .set_records(Some(std::mem::take(chunk)))
-            .send()
-            .await
-        {
-            Ok(_) => {
-                println!("{} records ingested", records_ingested);
-                std::io::stdout().flush()?;
-            }
-            Err(error) => {
-                println!("SdkError: {:?}", error.raw_response().unwrap());
-                return Err(anyhow!(error));
-            }
-        }
+        let task = task::spawn(ingest_record_batch(
+            client.clone(),
+            database_name.to_string(),
+            table_name.to_string(),
+            chunk,
+        ));
+        tasks.push(task);
     }
+    let _result = join_all(tasks).await;
+
     println!(
         "{} records ingested total for table {} in database {}",
         records_ingested, table_name, database_name
     );
+
+    let duration = start.elapsed();
+    println!("Time elapsed: {:?}", duration);
+
+    Ok(())
+}
+
+pub async fn ingest_record_batch(
+    client: timestream_write::Client,
+    database_name: String,
+    table_name: String,
+    chunk: Vec<timestream_write::types::Record>,
+) -> Result<(), Error> {
+    // Ingest records to Timestream in batches of 100 (Max supported Timestream batch size)
+    match client
+        .write_records()
+        .database_name(database_name)
+        .table_name(table_name)
+        .set_records(Some(chunk))
+        .send()
+        .await
+    {
+        Ok(_) => {}
+        Err(error) => {
+            println!("SdkError: {:?}", error.raw_response().unwrap());
+            return Err(anyhow!(error));
+        }
+    };
 
     Ok(())
 }
