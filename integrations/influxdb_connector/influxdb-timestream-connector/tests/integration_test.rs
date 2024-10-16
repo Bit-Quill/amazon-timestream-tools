@@ -7,6 +7,7 @@ use rand::{distributions::uniform::SampleUniform, distributions::Alphanumeric, R
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::{env, thread, time};
+use std::sync::Arc;
 
 static DATABASE_NAME: &str = "influxdb_timestream_connector_integ_db";
 static REGION: &str = "us-west-2";
@@ -99,6 +100,7 @@ async fn test_mtmm_basic() -> Result<(), Error> {
     let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
         .await
         .expect("Failed to get client");
+    let client = Arc::new(client);
 
     let lp_measurement_name = String::from("readings");
 
@@ -136,6 +138,7 @@ async fn test_mtmm_create_database() -> Result<(), Error> {
     let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
         .await
         .expect("Failed to get client");
+    let client = Arc::new(client);
 
     let lp_measurement_name = String::from("readings");
 
@@ -185,6 +188,7 @@ async fn test_mtmm_unusual_query_parameters() -> Result<(), Error> {
     let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
         .await
         .expect("Failed to get client");
+    let client = Arc::new(client);
 
     let lp_measurement_name = String::from("readings");
 
@@ -220,6 +224,7 @@ async fn test_mtmm_no_query_parameters() -> Result<(), Error> {
     let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
         .await
         .expect("Failed to get client");
+    let client = Arc::new(client);
 
     let lp_measurement_name = String::from("readings");
 
@@ -253,6 +258,7 @@ async fn test_mtmm_multiple_timestamps() -> Result<(), Error> {
     let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
         .await
         .expect("Failed to get client");
+    let client = Arc::new(client);
 
     let lp_measurement_name = String::from("readings");
 
@@ -287,6 +293,7 @@ async fn test_mtmm_many_tags_many_fields() -> Result<(), Error> {
     let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
         .await
         .expect("Failed to get client");
+    let client = Arc::new(client);
 
     let lp_measurement_name = String::from("readings");
 
@@ -334,6 +341,7 @@ async fn test_mtmm_float() -> Result<(), Error> {
     let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
         .await
         .expect("Failed to get client");
+    let client = Arc::new(client);
 
     let lp_measurement_name = String::from("readings");
 
@@ -369,6 +377,7 @@ async fn test_mtmm_string() -> Result<(), Error> {
     let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
         .await
         .expect("Failed to get client");
+    let client = Arc::new(client);
 
     let lp_measurement_name = String::from("readings");
 
@@ -404,6 +413,7 @@ async fn test_mtmm_bool() -> Result<(), Error> {
     let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
         .await
         .expect("Failed to get client");
+    let client = Arc::new(client);
 
     let lp_measurement_name = String::from("readings");
 
@@ -442,6 +452,7 @@ async fn test_mtmm_max_tag_length() -> Result<(), Error> {
     let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
         .await
         .expect("Failed to get client");
+    let client = Arc::new(client);
 
     let lp_measurement_name = String::from("readings");
 
@@ -481,6 +492,7 @@ async fn test_mtmm_beyond_max_tag_length() -> Result<(), Error> {
     let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
         .await
         .expect("Failed to get client");
+    let client = Arc::new(client);
 
     let lp_measurement_name = String::from("readings");
 
@@ -517,6 +529,7 @@ async fn test_mtmm_max_field_length() -> Result<(), Error> {
     let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
         .await
         .expect("Failed to get client");
+    let client = Arc::new(client);
 
     let lp_measurement_name = String::from("readings");
 
@@ -555,6 +568,7 @@ async fn test_mtmm_beyond_max_field_length() -> Result<(), Error> {
     let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
         .await
         .expect("Failed to get client");
+    let client = Arc::new(client);
 
     let lp_measurement_name = String::from("readings");
 
@@ -591,6 +605,7 @@ async fn test_mtmm_max_unique_field_keys() -> Result<(), Error> {
     let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
         .await
         .expect("Failed to get client");
+    let client = Arc::new(client);
 
     let lp_measurement_name = String::from("readings");
 
@@ -633,6 +648,7 @@ async fn test_mtmm_beyond_max_unique_field_keys() -> Result<(), Error> {
     let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
         .await
         .expect("Failed to get client");
+    let client = Arc::new(client);
 
     let lp_measurement_name = String::from("readings");
 
@@ -674,6 +690,7 @@ async fn test_mtmm_max_unique_tag_keys() -> Result<(), Error> {
     let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
         .await
         .expect("Failed to get client");
+    let client = Arc::new(client);
 
     let lp_measurement_name = String::from("readings");
 
@@ -716,6 +733,7 @@ async fn test_mtmm_beyond_max_unique_tag_keys() -> Result<(), Error> {
     let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
         .await
         .expect("Failed to get client");
+    let client = Arc::new(client);
 
     let lp_measurement_name = String::from("readings");
 
@@ -757,6 +775,7 @@ async fn test_mtmm_max_table_name_length() -> Result<(), Error> {
     let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
         .await
         .expect("Failed to get client");
+    let client = Arc::new(client);
 
     let lp_measurement_name = random_string(MAX_TIMESTREAM_TABLE_NAME_LENGTH);
 
@@ -794,6 +813,7 @@ async fn test_mtmm_beyond_max_table_name_length() -> Result<(), Error> {
     let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
         .await
         .expect("Failed to get client");
+    let client = Arc::new(client);
 
     let lp_measurement_name = random_string(MAX_TIMESTREAM_TABLE_NAME_LENGTH + 1);
 
@@ -827,6 +847,7 @@ async fn test_mtmm_nanosecond_precision() -> Result<(), Error> {
     let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
         .await
         .expect("Failed to get client");
+    let client = Arc::new(client);
 
     let lp_measurement_name = String::from("readings");
 
@@ -864,6 +885,7 @@ async fn test_mtmm_microsecond_precision() -> Result<(), Error> {
     let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
         .await
         .expect("Failed to get client");
+    let client = Arc::new(client);
 
     let lp_measurement_name = String::from("readings");
 
@@ -899,6 +921,7 @@ async fn test_mtmm_second_precision() -> Result<(), Error> {
     let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
         .await
         .expect("Failed to get client");
+    let client = Arc::new(client);
 
     let lp_measurement_name = String::from("readings");
 
@@ -934,6 +957,7 @@ async fn test_mtmm_no_precision() -> Result<(), Error> {
     let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
         .await
         .expect("Failed to get client");
+    let client = Arc::new(client);
 
     let lp_measurement_name = String::from("readings");
 
@@ -972,6 +996,7 @@ async fn test_mtmm_empty_point() -> Result<(), Error> {
     let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
         .await
         .expect("Failed to get client");
+    let client = Arc::new(client);
 
     let point = String::new();
 
@@ -995,6 +1020,7 @@ pub async fn test_mtmm_small_timestamp() -> Result<(), Error> {
     let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
         .await
         .expect("Failed to get client");
+    let client = Arc::new(client);
 
     let lp_measurement_name = String::from("readings");
 
@@ -1030,6 +1056,7 @@ async fn test_mtmm_5_measurements() -> Result<(), Error> {
     let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
         .await
         .expect("Failed to get client");
+    let client = Arc::new(client);
 
     let mut table_names_to_delete = Vec::<String>::new();
     let lp_measurement_name = String::from("readings");
@@ -1073,6 +1100,7 @@ async fn test_mtmm_100_measurements() -> Result<(), Error> {
     let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
         .await
         .expect("Failed to get client");
+    let client = Arc::new(client);
 
     let mut table_names_to_delete = Vec::<String>::new();
 
@@ -1118,6 +1146,7 @@ async fn test_mtmm_5000_batch() -> Result<(), Error> {
     let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
         .await
         .expect("Failed to get client");
+    let client = Arc::new(client);
 
     let lp_measurement_name = String::from("readings");
     let mut lp_batch = String::new();
@@ -1166,6 +1195,7 @@ async fn test_mtmm_no_credentials() {
         .with_endpoint_discovery_enabled()
         .await
         .expect("Failed to get the write client connection with Timestream");
+    let client = Arc::new(client);
     tokio::task::spawn(reload.reload_task());
 
     let lp_measurement_name = String::from("readings");
@@ -1209,6 +1239,7 @@ async fn test_mtmm_incorrect_credentials() {
         .with_endpoint_discovery_enabled()
         .await
         .expect("Failed to get the write client connection with Timestream");
+    let client = Arc::new(client);
     tokio::task::spawn(reload.reload_task());
 
     let lp_measurement_name = String::from("readings");
@@ -1241,6 +1272,7 @@ async fn test_mtmm_custom_dimension_partition_key_optional_enforcement() -> Resu
     let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
         .await
         .expect("Failed to get client");
+    let client = Arc::new(client);
 
     let lp_measurement_name = String::from("readings");
 
@@ -1281,6 +1313,7 @@ async fn test_mtmm_custom_dimension_partition_key_required_enforcement_accepted(
     let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
         .await
         .expect("Failed to get client");
+    let client = Arc::new(client);
 
     let lp_measurement_name = String::from("readings");
 
@@ -1321,6 +1354,7 @@ async fn test_mtmm_custom_dimension_partition_key_required_enforcement_rejected(
     let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
         .await
         .expect("Failed to get client");
+    let client = Arc::new(client);
 
     let lp_measurement_name = String::from("readings");
 
@@ -1359,6 +1393,7 @@ async fn test_mtmm_custom_dimension_partition_key_no_dimension() -> Result<(), E
     let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
         .await
         .expect("Failed to get client");
+    let client = Arc::new(client);
 
     let lp_measurement_name = String::from("readings");
 
@@ -1397,6 +1432,7 @@ async fn test_mtmm_custom_dimension_partition_key_no_enforcement() -> Result<(),
     let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
         .await
         .expect("Failed to get client");
+    let client = Arc::new(client);
 
     let lp_measurement_name = String::from("readings");
 
@@ -1435,6 +1471,7 @@ async fn test_mtmm_custom_measure_partition_key() -> Result<(), Error> {
     let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
         .await
         .expect("Failed to get client");
+    let client = Arc::new(client);
 
     let lp_measurement_name = String::from("readings");
 
@@ -1474,6 +1511,7 @@ async fn test_mtmm_custom_measure_partition_key_with_dimension() -> Result<(), E
     let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
         .await
         .expect("Failed to get client");
+    let client = Arc::new(client);
 
     let lp_measurement_name = String::from("readings");
 
@@ -1514,6 +1552,7 @@ async fn test_mtmm_custom_measure_partition_key_with_enforcement() -> Result<(),
     let client = influxdb_timestream_connector::timestream_utils::get_connection(REGION)
         .await
         .expect("Failed to get client");
+    let client = Arc::new(client);
 
     let lp_measurement_name = String::from("readings");
 

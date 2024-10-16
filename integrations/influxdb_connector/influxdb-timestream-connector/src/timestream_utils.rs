@@ -3,6 +3,7 @@ use anyhow::{anyhow, Error, Result};
 use aws_sdk_timestreamwrite as timestream_write;
 use aws_types::region::Region;
 use futures::future::join_all;
+use std::sync::Arc;
 use std::time::Instant;
 use tokio::task;
 
@@ -26,7 +27,7 @@ pub async fn get_connection(
 }
 
 pub async fn create_database(
-    client: &timestream_write::Client,
+    client: &Arc<timestream_write::Client>,
     database_name: &str,
 ) -> Result<(), timestream_write::Error> {
     // Create a new Timestream database
@@ -42,7 +43,7 @@ pub async fn create_database(
 }
 
 pub async fn create_table(
-    client: &timestream_write::Client,
+    client: &Arc<timestream_write::Client>,
     database_name: &str,
     table_name: &str,
     table_config: TableConfig,
@@ -94,7 +95,7 @@ pub async fn create_table(
 }
 
 pub async fn table_exists(
-    client: &timestream_write::Client,
+    client: &Arc<timestream_write::Client>,
     database_name: &str,
     table_name: &str,
 ) -> Result<bool, Error> {
@@ -119,7 +120,7 @@ pub async fn table_exists(
 }
 
 pub async fn database_exists(
-    client: &timestream_write::Client,
+    client: &Arc<timestream_write::Client>,
     database_name: &str,
 ) -> Result<bool, Error> {
     // Check if database already exists
@@ -142,7 +143,7 @@ pub async fn database_exists(
 }
 
 pub async fn ingest_records(
-    client: timestream_write::Client,
+    client: Arc<timestream_write::Client>,
     database_name: String,
     table_name: String,
     records: Vec<timestream_write::types::Record>,
@@ -160,8 +161,9 @@ pub async fn ingest_records(
     let mut tasks = Vec::new();
     for chunk in records_chunked {
         records_ingested += chunk.len();
+        let client_clone = Arc::clone(&client);
         let task = task::spawn(ingest_record_batch(
-            client.clone(),
+            client_clone,
             database_name.to_string(),
             table_name.to_string(),
             chunk,
@@ -182,7 +184,7 @@ pub async fn ingest_records(
 }
 
 pub async fn ingest_record_batch(
-    client: timestream_write::Client,
+    client: Arc<timestream_write::Client>,
     database_name: String,
     table_name: String,
     chunk: Vec<timestream_write::types::Record>,

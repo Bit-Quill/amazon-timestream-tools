@@ -7,6 +7,7 @@ use records_builder::*;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::{str, thread, time};
+use std::sync::Arc;
 use timestream_utils::*;
 use tokio::task;
 
@@ -20,7 +21,7 @@ pub mod timestream_utils;
 pub static TIMESTREAM_API_WAIT_SECONDS: u64 = 1;
 
 async fn handle_body(
-    client: &timestream_write::Client,
+    client: &Arc<timestream_write::Client>,
     body: &[u8],
     precision: &timestream_write::types::TimeUnit,
 ) -> Result<(), Error> {
@@ -39,7 +40,7 @@ async fn handle_body(
 }
 
 async fn handle_multi_table_ingestion(
-    client: &timestream_write::Client,
+    client: &Arc<timestream_write::Client>,
     records: HashMap<String, Vec<timestream_write::types::Record>>,
 ) -> Result<(), Error> {
     // Ingestion for multi-measure schema type
@@ -82,8 +83,9 @@ async fn handle_multi_table_ingestion(
 
     let mut tasks = Vec::new();
     for (table_name, records) in records {
+        let client_clone = Arc::clone(client);
         let task = task::spawn(ingest_records(
-            client.clone(),
+            client_clone,
             database_name.clone(),
             table_name,
             records,
@@ -121,7 +123,7 @@ pub fn get_precision(event: &Value) -> Option<&str> {
 }
 
 pub async fn lambda_handler(
-    client: &timestream_write::Client,
+    client: &Arc<timestream_write::Client>,
     event: LambdaEvent<Value>,
 ) -> Result<Value, Error> {
     // Handler for lambda runtime
