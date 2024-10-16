@@ -6,8 +6,8 @@ use line_protocol_parser::*;
 use records_builder::*;
 use serde_json::{json, Value};
 use std::collections::HashMap;
-use std::{str, thread, time};
 use std::sync::Arc;
+use std::{str, thread, time};
 use timestream_utils::*;
 use tokio::task;
 

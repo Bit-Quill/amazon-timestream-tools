@@ -6,8 +6,8 @@ use lambda_runtime::{Context, LambdaEvent};
 use rand::{distributions::uniform::SampleUniform, distributions::Alphanumeric, Rng};
 use serde_json::{json, Value};
 use std::collections::HashMap;
-use std::{env, thread, time};
 use std::sync::Arc;
+use std::{env, thread, time};
 
 static DATABASE_NAME: &str = "influxdb_timestream_connector_integ_db";
 static REGION: &str = "us-west-2";

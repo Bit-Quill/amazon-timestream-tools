@@ -3,6 +3,7 @@ use anyhow::{anyhow, Error, Result};
 use aws_sdk_timestreamwrite as timestream_write;
 use aws_types::region::Region;
 use futures::future::join_all;
+use rayon::prelude::*;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::task;
@@ -155,7 +156,7 @@ pub async fn ingest_records(
     const MAX_TIMESTREAM_BATCH_SIZE: usize = 100;
 
     let records_chunked: Vec<Vec<timestream_write::types::Record>> = records
-        .chunks(MAX_TIMESTREAM_BATCH_SIZE)
+        .par_chunks(MAX_TIMESTREAM_BATCH_SIZE)
         .map(|sub_records| sub_records.to_vec())
         .collect();
     let mut tasks = Vec::new();
