@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Error, Result};
 use aws_sdk_timestreamwrite as timestream_write;
-use futures::future::join_all;
+use futures::stream::FuturesUnordered;
+use futures::StreamExt;
 use lambda_runtime::LambdaEvent;
 use line_protocol_parser::*;
 use records_builder::*;
@@ -81,7 +82,7 @@ async fn handle_multi_table_ingestion(
         }
     }
 
-    let mut tasks = Vec::new();
+    let mut tasks = FuturesUnordered::new();
     for (table_name, records) in records {
         let client_clone = Arc::clone(client);
         let task = task::spawn(ingest_records(
@@ -92,7 +93,19 @@ async fn handle_multi_table_ingestion(
         ));
         tasks.push(task);
     }
-    let _results = join_all(tasks);
+
+    while let Some(result) = tasks.next().await {
+        // result will be Result<Result<(), Error>>
+        match result {
+            Ok(Ok(_)) => {}
+            Ok(Err(error)) => {
+                return Err(anyhow!(error));
+            }
+            Err(error) => {
+                return Err(anyhow!(error));
+            }
+        }
+    }
 
     Ok(())
 }

@@ -2,7 +2,8 @@ use super::records_builder::TableConfig;
 use anyhow::{anyhow, Error, Result};
 use aws_sdk_timestreamwrite as timestream_write;
 use aws_types::region::Region;
-use futures::future::join_all;
+use futures::stream::FuturesUnordered;
+use futures::StreamExt;
 use rayon::prelude::*;
 use std::sync::Arc;
 use std::time::Instant;
@@ -159,7 +160,7 @@ pub async fn ingest_records(
         .par_chunks(MAX_TIMESTREAM_BATCH_SIZE)
         .map(|sub_records| sub_records.to_vec())
         .collect();
-    let mut tasks = Vec::new();
+    let mut tasks = FuturesUnordered::new();
     for chunk in records_chunked {
         records_ingested += chunk.len();
         let client_clone = Arc::clone(&client);
@@ -171,7 +172,18 @@ pub async fn ingest_records(
         ));
         tasks.push(task);
     }
-    let _result = join_all(tasks).await;
+    while let Some(result) = tasks.next().await {
+        // result will be Result<Result<(), Error>>
+        match result {
+            Ok(Ok(_)) => {}
+            Ok(Err(error)) => {
+                return Err(anyhow!(error));
+            }
+            Err(error) => {
+                return Err(anyhow!(error));
+            }
+        }
+    }
 
     println!(
         "{} records ingested total for table {} in database {}",
