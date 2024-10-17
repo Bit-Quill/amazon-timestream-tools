@@ -71,6 +71,7 @@ The following parameters are available when deploying the connector as part of a
 | `RestApiGatewayName` | The name to use for the REST API Gateway. | `InfluxDB-Timestream-Connector-REST-API-Gateway` |
 | `RestApiGatewayStageName` | The name to use for the REST API Gateway stage. | `dev` |
 | `RestApiGatewayTimeoutInMillis` | The maximum number of milliseconds a REST API Gateway event will wait before timing out. | `30000` |
+| `RustLog` | The log level to use for the Lambda function. Typical values are error, warn, info, debug, trace, and off. Use trace in order to log the execution time of each function. | `INFO` |
 | `WriteThrottlingBurstLimit` | The number of burst requests per second that the REST API Gateway permits. | `1200` |
 
 ##### SAM Deployment Steps
@@ -494,6 +495,27 @@ Due to the connector translating line protocol to Timestream records, line proto
 ### Database and Table Creation Delay
 
 There is a delay of one second added before deleting or creating a table or database. This is because of Timestream for LiveAnalytics' "Throttle rate for CRUD APIs" [quota](https://docs.aws.amazon.com/timestream/latest/developerguide/ts-limits.html#limits.default) of one table/database deletion/creation per second.
+
+## Logging
+
+Logging levels for the connector can be configured using the `RUST_LOG` [Rust environment variable](https://docs.rs/env_logger/latest/env_logger/#enabling-logging). By default, the logging level the connector uses is `INFO`.
+
+The `TRACE` logging level displays execution time for each function in the connector.
+
+### Enabling Trace Logging for Local Deployment
+
+The following command will run the connector with its logging level set to `TRACE` and output function durations to a file:
+
+```shell
+cargo lambda watch \
+    --env-var RUST_LOG=trace 2>&1 | \
+    tee /dev/tty | \
+    grep --line-buffered 'TRACE influxdb_timestream_connector' > function_duration.log
+```
+
+### Enabling Trace Logging for CloudFormation Deployment
+
+The parameter `RustLog` allows configuration of the `RUST_LOG` environment variable for the Lambda function.
 
 ## Troubleshooting
 
