@@ -1,3 +1,4 @@
+use env_logger::Env;
 use influxdb_timestream_connector::{
     lambda_handler, records_builder::validate_env_variables, timestream_utils::get_connection,
 };
@@ -7,7 +8,8 @@ use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    env_logger::init();
+    let env = Env::default().filter_or("RUST_LOG", "INFO");
+    env_logger::Builder::from_env(env).init();
     validate_env_variables()?;
     let region = std::env::var("region")?;
     let timestream_client = get_connection(&region).await?;

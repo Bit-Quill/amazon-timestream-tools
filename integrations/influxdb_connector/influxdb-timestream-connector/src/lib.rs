@@ -4,7 +4,7 @@ use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use lambda_runtime::LambdaEvent;
 use line_protocol_parser::*;
-use log::trace;
+use log::{info, trace};
 use records_builder::*;
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -103,7 +103,7 @@ async fn handle_multi_table_ingestion(
                             ));
                         }
                     }
-                    Err(error) => println!("error checking table exists: {:?}", error),
+                    Err(error) => info!("error checking table exists: {:?}", error),
                 }
             }
 

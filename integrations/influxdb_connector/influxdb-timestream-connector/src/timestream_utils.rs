@@ -4,7 +4,7 @@ use aws_sdk_timestreamwrite as timestream_write;
 use aws_types::region::Region;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
-use log::trace;
+use log::{info, trace};
 use rayon::prelude::*;
 use std::sync::Arc;
 use std::time::Instant;
@@ -27,7 +27,7 @@ pub async fn get_connection(
         .expect("Failed to get the write client connection with Timestream");
 
     tokio::task::spawn(reload.reload_task());
-    println!("Initialized connection to Timestream in region {}", region);
+    info!("Initialized connection to Timestream in region {}", region);
 
     trace!("get_connection duration: {:?}", function_start.elapsed());
     Ok(client)
@@ -41,7 +41,7 @@ pub async fn create_database(
 
     let function_start = Instant::now();
 
-    println!("Creating new database {}", database_name);
+    info!("Creating new database {}", database_name);
     client
         .create_database()
         .set_database_name(Some(database_name.to_owned()))
@@ -62,7 +62,7 @@ pub async fn create_table(
 
     let function_start = Instant::now();
 
-    println!(
+    info!(
         "Creating new table {} for database {}",
         table_name, database_name
     );
@@ -211,7 +211,7 @@ pub async fn ingest_records(
         }
     }
 
-    println!(
+    info!(
         "{} records ingested total for table {} in database {}",
         records_ingested, table_name, database_name
     );
@@ -236,7 +236,7 @@ pub async fn ingest_record_batch(
     {
         Ok(_) => {}
         Err(error) => {
-            println!("SdkError: {:?}", error.raw_response().unwrap());
+            info!("SdkError: {:?}", error.raw_response().unwrap());
             return Err(anyhow!(error));
         }
     };
