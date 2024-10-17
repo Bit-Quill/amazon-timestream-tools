@@ -54,55 +54,66 @@ async fn handle_multi_table_ingestion(
     let function_start = Instant::now();
 
     let database_name = std::env::var("database_name")?;
+    let database_name = Arc::new(database_name);
 
-    match database_exists(client, &database_name).await {
-        Ok(true) => (),
-        Ok(false) => {
-            if database_creation_enabled()? {
-                thread::sleep(time::Duration::from_secs(TIMESTREAM_API_WAIT_SECONDS));
-                create_database(client, &database_name).await?;
-            } else {
-                return Err(anyhow!(
-                    "Database {} does not exist and database creation is not enabled",
-                    database_name
-                ));
-            }
-        }
-        Err(error) => return Err(anyhow!(error)),
-    }
-
-    for (table_name, _) in records.iter() {
-        match table_exists(client, &database_name, table_name).await {
+    if let Ok(true) = std::env::var("enable_database_creation").map(env_var_to_bool) {
+        match database_exists(client, &database_name).await {
             Ok(true) => (),
             Ok(false) => {
-                if table_creation_enabled()? {
+                if database_creation_enabled()? {
                     thread::sleep(time::Duration::from_secs(TIMESTREAM_API_WAIT_SECONDS));
-                    create_table(client, &database_name, table_name, get_table_config()?).await?
+                    create_database(client, &database_name).await?;
                 } else {
                     return Err(anyhow!(
-                        "Table {} does not exist and database creation is not enabled",
-                        table_name
+                        "Database {} does not exist and database creation is not enabled",
+                        database_name
                     ));
                 }
             }
-            Err(error) => println!("error checking table exists: {:?}", error),
+            Err(error) => return Err(anyhow!(error)),
         }
     }
 
-    let mut tasks = FuturesUnordered::new();
+    let mut batch_ingestion_futures = FuturesUnordered::new();
     let ingestion_start = Instant::now();
     for (table_name, records) in records {
         let client_clone = Arc::clone(client);
-        let task = task::spawn(ingest_records(
-            client_clone,
-            database_name.clone(),
-            table_name,
-            records,
-        ));
-        tasks.push(task);
+        let database_name_clone = Arc::clone(&database_name);
+
+        // Create a task for ingesting to the current table
+        let future = task::spawn(async move {
+            // Check whether the table exists
+            if let Ok(true) = std::env::var("enable_table_creation").map(env_var_to_bool) {
+                match table_exists(&client_clone, &database_name_clone, &table_name).await {
+                    Ok(true) => (),
+                    Ok(false) => {
+                        if table_creation_enabled()? {
+                            thread::sleep(time::Duration::from_secs(TIMESTREAM_API_WAIT_SECONDS));
+                            create_table(
+                                &client_clone,
+                                &database_name_clone,
+                                &table_name,
+                                get_table_config()?,
+                            )
+                            .await?
+                        } else {
+                            return Err(anyhow!(
+                                "Table {} does not exist and database creation is not enabled",
+                                table_name
+                            ));
+                        }
+                    }
+                    Err(error) => println!("error checking table exists: {:?}", error),
+                }
+            }
+
+            // Ingest the data to the table
+            ingest_records(client_clone, database_name_clone, table_name, records).await
+        });
+        batch_ingestion_futures.push(future);
     }
 
-    while let Some(result) = tasks.next().await {
+    while let Some(result) = batch_ingestion_futures.next().await {
         // result will be Result<Result<(), Error>>
         match result {
             Ok(Ok(_)) => {}
@@ -160,8 +171,6 @@ pub async fn lambda_handler(
     event: LambdaEvent<Value>,
 ) -> Result<Value, Error> {
     // Handler for lambda runtime
-
-    env_logger::init();
 
     let function_start = Instant::now();
 

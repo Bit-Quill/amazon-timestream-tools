@@ -7,6 +7,7 @@ use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
+    env_logger::init();
     validate_env_variables()?;
     let region = std::env::var("region")?;
     let timestream_client = get_connection(&region).await?;

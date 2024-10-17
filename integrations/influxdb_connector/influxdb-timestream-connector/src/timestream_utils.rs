@@ -173,7 +173,7 @@ pub async fn database_exists(
 
 pub async fn ingest_records(
     client: Arc<timestream_write::Client>,
-    database_name: String,
+    database_name: Arc<String>,
     table_name: String,
     records: Vec<timestream_write::types::Record>,
 ) -> Result<(), Error> {
