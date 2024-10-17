@@ -1,7 +1,8 @@
 use crate::metric::Metric;
 use anyhow::{anyhow, Error};
 use aws_sdk_timestreamwrite as timestream_write;
-use std::collections::HashMap;
+use log::trace;
+use std::{collections::HashMap, time::Instant};
 
 mod multi_table_multi_measure_builder;
 
@@ -22,9 +23,12 @@ impl std::fmt::Display for SchemaType {
 
 pub fn get_builder(schema: SchemaType) -> impl BuildRecords {
     // Currently only supported schema is multi-table multi-measure
-    multi_table_multi_measure_builder::MultiTableMultiMeasureBuilder {
+    let function_start = Instant::now();
+    let build_records_impl = multi_table_multi_measure_builder::MultiTableMultiMeasureBuilder {
         measure_name: schema.to_string(),
-    }
+    };
+    trace!("get_builder duration: {:?}", function_start.elapsed());
+    build_records_impl
 }
 
 pub fn build_records(
@@ -32,7 +36,10 @@ pub fn build_records(
     metrics: &[Metric],
     precision: &timestream_write::types::TimeUnit,
 ) -> Result<HashMap<String, Vec<timestream_write::types::Record>>, Error> {
-    records_builder.build_records(metrics, precision)
+    let function_start = Instant::now();
+    let result = records_builder.build_records(metrics, precision);
+    trace!("build_records duration: {:?}", function_start.elapsed());
+    result
 }
 
 pub struct TableConfig {
@@ -46,6 +53,8 @@ pub struct TableConfig {
 
 pub fn get_table_config() -> Result<TableConfig, Error> {
     // Get the populated table_config struct
+
+    let function_start = Instant::now();
 
     let custom_partition_key_type = match std::env::var("custom_partition_key_type") {
         Ok(custom_partition_key_type_value) => {
@@ -95,7 +104,7 @@ pub fn get_table_config() -> Result<TableConfig, Error> {
         _ => None,
     };
 
-    Ok(TableConfig {
+    let config = Ok(TableConfig {
         mag_store_retention_period: std::env::var("mag_store_retention_period")?.parse()?,
         mem_store_retention_period: std::env::var("mem_store_retention_period")?.parse()?,
         enable_mag_store_writes: matches!(
@@ -107,14 +116,25 @@ pub fn get_table_config() -> Result<TableConfig, Error> {
         enforce_custom_partition_key,
         custom_partition_key_type,
         custom_partition_key_dimension,
-    })
+    });
+
+    trace!("get_table_config duration: {:?}", function_start.elapsed());
+    config
 }
 
 pub fn table_creation_enabled() -> Result<bool, Error> {
     // Convert the env var table_creation_enabled to bool
 
+    let function_start = Instant::now();
     match std::env::var("enable_table_creation") {
-        Ok(enabled) => Ok(env_var_to_bool(enabled)),
+        Ok(enabled) => {
+            let result = Ok(env_var_to_bool(enabled));
+            trace!(
+                "table_creation_enabled duration: {:?}",
+                function_start.elapsed()
+            );
+            result
+        }
         Err(_) => Err(anyhow!(
             "enable_table_creation environment variable is not defined"
         )),
@@ -124,8 +144,16 @@ pub fn table_creation_enabled() -> Result<bool, Error> {
 pub fn database_creation_enabled() -> Result<bool, Error> {
     // Convert the env var database_creation_enabled to bool
 
+    let function_start = Instant::now();
     match std::env::var("enable_database_creation") {
-        Ok(enabled) => Ok(env_var_to_bool(enabled)),
+        Ok(enabled) => {
+            let result = Ok(env_var_to_bool(enabled));
+            trace!(
+                "database_creation_enabled duration: {:?}",
+                function_start.elapsed()
+            );
+            result
+        }
         Err(_) => Err(anyhow!(
             "enable_database_creation environment variable is not defined"
         )),
@@ -135,11 +163,16 @@ pub fn database_creation_enabled() -> Result<bool, Error> {
 pub fn env_var_to_bool(env_var: String) -> bool {
     // Convert the env var to bool
 
-    matches!(env_var.as_str(), "true" | "t" | "1")
+    let function_start = Instant::now();
+    let val = matches!(env_var.as_str(), "true" | "t" | "1");
+    trace!("env_var_to_bool duration: {:?}", function_start.elapsed());
+    val
 }
 
 pub fn validate_env_variables() -> Result<(), Error> {
     // Validate environment variables for all schema types
+
+    let function_start = Instant::now();
 
     if std::env::var("region").is_err() {
         return Err(anyhow!("region environment variable is not defined"));
@@ -214,6 +247,10 @@ pub fn validate_env_variables() -> Result<(), Error> {
         }
     }
 
+    trace!(
+        "validate_env_variables duration: {:?}",
+        function_start.elapsed()
+    );
     Ok(())
 }
 

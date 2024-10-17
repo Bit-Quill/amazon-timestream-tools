@@ -4,10 +4,12 @@ use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use lambda_runtime::LambdaEvent;
 use line_protocol_parser::*;
+use log::trace;
 use records_builder::*;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Instant;
 use std::{str, thread, time};
 use timestream_utils::*;
 use tokio::task;
@@ -28,6 +30,8 @@ async fn handle_body(
 ) -> Result<(), Error> {
     // Handle parsing body in request
 
+    let function_start = Instant::now();
+
     let line_protocol = str::from_utf8(body).unwrap();
     let metric_data = parse_line_protocol(line_protocol)?;
     let multi_measure_builder = get_builder(SchemaType::MultiTableMultiMeasure(std::env::var(
@@ -37,6 +41,7 @@ async fn handle_body(
     // Only currently supports multi-measure multi-table
     let multi_table_batch = build_records(&multi_measure_builder, &metric_data, precision)?;
     handle_multi_table_ingestion(client, multi_table_batch).await?;
+    trace!("handle_body duration: {:?}", function_start.elapsed());
     Ok(())
 }
 
@@ -45,6 +50,8 @@ async fn handle_multi_table_ingestion(
     records: HashMap<String, Vec<timestream_write::types::Record>>,
 ) -> Result<(), Error> {
     // Ingestion for multi-measure schema type
+
+    let function_start = Instant::now();
 
     let database_name = std::env::var("database_name")?;
 
@@ -83,6 +90,7 @@ async fn handle_multi_table_ingestion(
     }
 
     let mut tasks = FuturesUnordered::new();
+    let ingestion_start = Instant::now();
     for (table_name, records) in records {
         let client_clone = Arc::clone(client);
         let task = task::spawn(ingest_records(
@@ -107,11 +115,21 @@ async fn handle_multi_table_ingestion(
         }
     }
 
+    trace!(
+        "Total asynchronous ingestion duration: {:?}",
+        ingestion_start.elapsed()
+    );
+    trace!(
+        "handle_multi_table_ingestion duration: {:?}",
+        function_start.elapsed()
+    );
     Ok(())
 }
 
 pub fn get_precision(event: &Value) -> Option<&str> {
     // Retrieves the optional "precision" query string parameter from a serde_json::Value
+
+    let function_start = Instant::now();
 
     // Query string parameters may be included as "queryStringParameters"
     if let Some(precision) = event
@@ -121,12 +139,14 @@ pub fn get_precision(event: &Value) -> Option<&str> {
     {
         // event["queryStringParameters"]["precision"] may be an object
         if let Some(precision_str) = precision.as_str() {
+            trace!("get_precision duration: {:?}", function_start.elapsed());
             return Some(precision_str);
         // event["queryStringParameters"]["precision"] may be an array. This is common from requests
         // originating from AWS services, such as when the connector is ran with the cargo lambda watch command
         } else if let Some(precision_array) = precision.as_array() {
             if let Some(precision_value) = precision_array.first().and_then(|value| value.as_str())
             {
+                trace!("get_precision duration: {:?}", function_start.elapsed());
                 return Some(precision_value);
             }
         }
@@ -140,6 +160,10 @@ pub async fn lambda_handler(
     event: LambdaEvent<Value>,
 ) -> Result<Value, Error> {
     // Handler for lambda runtime
+
+    env_logger::init();
+
+    let function_start = Instant::now();
 
     let (event, _context) = event.into_parts();
 
@@ -177,6 +201,7 @@ pub async fn lambda_handler(
             if std::env::var("local_invocation").is_ok() {
                 response["cookies"] = json!([]);
             }
+            trace!("lambda_handler duration: {:?}", function_start.elapsed());
             Ok(response)
         }
         // An Err is required in order to send messages to the Lambda's

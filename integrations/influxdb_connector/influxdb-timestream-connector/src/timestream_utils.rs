@@ -4,6 +4,7 @@ use aws_sdk_timestreamwrite as timestream_write;
 use aws_types::region::Region;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
+use log::trace;
 use rayon::prelude::*;
 use std::sync::Arc;
 use std::time::Instant;
@@ -13,6 +14,8 @@ pub async fn get_connection(
     region: &str,
 ) -> Result<timestream_write::Client, timestream_write::Error> {
     // Get a connection to Timestream
+
+    let function_start = Instant::now();
 
     let config = aws_config::defaults(aws_config::BehaviorVersion::latest())
         .region(Region::new(region.to_owned()))
@@ -25,6 +28,8 @@ pub async fn get_connection(
 
     tokio::task::spawn(reload.reload_task());
     println!("Initialized connection to Timestream in region {}", region);
+
+    trace!("get_connection duration: {:?}", function_start.elapsed());
     Ok(client)
 }
 
@@ -34,6 +39,8 @@ pub async fn create_database(
 ) -> Result<(), timestream_write::Error> {
     // Create a new Timestream database
 
+    let function_start = Instant::now();
+
     println!("Creating new database {}", database_name);
     client
         .create_database()
@@ -41,6 +48,7 @@ pub async fn create_database(
         .send()
         .await?;
 
+    trace!("create_database duration: {:?}", function_start.elapsed());
     Ok(())
 }
 
@@ -51,6 +59,8 @@ pub async fn create_table(
     table_config: TableConfig,
 ) -> Result<(), timestream_write::Error> {
     // Create a new Timestream table
+
+    let function_start = Instant::now();
 
     println!(
         "Creating new table {} for database {}",
@@ -93,6 +103,7 @@ pub async fn create_table(
         .send()
         .await?;
 
+    trace!("create_table duration: {:?}", function_start.elapsed());
     Ok(())
 }
 
@@ -103,6 +114,8 @@ pub async fn table_exists(
 ) -> Result<bool, Error> {
     // Check if table already exists
 
+    let function_start = Instant::now();
+
     match client
         .describe_table()
         .table_name(table_name)
@@ -110,12 +123,18 @@ pub async fn table_exists(
         .send()
         .await
     {
-        Ok(_) => Ok(true),
+        Ok(_) => {
+            trace!("table_exists duration: {:?}", function_start.elapsed());
+            Ok(true)
+        }
         Err(error) => match error
             .as_service_error()
             .map(|e| e.is_resource_not_found_exception())
         {
-            Some(true) => Ok(false),
+            Some(true) => {
+                trace!("table_exists duration: {:?}", function_start.elapsed());
+                Ok(false)
+            }
             _ => Err(anyhow!(error)),
         },
     }
@@ -127,18 +146,26 @@ pub async fn database_exists(
 ) -> Result<bool, Error> {
     // Check if database already exists
 
+    let function_start = Instant::now();
+
     match client
         .describe_database()
         .database_name(database_name)
         .send()
         .await
     {
-        Ok(_) => Ok(true),
+        Ok(_) => {
+            trace!("database_exists duration: {:?}", function_start.elapsed());
+            Ok(true)
+        }
         Err(error) => match error
             .as_service_error()
             .map(|e| e.is_resource_not_found_exception())
         {
-            Some(true) => Ok(false),
+            Some(true) => {
+                trace!("database_exists duration: {:?}", function_start.elapsed());
+                Ok(false)
+            }
             _ => Err(anyhow!(error)),
         },
     }
@@ -151,7 +178,6 @@ pub async fn ingest_records(
     records: Vec<timestream_write::types::Record>,
 ) -> Result<(), Error> {
     // Ingest records to Timestream in batches of 100 (Max supported Timestream batch size)
-    let start = Instant::now();
 
     let mut records_ingested: usize = 0;
     const MAX_TIMESTREAM_BATCH_SIZE: usize = 100;
@@ -189,9 +215,6 @@ pub async fn ingest_records(
         "{} records ingested total for table {} in database {}",
         records_ingested, table_name, database_name
     );
-
-    let duration = start.elapsed();
-    println!("Time elapsed: {:?}", duration);
 
     Ok(())
 }

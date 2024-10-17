@@ -1,9 +1,14 @@
+use std::time::Instant;
+
 use crate::metric::{self, Metric};
 use anyhow::{anyhow, Error};
 use influxdb_line_protocol::{self, parse_lines, ParsedLine};
+use log::trace;
 
 pub fn parse_line_protocol(line_protocol: &str) -> Result<Vec<Metric>, Error> {
     // Parses a string of line protocol to a vector of Metric structs,
+
+    let function_start = Instant::now();
 
     let parsed_lines = parse_lines(line_protocol);
     let mut output_metrics: Vec<Metric> = Vec::new();
@@ -19,11 +24,17 @@ pub fn parse_line_protocol(line_protocol: &str) -> Result<Vec<Metric>, Error> {
             }
         }
     }
+    trace!(
+        "parse_line_protocol duration: {:?}",
+        function_start.elapsed()
+    );
     Ok(output_metrics)
 }
 
 pub fn parsed_line_to_metric(parsed_line: ParsedLine) -> Result<Metric, Error> {
     // Converts an influxdb_line_protocol ParsedLine struct to a Metric struct.
+
+    let function_start = Instant::now();
 
     let mut new_tags: Vec<(String, String)> = Vec::new();
     if let Some(tag_set) = parsed_line.series.tag_set.as_ref() {
@@ -64,12 +75,19 @@ pub fn parsed_line_to_metric(parsed_line: ParsedLine) -> Result<Metric, Error> {
     }
 
     match parsed_line.timestamp {
-        Some(timestamp) => Ok(Metric::new(
-            parsed_line.series.measurement.to_string(),
-            Some(new_tags),
-            new_fields,
-            timestamp,
-        )),
+        Some(timestamp) => {
+            let result = Ok(Metric::new(
+                parsed_line.series.measurement.to_string(),
+                Some(new_tags),
+                new_fields,
+                timestamp,
+            ));
+            trace!(
+                "parsed_line_to_metric duration: {:?}",
+                function_start.elapsed()
+            );
+            result
+        }
         None => Err(anyhow!("Failed to parse timestamp")),
     }
 }
