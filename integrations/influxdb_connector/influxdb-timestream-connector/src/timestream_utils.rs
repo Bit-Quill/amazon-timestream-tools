@@ -8,7 +8,12 @@ use log::{info, trace};
 use rayon::prelude::*;
 use std::sync::Arc;
 use std::time::Instant;
+use tokio::sync::Semaphore;
 use tokio::task;
+
+// The maximum number of threads to use for ingesting
+// batches of records to Timestream in parallel
+static NUM_TIMESTREAM_INGEST_THREADS: usize = 12;
 
 pub async fn get_connection(
     region: &str,
@@ -178,27 +183,45 @@ pub async fn ingest_records(
     records: Vec<timestream_write::types::Record>,
 ) -> Result<(), Error> {
     // Ingest records to Timestream in batches of 100 (Max supported Timestream batch size)
+    // in parallel
 
     let mut records_ingested: usize = 0;
     const MAX_TIMESTREAM_BATCH_SIZE: usize = 100;
 
+    // Chunk records in parallel using rayon (par_chunks)
     let records_chunked: Vec<Vec<timestream_write::types::Record>> = records
         .par_chunks(MAX_TIMESTREAM_BATCH_SIZE)
         .map(|sub_records| sub_records.to_vec())
         .collect();
-    let mut tasks = FuturesUnordered::new();
+
+    // Use a semaphore to limit the maximum number of threads used to ingest chunks in parallel
+    let semaphore = Arc::new(Semaphore::new(NUM_TIMESTREAM_INGEST_THREADS));
+    let mut ingestion_futures = FuturesUnordered::new();
+
+    // Ingest chunks in parallel
     for chunk in records_chunked {
+        let permit = semaphore
+            .clone()
+            .acquire_owned()
+            .await
+            .expect("Failed to get semaphore permit");
         records_ingested += chunk.len();
         let client_clone = Arc::clone(&client);
-        let task = task::spawn(ingest_record_batch(
-            client_clone,
-            database_name.to_string(),
-            table_name.to_string(),
-            chunk,
-        ));
-        tasks.push(task);
+        let table_name_clone = table_name.clone();
+        let database_name_clone = Arc::clone(&database_name).to_string();
+
+        let future = task::spawn(async move {
+            let result =
+                ingest_record_batch(client_clone, database_name_clone, table_name_clone, chunk)
+                    .await;
+            drop(permit);
+            result
+        });
+
+        ingestion_futures.push(future);
     }
-    while let Some(result) = tasks.next().await {
+
+    while let Some(result) = ingestion_futures.next().await {
         // result will be Result<Result<(), Error>>
         match result {
             Ok(Ok(_)) => {}
@@ -225,7 +248,6 @@ pub async fn ingest_record_batch(
     table_name: String,
     chunk: Vec<timestream_write::types::Record>,
 ) -> Result<(), Error> {
-    // Ingest records to Timestream in batches of 100 (Max supported Timestream batch size)
     match client
         .write_records()
         .database_name(database_name)

@@ -12,6 +12,7 @@ use std::sync::Arc;
 use std::time::Instant;
 use std::{str, thread, time};
 use timestream_utils::*;
+use tokio::sync::Semaphore;
 use tokio::task;
 
 pub mod line_protocol_parser;
@@ -22,6 +23,11 @@ pub mod timestream_utils;
 // The maximum number of database/table creation/delete API calls
 // that can be made per second is 1.
 pub static TIMESTREAM_API_WAIT_SECONDS: u64 = 1;
+
+// The number of batches processed at the same time.
+// For multi-table multi measure schema, batches are a combination of
+// a table name and a Vec of records bound for that table
+pub static NUM_BATCH_THREADS: usize = 16;
 
 async fn handle_body(
     client: &Arc<timestream_write::Client>,
@@ -74,13 +80,26 @@ async fn handle_multi_table_ingestion(
         }
     }
 
+    // Use a semaphore to limit the maximum number of threads used to process batches in parallel
+    let semaphore = Arc::new(Semaphore::new(NUM_BATCH_THREADS));
     let mut batch_ingestion_futures = FuturesUnordered::new();
+
+    // Track total time taken to check existence of tables and ingest records
     let ingestion_start = Instant::now();
+
+    // Ingest records for each table, in parallel
     for (table_name, records) in records {
+        let permit = semaphore
+            .clone()
+            .acquire_owned()
+            .await
+            .expect("Failed to get semaphore permit");
+
+        // Use Arc::clone to create a shallow clone of the client
         let client_clone = Arc::clone(client);
         let database_name_clone = Arc::clone(&database_name);
 
-        // Create a task for ingesting to the current table
+        // Create a future for ingesting to the current table
         let future = task::spawn(async move {
             // Check whether the table exists
             if let Ok(true) = std::env::var("enable_table_creation").map(env_var_to_bool) {
@@ -108,13 +127,17 @@ async fn handle_multi_table_ingestion(
             }
 
             // Ingest the data to the table
-            ingest_records(client_clone, database_name_clone, table_name, records).await
+            let result =
+                ingest_records(client_clone, database_name_clone, table_name, records).await;
+            drop(permit);
+            result
         });
         batch_ingestion_futures.push(future);
     }
 
     while let Some(result) = batch_ingestion_futures.next().await {
         // result will be Result<Result<(), Error>>
+        // This means the nested Result needs to be checked
         match result {
             Ok(Ok(_)) => {}
             Ok(Err(error)) => {
@@ -175,6 +198,8 @@ pub async fn lambda_handler(
     let function_start = Instant::now();
 
     let (event, _context) = event.into_parts();
+
+    info!("Size of event: {:?}", event.to_string().as_bytes().len());
 
     let precision = match get_precision(&event) {
         Some("ms") => timestream_write::types::TimeUnit::Milliseconds,

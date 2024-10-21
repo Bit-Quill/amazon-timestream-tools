@@ -6,10 +6,23 @@ use lambda_runtime::{run, service_fn, tracing, Error, LambdaEvent};
 use serde_json::Value;
 use std::sync::Arc;
 
+// The number of threads to use to chunk Vecs in parallel
+// using rayon
+// Lambda functions have a maximum of 1024 threads
+pub static NUM_RAYON_THREADS: usize = 32;
+
 #[tokio::main]
 async fn main() -> Result<(), Error> {
+    // Configure logging
     let env = Env::default().filter_or("RUST_LOG", "INFO");
     env_logger::Builder::from_env(env).init();
+
+    // Set global maximum rayon threads
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(NUM_RAYON_THREADS)
+        .build_global()
+        .unwrap();
+
     validate_env_variables()?;
     let region = std::env::var("region")?;
     let timestream_client = get_connection(&region).await?;

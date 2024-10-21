@@ -556,3 +556,22 @@ In order to ingest to Timestream for LiveAnalytics, every line protocol point mu
 
 The connector expects query string parameters to be included as `queryParameters` or `queryStringParameters` in requests.
 
+### Stack Cost
+
+The costs incurred by the connector when deployed as a CloudFormation stack may be expensive compared to the costs of ingesting to Timestream for LiveAnalytics (28%-46% of ingestion costs during product testing).
+
+#### Solution
+
+A number of details impact stack costs:
+
+- The number of requests to the REST API Gateway.
+- The size of requests sent to the REST API Gateway.
+- The Lambda memory size.
+- The number of line protocol points in a request, which directly impact Lambda execution time.
+- With multi-table multi measure schema, the number of unique measurement names, which directly impact Lambda execution time by causing tables to be created or checked.
+
+The following approaches help reduce stack costs:
+
+- The REST API Gateway incurs the highest costs for the stack. Reduce REST API Gateway costs by including as many line protocol points in a request as possible. 500-20,000 line protocol points in each request is ideal. The Lambda memory size, Lambda timeout, REST API Gateway timeout, and client timeout may have to be increased in order to accommodate larger requests.
+- If possible, create the necessary tables in advance, to reduce the time the connector will take to create tables. The connector adds a one second delay for table or database creation in order to avoid throttling.
+- Reduce the amount of memory the connector uses as a Lambda function. The default, and smallest possible value, is 128 MB.
