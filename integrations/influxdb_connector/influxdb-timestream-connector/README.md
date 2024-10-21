@@ -546,16 +546,6 @@ When using multi-table multi measure schema and ingesting line protocol data in 
 1. Consider creating the tables before ingestion, using each unique measurement in the line protocol data as the table names.
 2. Re-ingest failed requests. Failed requests will be stored in the Lambda's dead letter queue.
 
-## Caveats
-
-### Line Protocol Tag Requirement
-
-In order to ingest to Timestream for LiveAnalytics, every line protocol point must include at least one tag.
-
-### Query String Parameters
-
-The connector expects query string parameters to be included as `queryParameters` or `queryStringParameters` in requests.
-
 ### Stack Cost
 
 The following is an overview of how the costs are calculated for each deployed resource in the CloudFormation stack, at the time of writing (Oct. 21, 2024). These calculations are based on the calculations used by the [AWS pricing calculator](https://calculator.aws/#/). Refer to the AWS pricing calculator for a more accurate estimate:
@@ -577,7 +567,17 @@ The following is an overview of how the costs are calculated for each deployed r
 
 The following are some approaches that can reduce stack costs:
 
-- The REST API Gateway incurs the highest costs for the stack. Reduce REST API Gateway costs by including as many line protocol points in a request as possible. 500-20,000 line protocol points in each request is ideal. The Lambda memory size, Lambda timeout, REST API Gateway timeout, and client timeout may have to be increased in order to accommodate larger requests.
+- The REST API Gateway incurs the highest costs for the stack. Reduce REST API Gateway costs by including as many line protocol points in a request as possible. 5,000-20,000 line protocol points in each request is ideal. The Lambda memory size, Lambda timeout, REST API Gateway timeout, and client timeout may have to be increased in order to accommodate larger requests.
     - NOTE: if requests contain only a single line protocol point, the ratio of REST API Gateway requests to ingested records would be 1:1 and costs would be much higher than including multiple line protocol points in each request.
 - If possible, create the necessary tables in advance, to reduce the time the connector will take to create tables. The connector adds a one second delay for table or database creation in order to avoid throttling.
 - Reduce the amount of memory the connector uses as a Lambda function. The default, and smallest possible value, is 128 MB.
+
+## Caveats
+
+### Line Protocol Tag Requirement
+
+In order to ingest to Timestream for LiveAnalytics, every line protocol point must include at least one tag.
+
+### Query String Parameters
+
+The connector expects query string parameters to be included as `queryParameters` or `queryStringParameters` in requests.
