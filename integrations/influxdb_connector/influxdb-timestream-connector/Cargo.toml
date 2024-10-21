@@ -38,5 +38,3 @@ mag_store_retention_period = "8000"
 mem_store_retention_period = "12"
 local_invocation = "true"
 
-[profile.release]
-debug = true
