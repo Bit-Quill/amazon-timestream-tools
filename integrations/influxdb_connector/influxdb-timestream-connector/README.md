@@ -571,6 +571,7 @@ The following are some approaches that can reduce stack costs:
     - NOTE: if requests contain only a single line protocol point, the ratio of REST API Gateway requests to ingested records would be 1:1 and costs would be much higher than including multiple line protocol points in each request.
 - If possible, create the necessary tables in advance, to reduce the time the connector will take to create tables. The connector adds a one second delay for table or database creation in order to avoid throttling.
 - Reduce the amount of memory the connector uses as a Lambda function. The default, and smallest possible value, is 128 MB.
+- Set the `EnableDatabaseCreation` or `EnableTableCreation` parameter to `false` to skip checks for existing databases or tables, if unnecessary.
 
 ## Caveats
 
