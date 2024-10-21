@@ -199,8 +199,6 @@ pub async fn lambda_handler(
 
     let (event, _context) = event.into_parts();
 
-    info!("Size of event: {:?}", event.to_string().as_bytes().len());
-
     let precision = match get_precision(&event) {
         Some("ms") => timestream_write::types::TimeUnit::Milliseconds,
         Some("us") => timestream_write::types::TimeUnit::Microseconds,
