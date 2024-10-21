@@ -558,20 +558,26 @@ The connector expects query string parameters to be included as `queryParameters
 
 ### Stack Cost
 
-The costs incurred by the connector when deployed as a CloudFormation stack may be expensive compared to the costs of ingesting to Timestream for LiveAnalytics (28%-46% of ingestion costs during product testing).
+The following is an overview of how the costs are calculated for each deployed resource in the CloudFormation stack, at the time of writing (Oct. 21, 2024). These calculations are based on the calculations used by the [AWS pricing calculator](https://calculator.aws/#/). Refer to the AWS pricing calculator for a more accurate estimate:
+
+- Lambda (without free tier):
+    - number of monthly requests x average request duration x 0.001 ms to sec conversion factor = total compute in seconds.
+    - memory usage in GB x total compute in seconds = total compute GB-s.
+    - total compute GB-s x 0.0000133334 USD = tiered price.
+    - number of monthly requests x 0.0000002 USD = monthly request charges.
+    - tiered price + monthly request charges = Lambda monthly cost.
+- REST API Gateway:
+    - number of monthly requests x 0.0000035 USD = REST API Gateway monthly cost.
+- CloudWatch:
+    - logs data ingested in GB per month x 0.50 USD = logs data ingested cost per month.
+    - logs data ingested in GB per month x 0.15 Storage compression factor x 1 Logs retention factor x 0.03 USD = standard/vended logs data storage cost.
+    - logs data ingested cost + standard/vended logs data storage cost = CloudWatch monthly cost.
 
 #### Solution
 
-A number of details impact stack costs:
-
-- The number of requests to the REST API Gateway.
-- The size of requests sent to the REST API Gateway.
-- The Lambda memory size.
-- The number of line protocol points in a request, which directly impact Lambda execution time.
-- With multi-table multi measure schema, the number of unique measurement names, which directly impact Lambda execution time by causing tables to be created or checked.
-
-The following approaches help reduce stack costs:
+The following are some approaches that can reduce stack costs:
 
 - The REST API Gateway incurs the highest costs for the stack. Reduce REST API Gateway costs by including as many line protocol points in a request as possible. 500-20,000 line protocol points in each request is ideal. The Lambda memory size, Lambda timeout, REST API Gateway timeout, and client timeout may have to be increased in order to accommodate larger requests.
+    - NOTE: if requests contain only a single line protocol point, the ratio of REST API Gateway requests to ingested records would be 1:1 and costs would be much higher than including multiple line protocol points in each request.
 - If possible, create the necessary tables in advance, to reduce the time the connector will take to create tables. The connector adds a one second delay for table or database creation in order to avoid throttling.
 - Reduce the amount of memory the connector uses as a Lambda function. The default, and smallest possible value, is 128 MB.
