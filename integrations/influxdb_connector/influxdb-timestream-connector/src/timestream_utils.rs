@@ -4,10 +4,9 @@ use aws_sdk_timestreamwrite as timestream_write;
 use aws_types::region::Region;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
-use log::{info, trace};
+use log::info;
 use rayon::prelude::*;
 use std::sync::Arc;
-use std::time::Instant;
 use tokio::sync::Semaphore;
 use tokio::task;
 
@@ -15,12 +14,11 @@ use tokio::task;
 // batches of records to Timestream in parallel
 static NUM_TIMESTREAM_INGEST_THREADS: usize = 12;
 
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub async fn get_connection(
     region: &str,
 ) -> Result<timestream_write::Client, timestream_write::Error> {
     // Get a connection to Timestream
-
-    let function_start = Instant::now();
 
     let config = aws_config::defaults(aws_config::BehaviorVersion::latest())
         .region(Region::new(region.to_owned()))
@@ -33,18 +31,15 @@ pub async fn get_connection(
 
     tokio::task::spawn(reload.reload_task());
     info!("Initialized connection to Timestream in region {}", region);
-
-    trace!("get_connection duration: {:?}", function_start.elapsed());
     Ok(client)
 }
 
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub async fn create_database(
     client: &Arc<timestream_write::Client>,
     database_name: &str,
 ) -> Result<(), timestream_write::Error> {
     // Create a new Timestream database
-
-    let function_start = Instant::now();
 
     info!("Creating new database {}", database_name);
     client
@@ -53,10 +48,10 @@ pub async fn create_database(
         .send()
         .await?;
 
-    trace!("create_database duration: {:?}", function_start.elapsed());
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub async fn create_table(
     client: &Arc<timestream_write::Client>,
     database_name: &str,
@@ -64,8 +59,6 @@ pub async fn create_table(
     table_config: TableConfig,
 ) -> Result<(), timestream_write::Error> {
     // Create a new Timestream table
-
-    let function_start = Instant::now();
 
     info!(
         "Creating new table {} for database {}",
@@ -108,18 +101,16 @@ pub async fn create_table(
         .send()
         .await?;
 
-    trace!("create_table duration: {:?}", function_start.elapsed());
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub async fn table_exists(
     client: &Arc<timestream_write::Client>,
     database_name: &str,
     table_name: &str,
 ) -> Result<bool, Error> {
     // Check if table already exists
-
-    let function_start = Instant::now();
 
     match client
         .describe_table()
@@ -128,30 +119,23 @@ pub async fn table_exists(
         .send()
         .await
     {
-        Ok(_) => {
-            trace!("table_exists duration: {:?}", function_start.elapsed());
-            Ok(true)
-        }
+        Ok(_) => Ok(true),
         Err(error) => match error
             .as_service_error()
             .map(|e| e.is_resource_not_found_exception())
         {
-            Some(true) => {
-                trace!("table_exists duration: {:?}", function_start.elapsed());
-                Ok(false)
-            }
+            Some(true) => Ok(false),
             _ => Err(anyhow!(error)),
         },
     }
 }
 
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub async fn database_exists(
     client: &Arc<timestream_write::Client>,
     database_name: &str,
 ) -> Result<bool, Error> {
     // Check if database already exists
-
-    let function_start = Instant::now();
 
     match client
         .describe_database()
@@ -159,23 +143,18 @@ pub async fn database_exists(
         .send()
         .await
     {
-        Ok(_) => {
-            trace!("database_exists duration: {:?}", function_start.elapsed());
-            Ok(true)
-        }
+        Ok(_) => Ok(true),
         Err(error) => match error
             .as_service_error()
             .map(|e| e.is_resource_not_found_exception())
         {
-            Some(true) => {
-                trace!("database_exists duration: {:?}", function_start.elapsed());
-                Ok(false)
-            }
+            Some(true) => Ok(false),
             _ => Err(anyhow!(error)),
         },
     }
 }
 
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub async fn ingest_records(
     client: Arc<timestream_write::Client>,
     database_name: Arc<String>,
@@ -242,6 +221,7 @@ pub async fn ingest_records(
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub async fn ingest_record_batch(
     client: Arc<timestream_write::Client>,
     database_name: String,

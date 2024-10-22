@@ -29,14 +29,13 @@ pub static TIMESTREAM_API_WAIT_SECONDS: u64 = 1;
 // a table name and a Vec of records bound for that table
 pub static NUM_BATCH_THREADS: usize = 16;
 
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 async fn handle_body(
     client: &Arc<timestream_write::Client>,
     body: &[u8],
     precision: &timestream_write::types::TimeUnit,
 ) -> Result<(), Error> {
     // Handle parsing body in request
-
-    let function_start = Instant::now();
 
     let line_protocol = str::from_utf8(body).unwrap();
     let metric_data = parse_line_protocol(line_protocol)?;
@@ -47,17 +46,15 @@ async fn handle_body(
     // Only currently supports multi-measure multi-table
     let multi_table_batch = build_records(&multi_measure_builder, &metric_data, precision)?;
     handle_multi_table_ingestion(client, multi_table_batch).await?;
-    trace!("handle_body duration: {:?}", function_start.elapsed());
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 async fn handle_multi_table_ingestion(
     client: &Arc<timestream_write::Client>,
     records: HashMap<String, Vec<timestream_write::types::Record>>,
 ) -> Result<(), Error> {
     // Ingestion for multi-measure schema type
-
-    let function_start = Instant::now();
 
     let database_name = std::env::var("database_name")?;
     let database_name = Arc::new(database_name);
@@ -153,17 +150,12 @@ async fn handle_multi_table_ingestion(
         "Total asynchronous ingestion duration: {:?}",
         ingestion_start.elapsed()
     );
-    trace!(
-        "handle_multi_table_ingestion duration: {:?}",
-        function_start.elapsed()
-    );
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub fn get_precision(event: &Value) -> Option<&str> {
     // Retrieves the optional "precision" query string parameter from a serde_json::Value
-
-    let function_start = Instant::now();
 
     // Query string parameters may be included as "queryStringParameters"
     if let Some(precision) = event
@@ -173,14 +165,12 @@ pub fn get_precision(event: &Value) -> Option<&str> {
     {
         // event["queryStringParameters"]["precision"] may be an object
         if let Some(precision_str) = precision.as_str() {
-            trace!("get_precision duration: {:?}", function_start.elapsed());
             return Some(precision_str);
         // event["queryStringParameters"]["precision"] may be an array. This is common from requests
         // originating from AWS services, such as when the connector is ran with the cargo lambda watch command
         } else if let Some(precision_array) = precision.as_array() {
             if let Some(precision_value) = precision_array.first().and_then(|value| value.as_str())
             {
-                trace!("get_precision duration: {:?}", function_start.elapsed());
                 return Some(precision_value);
             }
         }
@@ -189,13 +179,12 @@ pub fn get_precision(event: &Value) -> Option<&str> {
     None
 }
 
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub async fn lambda_handler(
     client: &Arc<timestream_write::Client>,
     event: LambdaEvent<Value>,
 ) -> Result<Value, Error> {
     // Handler for lambda runtime
-
-    let function_start = Instant::now();
 
     let (event, _context) = event.into_parts();
 
@@ -233,7 +222,6 @@ pub async fn lambda_handler(
             if std::env::var("local_invocation").is_ok() {
                 response["cookies"] = json!([]);
             }
-            trace!("lambda_handler duration: {:?}", function_start.elapsed());
             Ok(response)
         }
         // An Err is required in order to send messages to the Lambda's

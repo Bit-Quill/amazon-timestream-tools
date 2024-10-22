@@ -2,8 +2,7 @@ use super::{validate_env_variables, BuildRecords};
 use crate::metric::{FieldValue, Metric};
 use anyhow::{anyhow, Error, Result};
 use aws_sdk_timestreamwrite as timestream_write;
-use log::trace;
-use std::{collections::HashMap, time::Instant};
+use std::collections::HashMap;
 
 pub struct MultiTableMultiMeasureBuilder {
     pub measure_name: String,
@@ -12,24 +11,27 @@ pub struct MultiTableMultiMeasureBuilder {
 impl BuildRecords for MultiTableMultiMeasureBuilder {
     // trait implementation to support multi-measure multi-table schema with Timestream
 
+    #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
     fn build_records(
         &self,
         metrics: &[Metric],
         precision: &timestream_write::types::TimeUnit,
     ) -> Result<HashMap<String, Vec<timestream_write::types::Record>>, Error> {
-        let function_start = Instant::now();
         validate_env_variables()?;
         validate_multi_measure_env_variables()?;
-        let result = build_multi_measure_records(metrics, &self.measure_name, precision);
-        trace!("build_records duration: {:?}", function_start.elapsed());
-        result
+        build_multi_measure_records(metrics, &self.measure_name, precision)
     }
 }
 
+impl std::fmt::Debug for MultiTableMultiMeasureBuilder {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(formatter, "{}", self.measure_name)
+    }
+}
+
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 fn validate_multi_measure_env_variables() -> Result<(), Error> {
     // Validate environment variables for multi-measure schema types
-
-    let function_start = Instant::now();
 
     if std::env::var("measure_name_for_multi_measure_records").is_err() {
         return Err(anyhow!(
@@ -37,21 +39,16 @@ fn validate_multi_measure_env_variables() -> Result<(), Error> {
         ));
     }
 
-    trace!(
-        "validate_multi_measure_env_variables duration: {:?}",
-        function_start.elapsed()
-    );
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 fn build_multi_measure_records(
     metrics: &[Metric],
     measure_name: &str,
     precision: &timestream_write::types::TimeUnit,
 ) -> Result<HashMap<String, Vec<timestream_write::types::Record>>, Error> {
     // Builds multi-measure multi-table records hashmap
-
-    let function_start = Instant::now();
 
     let mut multi_table_batch: HashMap<String, Vec<aws_sdk_timestreamwrite::types::Record>> =
         HashMap::new();
@@ -65,21 +62,16 @@ fn build_multi_measure_records(
         }
     }
 
-    trace!(
-        "build_multi_measure_records duration: {:?}",
-        function_start.elapsed()
-    );
     Ok(multi_table_batch)
 }
 
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub fn metric_to_timestream_record(
     measure_name: &str,
     metric: &Metric,
     precision: &timestream_write::types::TimeUnit,
 ) -> Result<timestream_write::types::Record, Error> {
     // Converts the metric struct to a timestream multi-measure record
-
-    let function_start = Instant::now();
 
     let mut dimensions: Vec<timestream_write::types::Dimension> = Vec::new();
     for tag in metric.tags().iter().flatten() {
@@ -114,29 +106,20 @@ pub fn metric_to_timestream_record(
         .set_dimensions(Some(dimensions))
         .build();
 
-    trace!(
-        "metric_to_timestream_record duration: {:?}",
-        function_start.elapsed()
-    );
     Ok(new_record)
 }
 
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub fn get_timestream_measure_type(
     field_value: &FieldValue,
 ) -> Result<timestream_write::types::MeasureValueType, Error> {
     // Converts a metric struct type to a timestream measure value type
 
-    let function_start = Instant::now();
-    let val = match field_value {
+    match field_value {
         FieldValue::Boolean(_) => Ok(timestream_write::types::MeasureValueType::Boolean),
         FieldValue::I64(_) => Ok(timestream_write::types::MeasureValueType::Bigint),
         FieldValue::U64(_) => Ok(timestream_write::types::MeasureValueType::Bigint),
         FieldValue::F64(_) => Ok(timestream_write::types::MeasureValueType::Double),
         FieldValue::String(_) => Ok(timestream_write::types::MeasureValueType::Varchar),
-    };
-    trace!(
-        "get_timestream_measure_type duration: {:?}",
-        function_start.elapsed()
-    );
-    val
+    }
 }

@@ -1,10 +1,13 @@
-use env_logger::Env;
 use influxdb_timestream_connector::{
     lambda_handler, records_builder::validate_env_variables, timestream_utils::get_connection,
 };
-use lambda_runtime::{run, service_fn, tracing, Error, LambdaEvent};
+use lambda_runtime::{run, service_fn, Error, LambdaEvent};
 use serde_json::Value;
 use std::sync::Arc;
+use tracing_subscriber::{
+    filter::EnvFilter,
+    fmt::{self, format::FmtSpan},
+};
 
 // The number of threads to use to chunk Vecs in parallel
 // using rayon
@@ -14,8 +17,18 @@ pub static NUM_RAYON_THREADS: usize = 32;
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     // Configure logging
-    let env = Env::default().filter_or("RUST_LOG", "INFO");
-    env_logger::Builder::from_env(env).init();
+    let env_filter = EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| EnvFilter::new("lambda_runtime=warn,INFO"));
+
+    fmt::fmt()
+        .with_env_filter(env_filter)
+        .with_level(true)
+        .with_span_events(FmtSpan::CLOSE)
+        .with_target(true)
+        .with_thread_names(true)
+        .with_level(true)
+        .pretty()
+        .init();
 
     // Set global maximum rayon threads
     rayon::ThreadPoolBuilder::new()
@@ -27,7 +40,6 @@ async fn main() -> Result<(), Error> {
     let region = std::env::var("region")?;
     let timestream_client = get_connection(&region).await?;
     let timestream_client = Arc::new(timestream_client);
-    tracing::init_default_subscriber();
     run(service_fn(|event: LambdaEvent<Value>| {
         lambda_handler(&timestream_client, event)
     }))
