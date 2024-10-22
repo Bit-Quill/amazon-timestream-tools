@@ -508,9 +508,9 @@ The following command will run the connector with its logging level set to `TRAC
 
 ```shell
 cargo lambda watch \
-    --env-var RUST_LOG=trace 2>&1 | \
+    --env-var RUST_LOG=TRACE 2>&1 | \
     tee /dev/tty | \
-    grep --line-buffered 'TRACE influxdb_timestream_connector' > function_duration.log
+    grep --line-buffered "TRACE.*influxdb_timestream_connector" > function_duration.log
 ```
 
 ### Enabling Trace Logging for CloudFormation Deployment
