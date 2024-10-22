@@ -35,7 +35,7 @@ var(
 func main() {
     flag.StringVar(&region, "region", "us-east-1", "AWS region for InfluxDB Timestream Connector")
     flag.StringVar(&service, "service", "lambda", "Service value for SigV4 header")
-    flag.StringVar(&endpoint, "endpoint", "http://127.0.0.1:9000", "Endpoint for InfluxDB Timestream Connector")
+    flag.StringVar(&endpoint, "endpoint", "http://localhost:9000", "Endpoint for InfluxDB Timestream Connector")
     flag.StringVar(&dataset, "dataset", "../data/bird-migration.line", "Line protocol dataset being ingested")
     flag.StringVar(&precision, "precision", "ns", "Precision for line protocol: nanoseconds=ns, milliseconds=ms, microseconds=us, seconds=s")
     flag.Parse()

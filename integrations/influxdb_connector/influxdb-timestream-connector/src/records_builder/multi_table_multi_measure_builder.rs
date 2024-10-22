@@ -11,6 +11,7 @@ pub struct MultiTableMultiMeasureBuilder {
 impl BuildRecords for MultiTableMultiMeasureBuilder {
     // trait implementation to support multi-measure multi-table schema with Timestream
 
+    #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
     fn build_records(
         &self,
         metrics: &[Metric],
@@ -22,6 +23,13 @@ impl BuildRecords for MultiTableMultiMeasureBuilder {
     }
 }
 
+impl std::fmt::Debug for MultiTableMultiMeasureBuilder {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(formatter, "{}", self.measure_name)
+    }
+}
+
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 fn validate_multi_measure_env_variables() -> Result<(), Error> {
     // Validate environment variables for multi-measure schema types
 
@@ -34,6 +42,7 @@ fn validate_multi_measure_env_variables() -> Result<(), Error> {
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 fn build_multi_measure_records(
     metrics: &[Metric],
     measure_name: &str,
@@ -56,6 +65,7 @@ fn build_multi_measure_records(
     Ok(multi_table_batch)
 }
 
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub fn metric_to_timestream_record(
     measure_name: &str,
     metric: &Metric,
@@ -99,6 +109,7 @@ pub fn metric_to_timestream_record(
     Ok(new_record)
 }
 
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub fn get_timestream_measure_type(
     field_value: &FieldValue,
 ) -> Result<timestream_write::types::MeasureValueType, Error> {

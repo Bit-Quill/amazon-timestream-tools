@@ -2,6 +2,7 @@ use crate::metric::{self, Metric};
 use anyhow::{anyhow, Error};
 use influxdb_line_protocol::{self, parse_lines, ParsedLine};
 
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub fn parse_line_protocol(line_protocol: &str) -> Result<Vec<Metric>, Error> {
     // Parses a string of line protocol to a vector of Metric structs,
 
@@ -19,9 +20,11 @@ pub fn parse_line_protocol(line_protocol: &str) -> Result<Vec<Metric>, Error> {
             }
         }
     }
+
     Ok(output_metrics)
 }
 
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub fn parsed_line_to_metric(parsed_line: ParsedLine) -> Result<Metric, Error> {
     // Converts an influxdb_line_protocol ParsedLine struct to a Metric struct.
 

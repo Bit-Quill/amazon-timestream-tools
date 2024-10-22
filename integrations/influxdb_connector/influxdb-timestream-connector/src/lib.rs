@@ -1,12 +1,19 @@
 use anyhow::{anyhow, Error, Result};
 use aws_sdk_timestreamwrite as timestream_write;
+use futures::stream::FuturesUnordered;
+use futures::StreamExt;
 use lambda_runtime::LambdaEvent;
 use line_protocol_parser::*;
+use log::{info, trace};
 use records_builder::*;
 use serde_json::{json, Value};
 use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::Instant;
 use std::{str, thread, time};
 use timestream_utils::*;
+use tokio::sync::Semaphore;
+use tokio::task;
 
 pub mod line_protocol_parser;
 pub mod metric;
@@ -17,8 +24,14 @@ pub mod timestream_utils;
 // that can be made per second is 1.
 pub static TIMESTREAM_API_WAIT_SECONDS: u64 = 1;
 
+// The number of batches processed at the same time.
+// For multi-table multi measure schema, batches are a combination of
+// a table name and a Vec of records bound for that table
+pub static NUM_BATCH_THREADS: usize = 16;
+
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 async fn handle_body(
-    client: &timestream_write::Client,
+    client: &Arc<timestream_write::Client>,
     body: &[u8],
     precision: &timestream_write::types::TimeUnit,
 ) -> Result<(), Error> {
@@ -36,55 +49,110 @@ async fn handle_body(
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 async fn handle_multi_table_ingestion(
-    client: &timestream_write::Client,
+    client: &Arc<timestream_write::Client>,
     records: HashMap<String, Vec<timestream_write::types::Record>>,
 ) -> Result<(), Error> {
     // Ingestion for multi-measure schema type
 
     let database_name = std::env::var("database_name")?;
+    let database_name = Arc::new(database_name);
 
-    match database_exists(client, &database_name).await {
-        Ok(true) => (),
-        Ok(false) => {
-            if database_creation_enabled()? {
-                thread::sleep(time::Duration::from_secs(TIMESTREAM_API_WAIT_SECONDS));
-                create_database(client, &database_name).await?;
-            } else {
-                return Err(anyhow!(
-                    "Database {} does not exist and database creation is not enabled",
-                    database_name
-                ));
-            }
-        }
-        Err(error) => return Err(anyhow!(error)),
-    }
-
-    for (table_name, _) in records.iter() {
-        match table_exists(client, &database_name, table_name).await {
+    if let Ok(true) = std::env::var("enable_database_creation").map(env_var_to_bool) {
+        match database_exists(client, &database_name).await {
             Ok(true) => (),
             Ok(false) => {
-                if table_creation_enabled()? {
+                if database_creation_enabled()? {
                     thread::sleep(time::Duration::from_secs(TIMESTREAM_API_WAIT_SECONDS));
-                    create_table(client, &database_name, table_name, get_table_config()?).await?
+                    create_database(client, &database_name).await?;
                 } else {
                     return Err(anyhow!(
-                        "Table {} does not exist and database creation is not enabled",
-                        table_name
+                        "Database {} does not exist and database creation is not enabled",
+                        database_name
                     ));
                 }
             }
-            Err(error) => println!("error checking table exists: {:?}", error),
+            Err(error) => return Err(anyhow!(error)),
         }
     }
 
-    for (table_name, mut records) in records.into_iter() {
-        ingest_records(client, &database_name, &table_name, &mut records).await?
+    // Use a semaphore to limit the maximum number of threads used to process batches in parallel
+    let ingestion_semaphore = Arc::new(Semaphore::new(NUM_BATCH_THREADS));
+    let mut batch_ingestion_futures = FuturesUnordered::new();
+
+    // Track total time taken to check existence of tables and ingest records
+    let ingestion_start = Instant::now();
+
+    // Ingest records for each table, in parallel
+    for (table_name, records) in records {
+        let permit = ingestion_semaphore
+            .clone()
+            .acquire_owned()
+            .await
+            .expect("Failed to get semaphore permit");
+
+        // Use Arc::clone to create a shallow clone of the client
+        let client_clone = Arc::clone(client);
+        let database_name_clone = Arc::clone(&database_name);
+
+        // Create a future for ingesting to the current table
+        let future = task::spawn(async move {
+            if let Ok(true) = std::env::var("enable_table_creation").map(env_var_to_bool) {
+                let _ =
+                    create_table_if_non_existent(&client_clone, &database_name_clone, &table_name)
+                        .await;
+            }
+
+            // Ingest the data to the table
+            let result =
+                ingest_records(client_clone, database_name_clone, table_name, records).await;
+            drop(permit);
+            result
+        });
+        batch_ingestion_futures.push(future);
+    }
+
+    while let Some(result) = batch_ingestion_futures.next().await {
+        // result will be Result<Result<(), Error>>
+        // This means the nested Result needs to be checked
+        match result {
+            Ok(Ok(_)) => {}
+            Ok(Err(error)) => {
+                return Err(anyhow!(error));
+            }
+            Err(error) => {
+                return Err(anyhow!(error));
+            }
+        }
+    }
+
+    trace!(
+        "Total asynchronous ingestion duration: {:?}",
+        ingestion_start.elapsed()
+    );
+    Ok(())
+}
+
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
+pub async fn create_table_if_non_existent(
+    client: &Arc<timestream_write::Client>,
+    database_name: &Arc<String>,
+    table_name: &str,
+) -> Result<(), Error> {
+    match table_exists(client, database_name, table_name).await {
+        Ok(true) => (),
+        Ok(false) => {
+            thread::sleep(time::Duration::from_secs(TIMESTREAM_API_WAIT_SECONDS));
+            create_table(client, database_name, table_name, get_table_config()?).await?
+        }
+        Err(error) => info!("error checking table exists: {:?}", error),
     }
 
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub fn get_precision(event: &Value) -> Option<&str> {
     // Retrieves the optional "precision" query string parameter from a serde_json::Value
 
@@ -110,8 +178,9 @@ pub fn get_precision(event: &Value) -> Option<&str> {
     None
 }
 
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub async fn lambda_handler(
-    client: &timestream_write::Client,
+    client: &Arc<timestream_write::Client>,
     event: LambdaEvent<Value>,
 ) -> Result<Value, Error> {
     // Handler for lambda runtime

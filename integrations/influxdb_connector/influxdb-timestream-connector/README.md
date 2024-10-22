@@ -71,6 +71,7 @@ The following parameters are available when deploying the connector as part of a
 | `RestApiGatewayName` | The name to use for the REST API Gateway. | `InfluxDB-Timestream-Connector-REST-API-Gateway` |
 | `RestApiGatewayStageName` | The name to use for the REST API Gateway stage. | `dev` |
 | `RestApiGatewayTimeoutInMillis` | The maximum number of milliseconds a REST API Gateway event will wait before timing out. | `30000` |
+| `RustLog` | The log level to use for the Lambda function. Typical values are error, warn, info, debug, trace, and off. Use trace in order to log the execution time of each function. | `INFO` |
 | `WriteThrottlingBurstLimit` | The number of burst requests per second that the REST API Gateway permits. | `1200` |
 
 ##### SAM Deployment Steps
@@ -495,6 +496,27 @@ Due to the connector translating line protocol to Timestream records, line proto
 
 There is a delay of one second added before deleting or creating a table or database. This is because of Timestream for LiveAnalytics' "Throttle rate for CRUD APIs" [quota](https://docs.aws.amazon.com/timestream/latest/developerguide/ts-limits.html#limits.default) of one table/database deletion/creation per second.
 
+## Logging
+
+Logging levels for the connector can be configured using the `RUST_LOG` [Rust environment variable](https://docs.rs/env_logger/latest/env_logger/#enabling-logging). By default, the logging level the connector uses is `INFO`.
+
+The `TRACE` logging level displays execution time for each function in the connector.
+
+### Enabling Trace Logging for Local Deployment
+
+The following command will run the connector with its logging level set to `TRACE` and output function durations to a file:
+
+```shell
+cargo lambda watch \
+    --env-var RUST_LOG=TRACE 2>&1 | \
+    tee /dev/tty | \
+    grep --line-buffered "TRACE.*influxdb_timestream_connector" > function_duration.log
+```
+
+### Enabling Trace Logging for CloudFormation Deployment
+
+The parameter `RustLog` allows configuration of the `RUST_LOG` environment variable for the Lambda function.
+
 ## Troubleshooting
 
 ### Cargo Lambda Build Error "can't find crate for core"
@@ -524,6 +546,33 @@ When using multi-table multi measure schema and ingesting line protocol data in 
 1. Consider creating the tables before ingestion, using each unique measurement in the line protocol data as the table names.
 2. Re-ingest failed requests. Failed requests will be stored in the Lambda's dead letter queue.
 
+### Stack Cost
+
+The following is an overview of how the costs are calculated for each deployed resource in the CloudFormation stack, at the time of writing (Oct. 21, 2024). These calculations are based on the calculations used by the [AWS pricing calculator](https://calculator.aws/#/). Refer to the AWS pricing calculator for a more accurate estimate:
+
+- Lambda (without free tier):
+    - number of monthly requests x average request duration x 0.001 ms to sec conversion factor = total compute in seconds.
+    - memory usage in GB x total compute in seconds = total compute GB-s.
+    - total compute GB-s x 0.0000133334 USD = tiered price.
+    - number of monthly requests x 0.0000002 USD = monthly request charges.
+    - tiered price + monthly request charges = Lambda monthly cost.
+- REST API Gateway:
+    - number of monthly requests x 0.0000035 USD = REST API Gateway monthly cost.
+- CloudWatch:
+    - logs data ingested in GB per month x 0.50 USD = logs data ingested cost per month.
+    - logs data ingested in GB per month x 0.15 Storage compression factor x 1 Logs retention factor x 0.03 USD = standard/vended logs data storage cost.
+    - logs data ingested cost + standard/vended logs data storage cost = CloudWatch monthly cost.
+
+#### Solution
+
+The following are some approaches that can reduce stack costs:
+
+- The REST API Gateway incurs the highest costs for the stack. Reduce REST API Gateway costs by including as many line protocol points in a request as possible. 5,000-20,000 line protocol points in each request is ideal. The Lambda memory size, Lambda timeout, REST API Gateway timeout, and client timeout may have to be increased in order to accommodate larger requests.
+    - NOTE: if requests contain only a single line protocol point, the ratio of REST API Gateway requests to ingested records would be 1:1 and costs would be much higher than including multiple line protocol points in each request.
+- If possible, create the necessary tables in advance, to reduce the time the connector will take to create tables. The connector adds a one second delay for table or database creation in order to avoid throttling.
+- Reduce the amount of memory the connector uses as a Lambda function. The default, and smallest possible value, is 128 MB.
+- Set the `EnableDatabaseCreation` or `EnableTableCreation` parameter to `false` to skip checks for existing databases or tables, if unnecessary.
+
 ## Caveats
 
 ### Line Protocol Tag Requirement
@@ -533,4 +582,3 @@ In order to ingest to Timestream for LiveAnalytics, every line protocol point mu
 ### Query String Parameters
 
 The connector expects query string parameters to be included as `queryParameters` or `queryStringParameters` in requests.
-

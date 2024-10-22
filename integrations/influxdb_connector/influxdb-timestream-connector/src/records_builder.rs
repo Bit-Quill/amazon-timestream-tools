@@ -1,13 +1,14 @@
 use crate::metric::Metric;
 use anyhow::{anyhow, Error};
 use aws_sdk_timestreamwrite as timestream_write;
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Debug};
 
 mod multi_table_multi_measure_builder;
 
 const DIMENSION_PARTITION_KEY_TYPE: &str = "dimension";
 const MEASURE_PARTITION_KEY_TYPE: &str = "measure";
 
+#[derive(Debug)]
 pub enum SchemaType {
     MultiTableMultiMeasure(String),
 }
@@ -15,11 +16,12 @@ pub enum SchemaType {
 impl std::fmt::Display for SchemaType {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            SchemaType::MultiTableMultiMeasure(v) => v.fmt(f),
+            SchemaType::MultiTableMultiMeasure(v) => std::fmt::Display::fmt(&v, f),
         }
     }
 }
 
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub fn get_builder(schema: SchemaType) -> impl BuildRecords {
     // Currently only supported schema is multi-table multi-measure
     multi_table_multi_measure_builder::MultiTableMultiMeasureBuilder {
@@ -27,6 +29,7 @@ pub fn get_builder(schema: SchemaType) -> impl BuildRecords {
     }
 }
 
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub fn build_records(
     records_builder: &impl BuildRecords,
     metrics: &[Metric],
@@ -35,6 +38,7 @@ pub fn build_records(
     records_builder.build_records(metrics, precision)
 }
 
+#[derive(Debug)]
 pub struct TableConfig {
     pub mag_store_retention_period: i64,
     pub mem_store_retention_period: i64,
@@ -44,6 +48,7 @@ pub struct TableConfig {
     pub custom_partition_key_dimension: Option<String>,
 }
 
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub fn get_table_config() -> Result<TableConfig, Error> {
     // Get the populated table_config struct
 
@@ -110,6 +115,7 @@ pub fn get_table_config() -> Result<TableConfig, Error> {
     })
 }
 
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub fn table_creation_enabled() -> Result<bool, Error> {
     // Convert the env var table_creation_enabled to bool
 
@@ -121,9 +127,9 @@ pub fn table_creation_enabled() -> Result<bool, Error> {
     }
 }
 
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub fn database_creation_enabled() -> Result<bool, Error> {
     // Convert the env var database_creation_enabled to bool
-
     match std::env::var("enable_database_creation") {
         Ok(enabled) => Ok(env_var_to_bool(enabled)),
         Err(_) => Err(anyhow!(
@@ -132,12 +138,14 @@ pub fn database_creation_enabled() -> Result<bool, Error> {
     }
 }
 
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub fn env_var_to_bool(env_var: String) -> bool {
     // Convert the env var to bool
 
     matches!(env_var.as_str(), "true" | "t" | "1")
 }
 
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub fn validate_env_variables() -> Result<(), Error> {
     // Validate environment variables for all schema types
 
@@ -217,7 +225,7 @@ pub fn validate_env_variables() -> Result<(), Error> {
     Ok(())
 }
 
-pub trait BuildRecords {
+pub trait BuildRecords: Debug {
     fn build_records(
         &self,
         metrics: &[Metric],

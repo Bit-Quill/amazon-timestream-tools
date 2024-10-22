@@ -94,6 +94,10 @@ Parameters:
     MinValue: 2
     Default: 30000
     Description: The maximum amount of time in milliseconds an API Gateway event will wait before timing out.
+  RustLog:
+    Type: String
+    Default: 'INFO'
+    Description: The log level to use for the Lambda function. Typical values are error, warn, info, debug, trace, and off. Use trace in order to log the execution time of each function. Defaults to INFO.
   LambdaTimeoutInSeconds:
     Type: Number
     MinValue: 3
@@ -544,6 +548,7 @@ Resources:
           enforce_custom_partition_key: !If [EnforceCustomPartitionKeyProvided, !Ref EnforceCustomPartitionKey, !Ref "AWS::NoValue"]
           mag_store_retention_period: !Ref MagStoreRetentionPeriod
           mem_store_retention_period: !Ref MemStoreRetentionPeriod
+          RUST_LOG: !Ref RustLog
       PackageType: Zip
       Timeout: !Ref LambdaTimeoutInSeconds
       MemorySize: !Ref LambdaMemorySize

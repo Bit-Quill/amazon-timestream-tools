@@ -2,8 +2,19 @@ use super::records_builder::TableConfig;
 use anyhow::{anyhow, Error, Result};
 use aws_sdk_timestreamwrite as timestream_write;
 use aws_types::region::Region;
-use std::io::Write;
+use futures::stream::FuturesUnordered;
+use futures::StreamExt;
+use log::info;
+use rayon::prelude::*;
+use std::sync::Arc;
+use tokio::sync::Semaphore;
+use tokio::task;
 
+// The maximum number of threads to use for ingesting
+// batches of records to Timestream in parallel
+static NUM_TIMESTREAM_INGEST_THREADS: usize = 12;
+
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub async fn get_connection(
     region: &str,
 ) -> Result<timestream_write::Client, timestream_write::Error> {
@@ -19,17 +30,18 @@ pub async fn get_connection(
         .expect("Failed to get the write client connection with Timestream");
 
     tokio::task::spawn(reload.reload_task());
-    println!("Initialized connection to Timestream in region {}", region);
+    info!("Initialized connection to Timestream in region {}", region);
     Ok(client)
 }
 
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub async fn create_database(
-    client: &timestream_write::Client,
+    client: &Arc<timestream_write::Client>,
     database_name: &str,
 ) -> Result<(), timestream_write::Error> {
     // Create a new Timestream database
 
-    println!("Creating new database {}", database_name);
+    info!("Creating new database {}", database_name);
     client
         .create_database()
         .set_database_name(Some(database_name.to_owned()))
@@ -39,15 +51,16 @@ pub async fn create_database(
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub async fn create_table(
-    client: &timestream_write::Client,
+    client: &Arc<timestream_write::Client>,
     database_name: &str,
     table_name: &str,
     table_config: TableConfig,
 ) -> Result<(), timestream_write::Error> {
     // Create a new Timestream table
 
-    println!(
+    info!(
         "Creating new table {} for database {}",
         table_name, database_name
     );
@@ -91,8 +104,9 @@ pub async fn create_table(
     Ok(())
 }
 
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub async fn table_exists(
-    client: &timestream_write::Client,
+    client: &Arc<timestream_write::Client>,
     database_name: &str,
     table_name: &str,
 ) -> Result<bool, Error> {
@@ -116,8 +130,9 @@ pub async fn table_exists(
     }
 }
 
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub async fn database_exists(
-    client: &timestream_write::Client,
+    client: &Arc<timestream_write::Client>,
     database_name: &str,
 ) -> Result<bool, Error> {
     // Check if database already exists
@@ -139,45 +154,94 @@ pub async fn database_exists(
     }
 }
 
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub async fn ingest_records(
-    client: &timestream_write::Client,
-    database_name: &str,
-    table_name: &str,
-    records: &mut [timestream_write::types::Record],
+    client: Arc<timestream_write::Client>,
+    database_name: Arc<String>,
+    table_name: String,
+    records: Vec<timestream_write::types::Record>,
 ) -> Result<(), Error> {
     // Ingest records to Timestream in batches of 100 (Max supported Timestream batch size)
+    // in parallel
 
     let mut records_ingested: usize = 0;
     const MAX_TIMESTREAM_BATCH_SIZE: usize = 100;
 
-    let mut records_chunked: Vec<Vec<timestream_write::types::Record>> = records
-        .chunks(MAX_TIMESTREAM_BATCH_SIZE)
+    // Chunk records in parallel using rayon (par_chunks)
+    let records_chunked: Vec<Vec<timestream_write::types::Record>> = records
+        .par_chunks(MAX_TIMESTREAM_BATCH_SIZE)
         .map(|sub_records| sub_records.to_vec())
         .collect();
-    for chunk in records_chunked.iter_mut() {
-        records_ingested += chunk.len();
-        match client
-            .write_records()
-            .database_name(database_name)
-            .table_name(table_name)
-            .set_records(Some(std::mem::take(chunk)))
-            .send()
+
+    // Use a semaphore to limit the maximum number of threads used to ingest chunks in parallel
+    let ingestion_semaphore = Arc::new(Semaphore::new(NUM_TIMESTREAM_INGEST_THREADS));
+    let mut ingestion_futures = FuturesUnordered::new();
+
+    // Ingest chunks in parallel
+    for chunk in records_chunked {
+        let permit = ingestion_semaphore
+            .clone()
+            .acquire_owned()
             .await
-        {
-            Ok(_) => {
-                println!("{} records ingested", records_ingested);
-                std::io::stdout().flush()?;
+            .expect("Failed to get semaphore permit");
+        records_ingested += chunk.len();
+        let client_clone = Arc::clone(&client);
+        let table_name_clone = table_name.clone();
+        let database_name_clone = Arc::clone(&database_name).to_string();
+
+        let future = task::spawn(async move {
+            let result =
+                ingest_record_batch(client_clone, database_name_clone, table_name_clone, chunk)
+                    .await;
+            drop(permit);
+            result
+        });
+
+        ingestion_futures.push(future);
+    }
+
+    while let Some(result) = ingestion_futures.next().await {
+        // result will be Result<Result<(), Error>>
+        match result {
+            Ok(Ok(_)) => {}
+            Ok(Err(error)) => {
+                return Err(anyhow!(error));
             }
             Err(error) => {
-                println!("SdkError: {:?}", error.raw_response().unwrap());
                 return Err(anyhow!(error));
             }
         }
     }
-    println!(
+
+    info!(
         "{} records ingested total for table {} in database {}",
         records_ingested, table_name, database_name
     );
+
+    Ok(())
+}
+
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
+pub async fn ingest_record_batch(
+    client: Arc<timestream_write::Client>,
+    database_name: String,
+    table_name: String,
+    chunk: Vec<timestream_write::types::Record>,
+) -> Result<(), Error> {
+    match client
+        .write_records()
+        .database_name(database_name)
+        .table_name(table_name)
+        .set_records(Some(chunk))
+        .send()
+        .await
+    {
+        Ok(_) => {}
+        Err(error) => {
+            info!("SdkError: {:?}", error.raw_response().unwrap());
+            return Err(anyhow!(error));
+        }
+    };
 
     Ok(())
 }
