@@ -27,7 +27,7 @@ async fn main() -> Result<(), Error> {
         .with_target(true)
         .with_thread_names(true)
         .with_level(true)
-        .pretty()
+        .compact()
         .init();
 
     // Set global maximum rayon threads
