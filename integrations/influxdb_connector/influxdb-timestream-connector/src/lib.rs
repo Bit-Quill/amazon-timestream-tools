@@ -98,29 +98,10 @@ async fn handle_multi_table_ingestion(
 
         // Create a future for ingesting to the current table
         let future = task::spawn(async move {
-            // Check whether the table exists
             if let Ok(true) = std::env::var("enable_table_creation").map(env_var_to_bool) {
-                match table_exists(&client_clone, &database_name_clone, &table_name).await {
-                    Ok(true) => (),
-                    Ok(false) => {
-                        if table_creation_enabled()? {
-                            thread::sleep(time::Duration::from_secs(TIMESTREAM_API_WAIT_SECONDS));
-                            create_table(
-                                &client_clone,
-                                &database_name_clone,
-                                &table_name,
-                                get_table_config()?,
-                            )
-                            .await?
-                        } else {
-                            return Err(anyhow!(
-                                "Table {} does not exist and database creation is not enabled",
-                                table_name
-                            ));
-                        }
-                    }
-                    Err(error) => info!("error checking table exists: {:?}", error),
-                }
+                let _ =
+                    create_table_if_non_existent(&client_clone, &database_name_clone, &table_name)
+                        .await;
             }
 
             // Ingest the data to the table
@@ -150,6 +131,24 @@ async fn handle_multi_table_ingestion(
         "Total asynchronous ingestion duration: {:?}",
         ingestion_start.elapsed()
     );
+    Ok(())
+}
+
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
+pub async fn create_table_if_non_existent(
+    client: &Arc<timestream_write::Client>,
+    database_name: &Arc<String>,
+    table_name: &str,
+) -> Result<(), Error> {
+    match table_exists(client, database_name, table_name).await {
+        Ok(true) => (),
+        Ok(false) => {
+            thread::sleep(time::Duration::from_secs(TIMESTREAM_API_WAIT_SECONDS));
+            create_table(client, database_name, table_name, get_table_config()?).await?
+        }
+        Err(error) => info!("error checking table exists: {:?}", error),
+    }
+
     Ok(())
 }
 
