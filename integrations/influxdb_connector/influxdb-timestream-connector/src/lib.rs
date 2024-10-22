@@ -78,7 +78,7 @@ async fn handle_multi_table_ingestion(
     }
 
     // Use a semaphore to limit the maximum number of threads used to process batches in parallel
-    let semaphore = Arc::new(Semaphore::new(NUM_BATCH_THREADS));
+    let ingestion_semaphore = Arc::new(Semaphore::new(NUM_BATCH_THREADS));
     let mut batch_ingestion_futures = FuturesUnordered::new();
 
     // Track total time taken to check existence of tables and ingest records
@@ -86,7 +86,7 @@ async fn handle_multi_table_ingestion(
 
     // Ingest records for each table, in parallel
     for (table_name, records) in records {
-        let permit = semaphore
+        let permit = ingestion_semaphore
             .clone()
             .acquire_owned()
             .await

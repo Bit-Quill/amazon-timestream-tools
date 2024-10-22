@@ -174,12 +174,12 @@ pub async fn ingest_records(
         .collect();
 
     // Use a semaphore to limit the maximum number of threads used to ingest chunks in parallel
-    let semaphore = Arc::new(Semaphore::new(NUM_TIMESTREAM_INGEST_THREADS));
+    let ingestion_semaphore = Arc::new(Semaphore::new(NUM_TIMESTREAM_INGEST_THREADS));
     let mut ingestion_futures = FuturesUnordered::new();
 
     // Ingest chunks in parallel
     for chunk in records_chunked {
-        let permit = semaphore
+        let permit = ingestion_semaphore
             .clone()
             .acquire_owned()
             .await
