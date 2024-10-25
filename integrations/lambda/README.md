@@ -12,19 +12,23 @@ This sample application is comprised of three files:
 - `dashboard.json`: A Grafana dashboard, configured to view all data ingested into the Timestream for LiveAnalytics database in the last hour.
 - `requirements.txt`: A file containing required packages for the Jupyter notebook, for quick environment setup.
 
-The following diagram depicts the deployed Lambda function receiving generated data and ingesting the data to Timestream for LiveAnalytics that then is queried and displayed in Amazon Managed Grafana.
+The following diagram depicts the deployed Lambda function receiving generated data and ingesting the data to Timestream for LiveAnalytics that then is queried and displayed in [Amazon Managed Grafana](https://aws.amazon.com/grafana/).
 
 <img src="./img/lambda_ingestion_overview.png" width=575px/>
 
 ## Prerequisites
 
 1. [Configure AWS credentials for use with boto3](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html).
-2. [Install conda](https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html).
+2. [Install Conda](https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html).
 3. Initialize a Conda environment named `sample_app_env` with the required packages by running:
     ```shell
     conda env create -f environment.yml
     ```
-4. Install an application to run the `demo.ipynb` file. We recommend [Visual Studio Code](https://code.visualstudio.com/) with the [Jupyter extension](https://marketplace.visualstudio.com/items?itemName=ms-toolsai.jupyter).
+4. Active the environment by running:
+    ```shell
+    conda activate sample_app_env
+    ```
+5. Install an application to run the `demo.ipynb` file. We recommend [Visual Studio Code](https://code.visualstudio.com/) with the [Jupyter extension](https://marketplace.visualstudio.com/items?itemName=ms-toolsai.jupyter).
 
 ## Using the Jupyter Notebook Locally
 
