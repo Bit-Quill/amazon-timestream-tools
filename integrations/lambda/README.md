@@ -24,7 +24,7 @@ The following diagram depicts the deployed Lambda function receiving generated d
     ```shell
     conda env create -f environment.yml
     ```
-4. Active the environment by running:
+4. Activate the environment by running:
     ```shell
     conda activate sample_app_env
     ```
