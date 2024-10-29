@@ -10,9 +10,11 @@ fn test_mtmm_single_record() -> Result<(), Error> {
 
     setup_minimal_env_vars();
     setup_multi_measure_env_vars();
-    let multi_table_multi_measure_schema =
-        super::SchemaType::MultiTableMultiMeasure(String::from("influxdb-connector-measure"));
-    let multi_table_multi_measure_builder = super::get_builder(multi_table_multi_measure_schema);
+    let multi_table_multi_measure_schema = super::SchemaType::MultiTableMultiMeasure;
+    let multi_table_multi_measure_builder = super::get_builder(
+        multi_table_multi_measure_schema,
+        String::from("influxdb-connector-measure"),
+    );
     let metrics = [Metric::new(
         "readings".to_string(),
         vec![(String::from("goal"), String::from("baseline"))].into(),
@@ -66,9 +68,11 @@ fn test_mtmm_single_destination() -> Result<(), Error> {
 
     setup_minimal_env_vars();
     setup_multi_measure_env_vars();
-    let multi_table_multi_measure_schema =
-        super::SchemaType::MultiTableMultiMeasure(String::from("influxdb-connector-measure"));
-    let multi_table_multi_measure_builder = super::get_builder(multi_table_multi_measure_schema);
+    let multi_table_multi_measure_schema = super::SchemaType::MultiTableMultiMeasure;
+    let multi_table_multi_measure_builder = super::get_builder(
+        multi_table_multi_measure_schema,
+        String::from("influxdb-connector-measure"),
+    );
     let metrics = [
         Metric::new(
             "readings".to_string(),
@@ -152,9 +156,11 @@ fn test_mtmm_multi_record() -> Result<(), Error> {
 
     setup_minimal_env_vars();
     setup_multi_measure_env_vars();
-    let multi_table_multi_measure_schema =
-        super::SchemaType::MultiTableMultiMeasure(String::from("influxdb-connector-measure"));
-    let multi_table_multi_measure_builder = super::get_builder(multi_table_multi_measure_schema);
+    let multi_table_multi_measure_schema = super::SchemaType::MultiTableMultiMeasure;
+    let multi_table_multi_measure_builder = super::get_builder(
+        multi_table_multi_measure_schema,
+        String::from("influxdb-connector-measure"),
+    );
     let metrics = [
         Metric::new(
             "readings".to_string(),
@@ -239,9 +245,11 @@ fn test_mtmm_empty_dimensions() -> Result<(), Error> {
 
     setup_minimal_env_vars();
     setup_multi_measure_env_vars();
-    let multi_table_multi_measure_schema =
-        super::SchemaType::MultiTableMultiMeasure(String::from("influxdb-connector-measure"));
-    let multi_table_multi_measure_builder = super::get_builder(multi_table_multi_measure_schema);
+    let multi_table_multi_measure_schema = super::SchemaType::MultiTableMultiMeasure;
+    let multi_table_multi_measure_builder = super::get_builder(
+        multi_table_multi_measure_schema,
+        String::from("influxdb-connector-measure"),
+    );
     let metrics = [Metric::new(
         "readings".to_string(),
         None,
@@ -286,9 +294,11 @@ fn test_mtmm_varying_timestamp_records() -> Result<(), Error> {
 
     setup_minimal_env_vars();
     setup_multi_measure_env_vars();
-    let multi_table_multi_measure_schema =
-        super::SchemaType::MultiTableMultiMeasure(String::from("influxdb-connector-measure"));
-    let multi_table_multi_measure_builder = super::get_builder(multi_table_multi_measure_schema);
+    let multi_table_multi_measure_schema = super::SchemaType::MultiTableMultiMeasure;
+    let multi_table_multi_measure_builder = super::get_builder(
+        multi_table_multi_measure_schema,
+        String::from("influxdb-connector-measure"),
+    );
     let metrics = [
         Metric::new(
             "readings".to_string(),

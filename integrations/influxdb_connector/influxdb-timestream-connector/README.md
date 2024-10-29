@@ -73,6 +73,7 @@ The following parameters are available when deploying the connector as part of a
 | `RestApiGatewayTimeoutInMillis` | The maximum number of milliseconds a REST API Gateway event will wait before timing out. | `30000` |
 | `RustLog` | The log level to use for the Lambda function. Typical values are error, warn, info, debug, trace, and off. Use trace in order to log the execution time of each function. | `INFO` |
 | `WriteThrottlingBurstLimit` | The number of burst requests per second that the REST API Gateway permits. | `1200` |
+| `TableMapping` | Determines wether to ingest all records to a single table or to multiple tables. | `single-table` |
 
 ##### SAM Deployment Steps
 
