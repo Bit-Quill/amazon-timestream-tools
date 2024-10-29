@@ -110,7 +110,7 @@
           "format": 1,
           "hide": false,
           "measure": "",
-          "rawQuery": "SELECT * FROM \"sample_app_database\".\"sample_app_table\" WHERE time BETWEEN ago(1h) AND now() ORDER BY time ASC",
+          "rawQuery": "SELECT * FROM \"sample_app_database\".\"sample_app_table\" ORDER BY time ASC",
           "refId": "A"
         }
       ],
