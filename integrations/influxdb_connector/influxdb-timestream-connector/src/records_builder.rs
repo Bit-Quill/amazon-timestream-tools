@@ -110,6 +110,33 @@ pub fn validate_env_variables() -> Result<(), Error> {
         }
     }
 
+    // Validate environment variables for table mapping
+    match std::env::var("table_mapping") {
+        Ok(table_mapping) => match table_mapping.as_str() {
+            "single-table" => {
+                if std::env::var("single_table_name").is_err() {
+                    return Err(anyhow!(
+                        "single_table_name environment variable is not defined"
+                    ));
+                }
+            }
+            "multi-table" => {
+                if std::env::var("measure_name_for_multi_measure_records").is_err() {
+                    return Err(anyhow!(
+                        "measure_name_for_multi_measure_records environment variable is not defined"
+                    ));
+                }
+            }
+            table_mapping => {
+                return Err(anyhow!(
+                    "{:?} is an invalid value for the table_mapping environment variable",
+                    table_mapping
+                ))
+            }
+        },
+        Err(_) => return Err(anyhow!("table_mapping environment variable is not defined")),
+    }
+
     // Customer-defined partition key environment variables
     let custom_partition_key_type = std::env::var("custom_partition_key_type");
 

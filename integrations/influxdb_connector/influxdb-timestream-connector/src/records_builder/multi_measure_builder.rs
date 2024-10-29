@@ -3,7 +3,7 @@ use crate::{
     metric::{FieldValue, Metric},
     SchemaType,
 };
-use anyhow::{anyhow, Error, Result};
+use anyhow::{Error, Result};
 use aws_sdk_timestreamwrite as timestream_write;
 use std::collections::HashMap;
 
@@ -22,7 +22,6 @@ impl BuildRecords for MultiMeasureBuilder {
         precision: &timestream_write::types::TimeUnit,
     ) -> Result<HashMap<String, Vec<timestream_write::types::Record>>, Error> {
         validate_env_variables()?;
-        validate_multi_measure_env_variables()?;
         match self.schema_type {
             SchemaType::SingleTableMultiMeasure => {
                 return build_single_table_multi_measure_records(
@@ -49,52 +48,23 @@ impl std::fmt::Debug for MultiMeasureBuilder {
 }
 
 #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
-fn validate_multi_measure_env_variables() -> Result<(), Error> {
-    // Validate environment variables for multi-measure records
-
-    match std::env::var("table_mapping") {
-        Ok(table_mapping) => match table_mapping.as_str() {
-            "single-table" => {
-                if std::env::var("single_table_name").is_err() {
-                    return Err(anyhow!(
-                        "single_table_name environment variable is not defined"
-                    ));
-                }
-            }
-            "multi-table" => {
-                if std::env::var("measure_name_for_multi_measure_records").is_err() {
-                    return Err(anyhow!(
-                        "measure_name_for_multi_measure_records environment variable is not defined"
-                    ));
-                }
-            }
-            table_mapping => {
-                return Err(anyhow!(
-                    "{:?} is an invalid value for the table_mapping environment variable",
-                    table_mapping
-                ))
-            }
-        },
-        Err(_) => return Err(anyhow!("table_mapping environment variable is not defined")),
-    }
-
-    Ok(())
-}
-
-#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 fn build_single_table_multi_measure_records(
     metrics: &[Metric],
     measure_name: &str,
     precision: &timestream_write::types::TimeUnit,
 ) -> Result<HashMap<String, Vec<timestream_write::types::Record>>, Error> {
-    // Builds multi-measure records hashmap all to one table
+    // Builds multi-measure records hashmap to be ingested to one table
 
     let mut records_batch: HashMap<String, Vec<aws_sdk_timestreamwrite::types::Record>> =
         HashMap::new();
     let table_name = std::env::var("single_table_name")?;
     for metric in metrics.iter() {
         let new_record = metric_to_timestream_record(measure_name, metric, precision)?;
-        records_batch.insert(table_name.to_string(), vec![new_record]);
+        if let Some(record_vec) = records_batch.get_mut(&table_name) {
+            record_vec.push(new_record);
+        } else {
+            records_batch.insert(table_name.to_string(), vec![new_record]);
+        }
     }
 
     Ok(records_batch)
@@ -106,7 +76,7 @@ fn build_multi_table_multi_measure_records(
     measure_name: &str,
     precision: &timestream_write::types::TimeUnit,
 ) -> Result<HashMap<String, Vec<timestream_write::types::Record>>, Error> {
-    // Builds multi-measure records hashmap to multiple tables
+    // Builds multi-measure records hashmap to be ingested to multiple tables
 
     let mut records_batch: HashMap<String, Vec<aws_sdk_timestreamwrite::types::Record>> =
         HashMap::new();
