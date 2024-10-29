@@ -36,6 +36,10 @@ Parameters:
     Type: String
     Default: single-table
     Description: Maps records ingested to a single table or multiple tables.
+  SingleTableName:
+    Type: String
+    Default: influxdb-measures
+    Description: Name of the table when table_mapping is set to single-table.
   EnableAsyncInvocation:
     Type: String
     AllowedValues:
@@ -363,7 +367,6 @@ Resources:
   AsyncRestApiGatewayStage:
     Type: AWS::ApiGateway::Stage
     Condition: IsAsyncEnabled
-    DependsOn: AsyncRestApiGatewayDeployment
     Properties:
       StageName: !Ref RestApiGatewayStageName
       RestApiId: !Ref RestApiGateway
@@ -385,7 +388,6 @@ Resources:
   SyncRestApiGatewayStage:
     Type: AWS::ApiGateway::Stage
     Condition: IsSyncEnabled
-    DependsOn: SyncRestApiGatewayDeployment
     Properties:
       StageName: !Ref RestApiGatewayStageName
       RestApiId: !Ref RestApiGateway
@@ -546,6 +548,7 @@ Resources:
           database_name: !Ref DatabaseName
           measure_name_for_multi_measure_records: !Ref MeasureNameForMultiMeasureRecords
           table_mapping: !Ref TableMapping
+          single_table_name: !Ref SingleTableName
           region: !Ref AWS::Region
           enable_database_creation: !Ref EnableDatabaseCreation
           enable_table_creation: !Ref EnableTableCreation
