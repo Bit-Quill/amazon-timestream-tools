@@ -9,7 +9,7 @@ fn test_mtmm_single_record() -> Result<(), Error> {
     // Single measure for multi-measure record
 
     setup_minimal_env_vars();
-    setup_multi_measure_env_vars();
+    setup_multi_table_multi_measure_env_vars();
     setup_table_mapping_env_variables(super::SchemaType::MultiTableMultiMeasure);
     let multi_table_multi_measure_schema = super::SchemaType::MultiTableMultiMeasure;
     let multi_table_multi_measure_builder = super::get_builder(
@@ -68,7 +68,7 @@ fn test_mtmm_single_destination() -> Result<(), Error> {
     // Dataset all going to same table
 
     setup_minimal_env_vars();
-    setup_multi_measure_env_vars();
+    setup_multi_table_multi_measure_env_vars();
     setup_table_mapping_env_variables(super::SchemaType::MultiTableMultiMeasure);
     let multi_table_multi_measure_schema = super::SchemaType::MultiTableMultiMeasure;
     let multi_table_multi_measure_builder = super::get_builder(
@@ -157,7 +157,7 @@ fn test_mtmm_multi_record() -> Result<(), Error> {
     // Dataset going to multiple table destinations
 
     setup_minimal_env_vars();
-    setup_multi_measure_env_vars();
+    setup_multi_table_multi_measure_env_vars();
     setup_table_mapping_env_variables(super::SchemaType::MultiTableMultiMeasure);
     let multi_table_multi_measure_schema = super::SchemaType::MultiTableMultiMeasure;
     let multi_table_multi_measure_builder = super::get_builder(
@@ -247,7 +247,7 @@ fn test_mtmm_empty_dimensions() -> Result<(), Error> {
     // Dataset with empty dimensions
 
     setup_minimal_env_vars();
-    setup_multi_measure_env_vars();
+    setup_multi_table_multi_measure_env_vars();
     setup_table_mapping_env_variables(super::SchemaType::MultiTableMultiMeasure);
     let multi_table_multi_measure_schema = super::SchemaType::MultiTableMultiMeasure;
     let multi_table_multi_measure_builder = super::get_builder(
@@ -297,7 +297,7 @@ fn test_mtmm_varying_timestamp_records() -> Result<(), Error> {
     // Varying timestamp parsing
 
     setup_minimal_env_vars();
-    setup_multi_measure_env_vars();
+    setup_multi_table_multi_measure_env_vars();
     setup_table_mapping_env_variables(super::SchemaType::MultiTableMultiMeasure);
     let multi_table_multi_measure_schema = super::SchemaType::MultiTableMultiMeasure;
     let multi_table_multi_measure_builder = super::get_builder(
@@ -398,7 +398,6 @@ fn test_stmm_single_record() -> Result<(), Error> {
     // Single measure for multi-measure record
 
     setup_minimal_env_vars();
-    setup_multi_measure_env_vars();
     setup_table_mapping_env_variables(super::SchemaType::SingleTableMultiMeasure);
     let single_table_multi_measure_builder = super::get_builder(
         super::SchemaType::SingleTableMultiMeasure,
@@ -425,10 +424,7 @@ fn test_stmm_single_record() -> Result<(), Error> {
         .expect("Failed to unwrap");
     assert_eq!(first_record.time, Some(String::from("1577836800000")));
 
-    assert_eq!(
-        first_record.measure_name(),
-        Some("influxdb-connector-measure")
-    );
+    assert_eq!(first_record.measure_name(), Some("readings"));
     assert_eq!(
         first_record.measure_value_type(),
         Some(&timestream_write::types::MeasureValueType::Multi)
@@ -457,7 +453,6 @@ fn test_stmm_multi_record() -> Result<(), Error> {
     // Dataset with differing metric names going to the same table
 
     setup_minimal_env_vars();
-    setup_multi_measure_env_vars();
     setup_table_mapping_env_variables(super::SchemaType::SingleTableMultiMeasure);
     let single_table_multi_measure_builder = super::get_builder(
         super::SchemaType::SingleTableMultiMeasure,
@@ -492,8 +487,8 @@ fn test_stmm_multi_record() -> Result<(), Error> {
     assert_eq!(readings.time, Some(String::from("1577836800000")));
     assert_eq!(velocity.time, Some(String::from("1577836911132")));
 
-    assert_eq!(readings.measure_name(), Some("influxdb-connector-measure"));
-    assert_eq!(velocity.measure_name(), Some("influxdb-connector-measure"));
+    assert_eq!(readings.measure_name(), Some("readings"));
+    assert_eq!(velocity.measure_name(), Some("velocity"));
     assert_eq!(
         readings.measure_value_type(),
         Some(&timestream_write::types::MeasureValueType::Multi)
@@ -536,7 +531,7 @@ fn test_stmm_multi_record() -> Result<(), Error> {
     Ok(())
 }
 
-fn setup_multi_measure_env_vars() {
+fn setup_multi_table_multi_measure_env_vars() {
     env::set_var("measure_name_for_multi_measure_records", "influxdb-measure");
 }
 

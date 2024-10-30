@@ -17,13 +17,13 @@ pub fn get_builder(schema: SchemaType, measure_name: String) -> impl BuildRecord
     match schema {
         SchemaType::SingleTableMultiMeasure => {
             return multi_measure_builder::MultiMeasureBuilder {
-                measure_name: measure_name.to_string(),
+                measure_name: None,
                 schema_type: SchemaType::SingleTableMultiMeasure,
             }
         }
         SchemaType::MultiTableMultiMeasure => {
             return multi_measure_builder::MultiMeasureBuilder {
-                measure_name: measure_name.to_string(),
+                measure_name: Some(measure_name.to_string()),
                 schema_type: SchemaType::MultiTableMultiMeasure,
             }
         }

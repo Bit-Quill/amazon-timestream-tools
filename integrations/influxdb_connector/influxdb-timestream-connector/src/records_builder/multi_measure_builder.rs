@@ -8,7 +8,7 @@ use aws_sdk_timestreamwrite as timestream_write;
 use std::collections::HashMap;
 
 pub struct MultiMeasureBuilder {
-    pub measure_name: String,
+    pub measure_name: Option<String>,
     pub schema_type: SchemaType,
 }
 
@@ -24,16 +24,12 @@ impl BuildRecords for MultiMeasureBuilder {
         validate_env_variables()?;
         match self.schema_type {
             SchemaType::SingleTableMultiMeasure => {
-                return build_single_table_multi_measure_records(
-                    metrics,
-                    &self.measure_name,
-                    precision,
-                )
+                return build_single_table_multi_measure_records(metrics, precision)
             }
             SchemaType::MultiTableMultiMeasure => {
                 return build_multi_table_multi_measure_records(
                     metrics,
-                    &self.measure_name,
+                    self.measure_name.as_deref(),
                     precision,
                 )
             }
@@ -43,14 +39,20 @@ impl BuildRecords for MultiMeasureBuilder {
 
 impl std::fmt::Debug for MultiMeasureBuilder {
     fn fmt(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(formatter, "{}", self.measure_name)
+        write!(
+            formatter,
+            "{}",
+            self.measure_name
+                .as_deref()
+                .expect("Failed to unwrap")
+                .to_owned()
+        )
     }
 }
 
 #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 fn build_single_table_multi_measure_records(
     metrics: &[Metric],
-    measure_name: &str,
     precision: &timestream_write::types::TimeUnit,
 ) -> Result<HashMap<String, Vec<timestream_write::types::Record>>, Error> {
     // Builds multi-measure records hashmap to be ingested to one table
@@ -59,7 +61,7 @@ fn build_single_table_multi_measure_records(
         HashMap::new();
     let table_name = std::env::var("single_table_name")?;
     for metric in metrics.iter() {
-        let new_record = metric_to_timestream_record(measure_name, metric, precision)?;
+        let new_record = metric_to_timestream_record(metric.name(), metric, precision)?;
         if let Some(record_vec) = records_batch.get_mut(&table_name) {
             record_vec.push(new_record);
         } else {
@@ -73,7 +75,7 @@ fn build_single_table_multi_measure_records(
 #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 fn build_multi_table_multi_measure_records(
     metrics: &[Metric],
-    measure_name: &str,
+    measure_name: Option<&str>,
     precision: &timestream_write::types::TimeUnit,
 ) -> Result<HashMap<String, Vec<timestream_write::types::Record>>, Error> {
     // Builds multi-measure records hashmap to be ingested to multiple tables
@@ -81,7 +83,11 @@ fn build_multi_table_multi_measure_records(
     let mut records_batch: HashMap<String, Vec<aws_sdk_timestreamwrite::types::Record>> =
         HashMap::new();
     for metric in metrics.iter() {
-        let new_record = metric_to_timestream_record(measure_name, metric, precision)?;
+        let new_record = metric_to_timestream_record(
+            measure_name.expect("Failed to unwrap"),
+            metric,
+            precision,
+        )?;
         let table_name = metric.name();
         if let Some(record_vec) = records_batch.get_mut(table_name) {
             record_vec.push(new_record);
