@@ -27,7 +27,7 @@ Single table mapping ingests all line protocol points ingested through the Influ
 
 The following example shows the translation of a two line protocol points into a Timestream for LiveAnalytics table, using a Timestamp with second precision and a `single_table_nam` Lambda environment variable configured to `influxdb-measures`:
 
-#### Line Protocol Point
+#### Line Protocol Points
 
 ```
 cpu_load_short,host=server01,region=us-west value=0.64,average=1.24, 1725059274
@@ -57,7 +57,7 @@ A Timestream record's `measure_name` field is not derived from any element of in
 
 The following example shows the translation of a two line protocol point into two Timestream for LiveAnalytics tables, using a Timestamp with second precision and a Lambda environment variable configured to `influxdb-measure`:
 
-#### Line Protocol Point
+#### Line Protocol Points
 
 ```
 cpu_load_short,host=server01,region=us-west value=0.64,average=1.24, 1725059274
