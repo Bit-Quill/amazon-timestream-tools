@@ -20,15 +20,19 @@ The following diagram depicts the deployed Lambda function receiving generated d
 
 1. [Configure AWS credentials for use with boto3](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html).
 2. [Install Conda](https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html).
-3. Initialize a Conda environment named `sample_app_env` with the required packages by running:
+3. On Linux or macOS, run the following command to enable `conda`, replacing `<shell>` with your shell, whether that be `zsh`, `bash`, or `fish`:
+    ```shell
+    conda init <shell>
+    ```
+4. Initialize a Conda environment named `sample_app_env` with the required packages by running:
     ```shell
     conda env create -f environment.yml
     ```
-4. Activate the environment by running:
+5. Activate the environment by running:
     ```shell
     conda activate sample_app_env
     ```
-5. Install an application to run the `demo.ipynb` file. We recommend [Visual Studio Code](https://code.visualstudio.com/) with the [Jupyter extension](https://marketplace.visualstudio.com/items?itemName=ms-toolsai.jupyter).
+6. Install an application to run the `demo.ipynb` file. We recommend [Visual Studio Code](https://code.visualstudio.com/) with the [Jupyter extension](https://marketplace.visualstudio.com/items?itemName=ms-toolsai.jupyter).
 
 ## Using the Jupyter Notebook Locally
 
