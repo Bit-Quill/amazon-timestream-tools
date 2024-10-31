@@ -48,7 +48,7 @@ To run the notebook locally:
 
 ### IAM Configuration
 
-When deployed in Amazon SageMaker, the instance hosting the Jupyter notebook must use an IAM role with the following permissions:
+When deployed in Amazon SageMaker, the instance hosting the Jupyter notebook must use an IAM role with the following permissions, replacing `<region>` with your desired AWS region name and `<account ID>` with your AWS account ID:
 
 ```json
 {
