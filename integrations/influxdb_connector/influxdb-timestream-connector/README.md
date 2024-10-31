@@ -25,7 +25,7 @@ The following table shows how the connector maps line protocol elements to Times
 
 Single table mapping ingests all line protocol points ingested through the InfluxDB Timestream Connector to the table defined with the `single_table_name` environment variable. The `measure_name` in each Timestream record is derived from the line protocol measurement.
 
-The following example shows the translation of a two line protocol points into a Timestream for LiveAnalytics table, using a Timestamp with second precision and a `single_table_nam` Lambda environment variable configured to `influxdb-measures`:
+The following example shows the translation of two line protocol points into a Timestream for LiveAnalytics table, using Timestamps with second precision and a `single_table_name` Lambda environment variable configured to `influxdb-measures`:
 
 #### Line Protocol Points
 
@@ -39,7 +39,7 @@ weather,location=us-midwest,season=summer temperature=82.0,humidity=71.0 1706480
 | host     | region  | measure_name     | time                          | value | average | location   | season | temperature | humidity |
 |----------|---------|------------------|-------------------------------|-------|---------|------------|--------|-------------|----------|
 | server01 | us-west | cpu_load_short   | 2024-08-30 23:07:54.000000000 | 0.64  | 1.24    |            |        |             |          |
-|          |         | weather          | 2024-01-22 26:07:33.000000000 | 0.64  | 1.24    | us-midwest | summer | 82.0        | 71.0     |
+|          |         | weather          | 2024-01-22 26:07:33.000000000 |       |         | us-midwest | summer | 82.0        | 71.0     |
 
 
 ### Multi-Table Multi-Measure
@@ -55,7 +55,7 @@ The following table shows how the connector maps line protocol elements to Times
 
 A Timestream record's `measure_name` field is not derived from any element of ingested line protocol. Due to the multi-measure record translation, the connector sets the `measure_name` for each multi-measure record to the value of a Lambda environment variable. When [deployed as part of a CloudFormation stack](#aws-cloudformation-deployment), this can be customized by overriding the `MeasureNameForMultiMeasureRecords` parameter. When [deployed locally](#local-deployment), this can be customized by setting the `measure_name_for_multi_measure_records` environment variable.
 
-The following example shows the translation of a two line protocol point into two Timestream for LiveAnalytics tables, using a Timestamp with second precision and a Lambda environment variable configured to `influxdb-measure`:
+The following example shows the translation of two line protocol points into two Timestream for LiveAnalytics tables, using Timestamps with second precision and a Lambda environment variable configured to `influxdb-measure`:
 
 #### Line Protocol Points
 
@@ -109,8 +109,8 @@ The following parameters are available when deploying the connector as part of a
 | `RestApiGatewayStageName` | The name to use for the REST API Gateway stage. | `dev` |
 | `RestApiGatewayTimeoutInMillis` | The maximum number of milliseconds a REST API Gateway event will wait before timing out. | `30000` |
 | `RustLog` | The log level to use for the Lambda function. Typical values are error, warn, info, debug, trace, and off. Use trace in order to log the execution time of each function. | `INFO` |
-| `SingleTableName` | Determines the table name for ingestionw hen table mapping is type single-table. | `influxdb-measures` |
-| `TableMapping` | Determines wether to ingest all records to a single table or to multiple tables. | `single-table` |
+| `SingleTableName` | Determines the table name for ingestion when table mapping is type single-table. | `influxdb-measures` |
+| `TableMapping` | Determines whether to ingest all records to a single table or to multiple tables. | `single-table` |
 | `WriteThrottlingBurstLimit` | The number of burst requests per second that the REST API Gateway permits. | `1200` |
 
 ##### SAM Deployment Steps

@@ -541,7 +541,7 @@ fn setup_table_mapping_env_variables(schema_type: super::SchemaType) {
             env::set_var("table_mapping", "multi-table");
         }
         super::SchemaType::SingleTableMultiMeasure => {
-            env::set_var("table_mapping", "multi-table");
+            env::set_var("table_mapping", "single-table");
             env::set_var("single_table_name", "influxdb-measures");
         }
     }
