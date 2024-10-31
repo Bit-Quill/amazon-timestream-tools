@@ -30,7 +30,7 @@ The following example shows the translation of two line protocol points into a T
 #### Line Protocol Points
 
 ```
-cpu_load_short,host=server01,region=us-west value=0.64,average=1.24, 1725059274
+cpu_load_short,host=server01,region=us-west value=0.64,average=1.24 1725059274
 weather,location=us-midwest,season=summer temperature=82.0,humidity=71.0 1706480990
 ```
 
@@ -60,7 +60,7 @@ The following example shows the translation of two line protocol points into two
 #### Line Protocol Points
 
 ```
-cpu_load_short,host=server01,region=us-west value=0.64,average=1.24, 1725059274
+cpu_load_short,host=server01,region=us-west value=0.64,average=1.24 1725059274
 weather,location=us-midwest,season=summer temperature=82.0,humidity=71.0 1706480990
 ```
 
