@@ -36,10 +36,10 @@ weather,location=us-midwest,season=summer temperature=82.0,humidity=71.0 1706480
 
 #### Resulting influxdb-measures Timestream for LiveAnalytics Table
 
-| host     | region  | measure_name     | time                          | value | average | location   | season | temperature | humidity |
-|----------|---------|------------------|-------------------------------|-------|---------|------------|--------|-------------|----------|
-| server01 | us-west | cpu_load_short   | 2024-08-30 23:07:54.000000000 | 0.64  | 1.24    |            |        |             |          |
-|          |         | weather          | 2024-01-22 26:07:33.000000000 |       |         | us-midwest | summer | 82.0        | 71.0     |
+| host     | region  | location   | season | measure_name     | time                          | value | average | temperature | humidity |
+|----------|---------|---------------------|------------------|-------------------------------|-------|---------|-------------|----------|
+| server01 | us-west |            |        | cpu_load_short   | 2024-08-30 23:07:54.000000000 | 0.64  | 1.24    |             |          |
+|          |         | us-midwest | summer | weather          | 2024-01-22 26:07:33.000000000 |       |         | 82.0        | 71.0     |
 
 
 ### Multi-Table Multi-Measure
@@ -74,7 +74,7 @@ weather,location=us-midwest,season=summer temperature=82.0,humidity=71.0 1706480
 
 | location   | season  | measure_name     | time                          | temperature | humidity |
 |------------|---------|------------------|-------------------------------|-------------|----------|
-| us-midwest | summer  | influxdb-measure | 2024-01-22 26:0733.000000000 | 82.0        | 71.0     |
+| us-midwest | summer  | influxdb-measure | 2024-01-22 26:0733.000000000  | 82.0        | 71.0     |
 
 ## Deployment Options
 
