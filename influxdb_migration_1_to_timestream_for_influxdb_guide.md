@@ -1,4 +1,4 @@
-# Manually upgrade from InfluxDB 1.x to Amazon Timestream for InfluxDB
+# Manually migrate from InfluxDB 1.x to Amazon Timestream for InfluxDB
 
 This is an adaptation of [InfluxData's official guide for migrating from InfluxDB 1.x to InfluxDB 2.7](https://docs.influxdata.com/influxdb/v2/install/upgrade/v1-to-v2/manual-upgrade/). The difference between this guide and that guide is that no InfluxDB 2.x instance is created in this guide. Instead, all data is exported from InfluxDB 1.x and migrated to Timestream for InfluxDB using the Influx CLI and the instance's endpoint and an operator token.
 
@@ -258,7 +258,7 @@ To migrate time series data from your InfluxDB 1.x instance to Timestream for In
    ```shell
     # Syntax
     influx write \
-      --host <Timestream for InfluxDB endpoint> \ # For example, https://my-endpoint:8086
+      --host <Timestream for InfluxDB endpoint> \
       --org <org> \
       --token <token>
       --bucket <bucket-name> \
@@ -266,9 +266,9 @@ To migrate time series data from your InfluxDB 1.x instance to Timestream for In
 
     # Example
     influx write \
-      --host <Timestream for InfluxDB endpoint> \
-      --org <org> \
-      --token <token>
+      --host https://example-host:8086 \
+      --org example-org \
+      --token dfdsKJnsdkjlsDJFlkjfdnd== \
       --bucket example-db/example-rp \
       --file /path/to/example-db_example-rp.lp
    ```
