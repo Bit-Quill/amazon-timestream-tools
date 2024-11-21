@@ -278,6 +278,8 @@ To migrate time series data from your InfluxDB 1.x instance to Timestream for In
     influx_inspect export \
       -database <database-name> \
       -retention <retention-policy-name> \
+      -datadir <absolute path to data directory> \ # By default, this is $HOME/.influxdb/data
+      -waldir <absolute path to wal directory> \ # By default, this is $HOME/.influxdb/wal
       -out <output-file-path> \
       -lponly
 
@@ -285,9 +287,12 @@ To migrate time series data from your InfluxDB 1.x instance to Timestream for In
     influx_inspect export \
       -database example-db \
       -retention example-rp \
+      -datadir /home/ubuntu/.influxdb/data \
+      -waldir /home/ubuntu/.influxdb/wal \
       -out /path/to/example-db_example-rp.lp \
       -lponly
    ```
+   **NOTE**: The `data` and `wal` directories may be in a different location, for example, in `/var/lib/influxdb/`. In this case, `sudo` may be needed.
 
 2. Use the Influx CLI `influx write` command to write the exported line protocol to Timestream for InfluxDB.
    ```shell
