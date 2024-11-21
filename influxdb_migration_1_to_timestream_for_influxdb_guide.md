@@ -14,7 +14,7 @@ To manually upgrade from InfluxDB 1.x to Amazon Timestream for InfluxDB:
 
 If you’re using custom configuration settings in your InfluxDB 1.x instance, do the following:
 
-  1. Compare 1.x and 2.7 configuration settings:
+  1. Compare 1.x and Amazon Timestream for InfluxDB configuration settings:
 
       <details>
         <summary>View configuration option parity</summary>
