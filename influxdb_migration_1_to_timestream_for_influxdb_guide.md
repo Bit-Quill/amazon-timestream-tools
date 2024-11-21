@@ -90,7 +90,7 @@ If you’re using custom configuration settings in your InfluxDB 1.x instance, d
 
       </details>
   
-  2. Apply your 1.x custom settings to the comparable InfluxDB 2.7 settings using `influxd` flags, environment variables, or a 2.7 configuration file. For more information about configuring InfluxDB 2.7, see [Configuration options](https://docs.influxdata.com/influxdb/v2/reference/config-options/).
+  2. Apply your 1.x custom settings to the comparable Amazon Timestream for InfluxDB settings using `influxd` flags, environment variables, or a Amazon Timestream for InfluxDB configuration file. For more information about configuring InfluxDB 2.7, see [Configuration options](https://docs.influxdata.com/influxdb/v2/reference/config-options/).
 
   3. Restart `influxd`.
 
