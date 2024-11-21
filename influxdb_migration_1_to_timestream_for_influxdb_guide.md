@@ -90,7 +90,7 @@ If you’re using custom configuration settings in your InfluxDB 1.x instance, d
 
       </details>
   
-  2. Apply your 1.x custom settings to the comparable Amazon Timestream for InfluxDB settings using `influxd` flags, environment variables, or a Amazon Timestream for InfluxDB configuration file. For more information about configuring InfluxDB 2.7, see [Configuration options](https://docs.influxdata.com/influxdb/v2/reference/config-options/).
+  2. Apply your 1.x custom settings to the comparable Timestream for InfluxDB settings using a parameter group. For more information about configuring Timestream for InfluxDB, see [Working with Parameter Groups](https://docs.aws.amazon.com/timestream/latest/developerguide/timestream-for-influx-db-connecting.html#timestream-for-influx-parameter-groups).
 
   3. Restart `influxd`.
 
@@ -114,13 +114,26 @@ To map a DBRP combination to a Timestream for InfluxDB bucket:
     telegraf/autogen
     ```
 
+    To create a bucket, use the [`influx bucket create` command](https://docs.influxdata.com/influxdb/v2/reference/cli/influx/bucket/create/), for example:
+
+    ```shell
+    influx bucket create \
+      --host <Timestream for InfluxDB endpoint> \
+      --token <token> \
+      --org <org> \
+      --name <new bucket name>
+    ```
+
 2. Create a DBRP mapping
     
-    Use the `influx v1 dbrp create` command to create a DBRP mapping. Provide the following:
+    Use the [`influx v1 dbrp create` command](https://docs.influxdata.com/influxdb/v2/reference/cli/influx/v1/dbrp/create/) to create a DBRP mapping. Provide the following:
 
-      - Database name.
+      - Timestream for InfluxDB host.
+      - Timestream for InfluxDB operator token.
+      - Timestream for InfluxDB organization name.
+      - InfluxDB 1.x database name.
       - Retention policy name (not retention period).
-      - Bucket ID.
+      - Timestream for InfluxDB bucket ID.
       - (Optional) `--default` flag if you want the retention policy to be the default retention policy for the specified database.
 
     ```shell
@@ -129,6 +142,7 @@ To map a DBRP combination to a Timestream for InfluxDB bucket:
     influx v1 dbrp create \
       --host <Timestream for InfluxDB endpoint> \
       --token <token> \
+      --org <org name> \
       --db example-db \
       --rp example-rp \
       --bucket-id 00xX00o0X001 \
@@ -142,6 +156,7 @@ To map a DBRP combination to a Timestream for InfluxDB bucket:
     influx v1 dbrp create \
       --host <Timestream for InfluxDB endpoint> \
       --token <token> \
+      --org <org name> \
       --db telegraf \
       --rp autogen \
       --bucket-id 00xX00o0X001 \
@@ -153,6 +168,7 @@ To map a DBRP combination to a Timestream for InfluxDB bucket:
     influx v1 dbrp create \
       --host <Timestream for InfluxDB endpoint> \
       --token <token> \
+      --org <org name> \
       --db telegraf \
       --rp downsampled-daily \
       --bucket-id 00xX00o0X002
@@ -160,10 +176,13 @@ To map a DBRP combination to a Timestream for InfluxDB bucket:
 
 3. Confirm the DBRP mapping was created
   
-   Use the `influx v1 dbrp list` command to list existing DBRP mappings.
+   Use the [`influx v1 dbrp list` command](https://docs.influxdata.com/influxdb/v2/reference/cli/influx/v1/dbrp/list/) to list existing DBRP mappings.
 
    ```shell
-   influx v1 dbrp list
+   influx v1 dbrp list \
+    --host <Timestream for InfluxDB endpoint> \
+    --token <token> \
+    --org <org name>
    ```
 
 For information about managing DBRP mappings, see the [`influx v1 dbrp` command documentation](https://docs.influxdata.com/influxdb/v2/reference/cli/influx/v1/dbrp/).
@@ -202,6 +221,9 @@ Recommended if:
 
 Use the Influx CLI `influx v1 auth create` command to create a 1.x-compatible authorization that grants read/write permissions to specific Timestream for InfluxDB buckets. Provide the following:
 
+- Timestream for InfluxDB host.
+- Timestream for InfluxDB operator token.
+- Timestream for InfluxDB organization name.
 - List of bucket IDs to grant read or write permissions to.
 - New v1 auth username.
 - New v1 auth password (when prompted).
@@ -212,6 +234,7 @@ Use the Influx CLI `influx v1 auth create` command to create a 1.x-compatible au
 influx v1 auth create \
   --host <Timestream for InfluxDB endpoint> \
   --token <token> \
+  --org <org name> \
   --read-bucket 00xX00o0X001 \
   --write-bucket 00xX00o0X001 \
   --username example-user
@@ -221,6 +244,7 @@ influx v1 auth create \
 influx v1 auth create \
   --host <Timestream for InfluxDB endpoint> \
   --token <token> \
+  --org <org name> \
   --read-bucket 00xX00o0X001 \
   --read-bucket 00xX00o0X002 \
   --write-bucket 00xX00o0X001 \
@@ -236,7 +260,7 @@ To migrate time series data from your InfluxDB 1.x instance to Timestream for In
 
 1. On the InfluxDB 1.x instance, use the InfluxDB 1.x [`influx_inspect export` command](https://docs.influxdata.com/influxdb/v1/tools/influx_inspect/#export) to export time series data as line protocol. Include the `-lponly` flag to exclude comments and the data definition language (DDL) from the output file.
 
-   *We recommend exporting each DBRP combination separately to easily write data to a corresponding InfluxDB 2.7 bucket*.
+   *We recommend exporting each DBRP combination separately to easily write data to a corresponding Timestream for InfluxDB bucket*.
 
    ```shell
     # Syntax
@@ -259,16 +283,16 @@ To migrate time series data from your InfluxDB 1.x instance to Timestream for In
     # Syntax
     influx write \
       --host <Timestream for InfluxDB endpoint> \
-      --org <org> \
-      --token <token>
+      --token <token> \
+      --org <org name> \
       --bucket <bucket-name> \
       --file <path-to-line-protocol-file>
 
     # Example
     influx write \
       --host https://example-host:8086 \
-      --org example-org \
       --token dfdsKJnsdkjlsDJFlkjfdnd== \
+      --org example-org \
       --bucket example-db/example-rp \
       --file /path/to/example-db_example-rp.lp
    ```
