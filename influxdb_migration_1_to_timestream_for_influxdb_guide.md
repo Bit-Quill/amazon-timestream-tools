@@ -15,7 +15,9 @@ To manually upgrade from InfluxDB 1.x to Amazon Timestream for InfluxDB:
 
 To migrate from InfluxDB 1.x to Timestream for InfluxDB, the following prerequisites must be met:
 
-1. [Download and install the Influx CLI](https://docs.influxdata.com/influxdb/v2/reference/cli/influx/).
+1. [Download the Influx v2 CLI](https://docs.influxdata.com/influxdb/v2/reference/cli/influx/).
+
+   **NOTE**: InfluxDB 1.x already uses a binary named `influx`, so, place the Influx v2 CLI binary in a different location than the Influx v1 `influx` binary and for all references to `influx` in this guide, use the path to the InfluxDB v2 CLI. For example, `/home/ubuntu/influx`.
 2. [Create a Timestream for InfluxDB instance](https://docs.aws.amazon.com/timestream/latest/developerguide/timestream-for-influx-getting-started-creating-db-instance.html).
 3. Retrieve an operator token from your Timestream for InfluxDB instance. This may require logging into your instance, navigating to "API Tokens," and cloning an existing operator token.
 
