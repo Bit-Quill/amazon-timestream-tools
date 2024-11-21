@@ -258,7 +258,7 @@ To migrate time series data from your InfluxDB 1.x instance to Timestream for In
    ```shell
     # Syntax
     influx write \
-      --host <Timestream for InfluxDB endpoint> \ # For example, https://my-endpoint:8086
+      --host <Timestream for InfluxDB endpoint> \
       --org <org> \
       --token <token>
       --bucket <bucket-name> \
@@ -266,9 +266,9 @@ To migrate time series data from your InfluxDB 1.x instance to Timestream for In
 
     # Example
     influx write \
-      --host <Timestream for InfluxDB endpoint> \
-      --org <org> \
-      --token <token>
+      --host https://example-host:8086 \
+      --org example-org \
+      --token dfdsKJnsdkjlsDJFlkjfdnd== \
       --bucket example-db/example-rp \
       --file /path/to/example-db_example-rp.lp
    ```
