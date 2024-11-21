@@ -271,6 +271,8 @@ To migrate time series data from your InfluxDB 1.x instance to Timestream for In
 
 1. On the InfluxDB 1.x instance, use the InfluxDB 1.x [`influx_inspect export` command](https://docs.influxdata.com/influxdb/v1/tools/influx_inspect/#export) to export time series data as line protocol. Include the `-lponly` flag to exclude comments and the data definition language (DDL) from the output file.
 
+   **NOTE**: If you are using a multi-node configuration, perform these steps on a data node. Then, since there is a possibility of data not being perfectly replicated across all data nodes, repeat the same steps, exporting data from the same InfluxDB 1.x databases and writing to the same Timestream for InfluxDB buckets, on all other data nodes. Timestream for InfluxDB will prevent duplicate data.
+
    *We recommend exporting each DBRP combination separately to easily write data to a corresponding Timestream for InfluxDB bucket*.
 
    ```shell
