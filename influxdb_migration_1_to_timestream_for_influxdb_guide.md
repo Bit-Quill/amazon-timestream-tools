@@ -4,11 +4,20 @@ This is an adaptation of [InfluxData's official guide for migrating from InfluxD
 
 To manually upgrade from InfluxDB 1.x to Amazon Timestream for InfluxDB:
 
-1. [Migrate custom configuration settings](#migrate-custom-configuration-settings).
-2. [Create DBRP mappings](#create-dbrp-mappings).
-3. [Create authorizations](#create-authorizations).
-4. [Migrate time series data](#migrate-time-series-data).
-5. [Migrate continuous queries](#migrate-continuous-queries).
+1. [Meet the prerequisites](#prerequisites).
+2. [Migrate custom configuration settings](#migrate-custom-configuration-settings).
+3. [Create DBRP mappings](#create-dbrp-mappings).
+4. [Create authorizations](#create-authorizations).
+5. [Migrate time series data](#migrate-time-series-data).
+6. [Migrate continuous queries](#migrate-continuous-queries).
+
+## Prerequisites
+
+To migrate from InfluxDB 1.x to Timestream for InfluxDB, the following prerequisites must be met:
+
+1. [Download and install the Influx CLI](https://docs.influxdata.com/influxdb/v2/reference/cli/influx/).
+2. [Create a Timestream for InfluxDB instance](https://docs.aws.amazon.com/timestream/latest/developerguide/timestream-for-influx-getting-started-creating-db-instance.html).
+3. Retrieve an operator token from your Timestream for InfluxDB instance. This may require logging into your instance, navigating to "API Tokens," and cloning an existing operator token.
 
 ## Migrate custom configuration settings
 
