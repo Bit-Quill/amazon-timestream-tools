@@ -27,7 +27,6 @@ This sample application is currently available for the following programming lan
 * [Getting started with Java](https://github.com/awslabs/amazon-timestream-tools/blob/mainline/sample_apps/java/)
 * [Getting started with Java v2](https://github.com/awslabs/amazon-timestream-tools/blob/mainline/sample_apps/javaV2/)
 * [Getting started with Python](https://github.com/awslabs/amazon-timestream-tools/blob/mainline/sample_apps/python/)
-* [Getting started with Go](https://github.com/awslabs/amazon-timestream-tools/blob/mainline/sample_apps/go/)
 * [Getting started with Go v2](https://github.com/awslabs/amazon-timestream-tools/blob/mainline/sample_apps/goV2/)
 * [Getting started with Node.js](https://github.com/awslabs/amazon-timestream-tools/blob/mainline/sample_apps/js/)
 * [Getting started with .NET](https://github.com/awslabs/amazon-timestream-tools/blob/mainline/sample_apps/dotnet/)
