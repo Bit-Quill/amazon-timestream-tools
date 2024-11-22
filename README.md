@@ -51,10 +51,10 @@ To continue to use your preferred data collection, analytics, visualization, and
 ## Data ingestion and query tools
 To understand the performance and scale capabilities of Amazon Timestream, you can run the following workload:
 
-* [Running large scale workloads with Amazon Timestream](https://github.com/awslabs/amazon-timestream-tools/tree/mainline/tools/perf-scale-workload/)
+* [Running large scale workloads with Amazon Timestream](https://github.com/awslabs/amazon-timestream-tools/tree/mainline/tools/python/perf-scale-workload/)
 
 You can use the following tools to continuously send data to Amazon Timestream:
 
 * [Publishing data with Amazon Kinesis to send to Amazon Timestream](https://github.com/awslabs/amazon-timestream-tools/blob/mainline/tools/python/kinesis_ingestor/)
-* [Publishing data with Apache Kafka/ Amazon MSK to send to Amazon Timestream](https://github.com/awslabs/amazon-timestream-tools/blob/mainline/tools/python/kafka_ingestor/)
+* [Publishing data with Apache Kafka/ Amazon MSK to send to Amazon Timestream](https://github.com/awslabs/amazon-timestream-tools/blob/mainline/tools/java/kafka_ingestor/)
 * [Multi-threaded continuous data generator for writing DevOps metrics into Amazon Timestream](https://github.com/awslabs/amazon-timestream-tools/tree/mainline/tools/python/continuous-ingestor/)
