@@ -62,26 +62,28 @@ def create_grafana_workspace(session: session, workspace_name: str, role_name: s
             )
         except Exception as err:
             print(f"Failed to create workspace: {err}")
-        workspace_id = create_workspace_response['workspace']['id']
-        print(f"Workspace '{workspace_name}' created with ID: {workspace_id}")
+            raise
+        else:
+            workspace_id = create_workspace_response['workspace']['id']
+            print(f"Workspace '{workspace_name}' created with ID: {workspace_id}")
 
-        # Wait until the workspace is active
-        current_wait_seconds = 0
-        while current_wait_seconds < MAX_WAIT_SECONDS:
-            status = grafana_client.describe_workspace(workspaceId=workspace_id)['workspace']['status']
-            print(f"Workspace status: {status}")
-            if status == 'ACTIVE':
-                break
-            time.sleep(WAIT_PERIOD_SECONDS)
-            current_wait_seconds += WAIT_PERIOD_SECONDS
+            # Wait until the workspace is active
+            current_wait_seconds = 0
+            while current_wait_seconds < MAX_WAIT_SECONDS:
+                status = grafana_client.describe_workspace(workspaceId=workspace_id)['workspace']['status']
+                print(f"Workspace status: {status}")
+                if status == 'ACTIVE':
+                    break
+                time.sleep(WAIT_PERIOD_SECONDS)
+                current_wait_seconds += WAIT_PERIOD_SECONDS
 
-        if current_wait_seconds >= MAX_WAIT_SECONDS and status != 'ACTIVE':
-            raise Exception("Timed out while waiting for workspace to become active")
+            if current_wait_seconds >= MAX_WAIT_SECONDS and status != 'ACTIVE':
+                raise Exception("Timed out while waiting for workspace to become active")
 
     grafana_workspace = grafana_client.describe_workspace(workspaceId=workspace_id)
     return grafana_workspace['workspace']['id']
 
-def create_grafana_workspace_role(session: session, workspace_role_name: str, database_name: str, table_name: str):
+def create_grafana_workspace_role(session: session, workspace_role_name: str, database_name: str, table_name: str) -> str:
     """
     Creates an IAM role to be used by an Amazon Managed Grafana workspace.
 
@@ -89,11 +91,14 @@ def create_grafana_workspace_role(session: session, workspace_role_name: str, da
     :param workspace_role_name: str: The name to use when creating the workspace role.
     :param database_name: str: The Timestream for LiveAnalytics database the workspace will use.
     :param table_name: str: The Timestream for LiveAnalytics table the workspace will use.
+    :returns: The workspace IAM role ARN.
     """
     iam_client = session.client('iam')
     sts_client = session.client('sts')
 
     account_id = account_id = sts_client.get_caller_identity()['Account']
+
+    workspace_role_arn = ""
 
     # Define the trust policy for Amazon Managed Grafana
     trust_policy = {
@@ -167,6 +172,8 @@ def create_grafana_workspace_role(session: session, workspace_role_name: str, da
     except Exception as err:
         print("Failed to attach policy to workspace role")
         raise
+
+    return workspace_role_arn
 
 def create_grafana_workspace_token(session: session, workspace_id: str) -> str:
     """
