@@ -55,7 +55,6 @@ def lambda_handler(event, context):
 
     """
 
-    print(event)
     query_params = event.get('queryStringParameters', {})
     precision = query_params.get('precision', 'MILLISECONDS')
 
