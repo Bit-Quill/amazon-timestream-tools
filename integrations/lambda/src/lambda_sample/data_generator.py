@@ -2,87 +2,79 @@ import random
 from datetime import datetime, timedelta
 
 class DataGenerator:
-    """
-    A list of dicts used to define the format of dimensions.
+    def __init__(self, measure_templates: list, dimension_templates: list):
+        """
+        :param measure_templates: list: A list of dicts used to define the format of measures.
+            Format:
+            "name": str. Required. The name of the measure.
+            "type": str. Optional. The Timestream for LiveAnalytics data type of the measure. Valid options are "DOUBLE",
+                "BIGINT", "BOOLEAN", and "VARCHAR". Defaults to "DOUBLE".
+            "max_variation": Optional. The maximum amount a measure value can changed over time, positively or negatively.
+                For example, with a value of 5.0, measure values will increment by a max of 5.0 and a min of -5.0. Defaults to 1.5.
+            "max": Optional. The maximum measure value. Defaults to 100.0.
+            "min": Optional. The minimum measure value. Defaults to 0.0.
+            "random_options": Optional. A list of values the measure value can have. All elements of the list should be the same data type and
+                match the data type specified by the "type" field. This field overrides "max_variation", "max", and "min".
+                Values will be reused, in the same way as the dimension_templates "unique_options" field.
+            
+            Example:
+            [
+                {
+                    "name": "temperature_celsius",
+                    "type": "DOUBLE",
+                    "max_variation": 2.0,
+                    "max": 40.0,
+                    "min": 30.0
+                },
+                {
+                    "name": "symptoms",
+                    "type": "VARCHAR",
+                    "random_options": ["none", "headache", "shortness of breath", "fatigue", "nausea"]
+                }
+            ]
 
-    Format:
-    "name": str. Required. The name of the dimension.
-    "value_length": int. Optional. The length of the dimension value, when it is randomly generated. If neither this nor
-        "options" are provided, defaults to 10.
-    "random_options": [str]. Optional. An array of strings to pick at random as options for the dimension value.
-        Has precedence over "value_length". Values will be reused.
-    "unique_options": [str]. Optional. An array of strings to pick serially for the dimension value. Each value in
-        this array will be used once.
+        :param dimension_templates: list: A list of dicts used to define the format of dimensions.
+            Format:
+            "name": str. Required. The name of the dimension.
+            "value_length": int. Optional. The length of the dimension value, when it is randomly generated. If neither this nor
+                "options" are provided, defaults to 10.
+            "random_options": [str]. Optional. An array of strings to pick at random as options for the dimension value.
+                Has precedence over "value_length". Values will be reused.
+            "unique_options": [str]. Optional. An array of strings to pick serially for the dimension value. Each value in
+                this array will be used once.
 
-    Example:
-    [
-        {
-            "name": "device_id",
-            "value_length": 9
-        },
-        {
-            "name": "region",
-            "random_options": ["us-east-1", "us-west-2"]
-        }
-    ]
-    """
-    dimension_templates: list
-
-    """
-    A list of dicts used to define the format of measures.
-
-    Format:
-    "name": str. Required. The name of the measure.
-    "type": str. Optional. The Timestream for LiveAnalytics data type of the measure. Valid options are "DOUBLE",
-        "BIGINT", "BOOLEAN", and "VARCHAR". Defaults to "DOUBLE".
-    "max_variation": Optional. The maximum amount a measure value can changed over time, positively or negatively.
-        For example, with a value of 5.0, measure values will increment by a max of 5.0 and a min of -5.0. Defaults to 1.5.
-    "max": Optional. The maximum measure value. Defaults to 100.0.
-    "min": Optional. The minimum measure value. Defaults to 0.0.
-    "random_options": Optional. A list of values the measure value can have. All elements of the list should be the same data type and
-        match the data type specified by the "type" field. This field overrides "max_variation", "max", and "min".
-        Values will be reused, in the same way as the dimension_templates "unique_options" field.
-    
-    Example:
-    [
-        {
-            "name": "temperature_celsius",
-            "type": "DOUBLE",
-            "max_variation": 2.0,
-            "max": 40.0,
-            "min": 30.0
-        },
-        {
-            "name": "symptoms",
-            "type": "VARCHAR",
-            "random_options": ["none", "headache", "shortness of breath", "fatigue", "nausea"]
-        }
-    ]
-    """
-    measure_templates: list
-
-    def __init__(self):
-        # All subclasses need to do is provide values for measure_templates and dimension_templates
-        self.measure_templates = []
-        self.dimension_templates = []
+            Example:
+            [
+                {
+                    "name": "device_id",
+                    "value_length": 9
+                },
+                {
+                    "name": "region",
+                    "random_options": ["us-east-1", "us-west-2"]
+                }
+            ]
+        """
+        self.measure_templates = measure_templates
+        self.dimension_templates = dimension_templates
 
     def generate(self, start_date: datetime, end_date: datetime, reporting_frequency: timedelta,
                 num_entities: int, precision="MILLISECONDS", generate_unique_options_fallback=False) -> list:
         """
         Generates time series data.
 
-        :param start_date: The start date to use when generating records. This cannot be older in hours
+        :param start_date: datetime: The start date to use when generating records. This cannot be older in hours
             than the memory retention period in hours value for the table.
-        :param end_date: The end date to use when generating records. The maximum end date
+        :param end_date: datetime: The end date to use when generating records. The maximum end date
             Timestream for LiveAnalytics allows is 15 minutes in the future.
-        :param reporting_frequency: The frequency that records are generated by all entities, for example,
+        :param reporting_frequency: timedelta: The frequency that records are generated by all entities, for example,
             every 2 seconds, every 5 hours, etc.
-        :param num_entities: The number of entities that will report for each timestamp, for example,
+        :param num_entities: int: The number of entities that will report for each timestamp, for example,
             the number of servers or number of stocks.
-        :param precision: The precision to use for record timestamps. Valid options are "MILLISECONDS",
-            "SECONDS", and "MICROSECONDS".
-        :param generate_unique_options_fallback: Whether to generate random strings for dimension values
-            after all values in a dimension template's "unique_options" array have been used.
+        :param precision: str: The precision to use for record timestamps. Valid options are "MILLISECONDS",
+            "SECONDS", and "MICROSECONDS". (Default value = "MILLISECONDS")
+        :param generate_unique_options_fallback: bool: Whether to generate random strings for dimension values
+            after all values in a dimension template's "unique_options" array have been used. (Default value = False)
         :returns: A list containing Timestream for LiveAnalytics measures and dimensions.
         """
 
@@ -175,7 +167,7 @@ class DataGenerator:
                             elif measure_value_type == "BIGINT":
                                 measure_value = int(random.uniform(min_value, max_value))
                             elif measure_value_type == "BOOLEAN":
-                                measure_value = random.choice(True, False)
+                                measure_value = random.choice([True, False])
                             else:
                                 raise Exception("Measure value type not recognized")
                         else:
@@ -186,7 +178,7 @@ class DataGenerator:
                             elif measure_value_type == "BIGINT":
                                 measure_value = int(max(min_value, min(entity["latest_measures"][measure_name] + int(random.uniform(-max_variation, max_variation)), max_value)))
                             elif measure_value_type == "BOOLEAN":
-                                measure_value = random.choice(True, False)
+                                measure_value = random.choice([True, False])
                             else:
                                 raise Exception("Measure value type not recognized")
                         
@@ -239,7 +231,7 @@ class DataGenerator:
 
         # Each measure will have a panel
         panels = []
-        for i, measure_template in enumerate(self.measure_templates):
+        for _, measure_template in enumerate(self.measure_templates):
             measure_name = measure_template['name']
             query = ""
             if len(self.measure_templates) > 1:
