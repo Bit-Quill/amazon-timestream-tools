@@ -4,7 +4,9 @@ import json
 import time
 import requests
 
+# The maximum total number of seconds to wait for a Grafana resource to finish creating.
 MAX_WAIT_SECONDS = 900 # 15 minutes
+# The number of seconds to wait before checking whether a Grafana resource has finished creating.
 WAIT_PERIOD_SECONDS = 15
 
 def create_grafana_workspace(session: session, workspace_name: str, role_name: str, database_name: str, table_name: str) -> str:
