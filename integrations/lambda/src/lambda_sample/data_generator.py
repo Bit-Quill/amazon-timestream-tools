@@ -657,11 +657,11 @@ class StockMarketDataGenerator(DataGenerator):
             }
         ]
 
-    def generate(self, start_date, end_date, reporting_frequency, num_entities, precision="MILLISECONDS", generate_unique_dimension_fallback=False) -> list:
+    def generate(self, start_date, end_date, reporting_frequency, num_entities, precision="MILLISECONDS", generate_unique_options_fallback=False) -> list:
         num_stock_symbols = len(self.dimension_templates[0]["unique_options"])
-        if num_entities > num_stock_symbols and not generate_unique_dimension_fallback:
+        if num_entities > num_stock_symbols and not generate_unique_options_fallback:
             raise Exception(f"num_entities ({num_entities}) was greater than the number of stock symbols ({num_stock_symbols})")
-        return super().generate(start_date, end_date, reporting_frequency, num_entities, precision, generate_unique_dimension_fallback)
+        return super().generate(start_date, end_date, reporting_frequency, num_entities, precision, generate_unique_options_fallback)
     
     def generate_dashboard(self, grafana_data_source_name, database_name, table_name) -> dict:
         return {
