@@ -2,7 +2,7 @@
 
 ## Overview
 
-The InfluxDB Metrics Dashboard creates a Grafana dashboard to visualize an existing Timestream for InfluxDB instance performance metrics. 
+The InfluxDB Metrics Dashboard creates a Grafana dashboard to visualize existing Timestream for InfluxDB instance performance metrics.
 
 <img src="./images/architecture.png" alt="drawing" width="800"/>
 
@@ -31,7 +31,7 @@ The following context options are optional when deploying the CDK application:
 
 ## Getting started
 
-To deploy the InfluxDB Metrics Dashboard application, use the following CDK commands, and populate the all required context in the deploy command:
+To deploy the InfluxDB Metrics Dashboard application, use the following CDK commands, and populate all required context options in the deploy command:
 
 1. Provision AWS environment with the following command:
 ```shell
@@ -67,7 +67,7 @@ Now that the dashboard has been deployed, you will need to add your AWS IAM Iden
 5. From the list of users, select the user you want to give access to the dashboard, and choose **Assign users and groups**.
 6. Choose up one level in the navigation hierarchy to return to the dashboard workspace.
 7. Choose the **Grafana workspace URL**.
-8. Sign in with the **AWS IAM Identity Center** user you assigned viewer for the dashboard.
+8. Sign in with the **AWS IAM Identity Center** user you assigned as a viewer for the dashboard.
 9. Choose **Dashboards** in the left navigation pane.
 10. Choose the dashboard named **InfluxDB Performance Dashboard**, or alternative name if you altered the context when deploying the application.
 11. You should now be able to view a dashboard showcasing the metrics for your Timestream for InfluxDB instance.

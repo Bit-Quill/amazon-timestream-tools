@@ -9,7 +9,8 @@
       "cdk*.json",
       "go.mod",
       "go.sum",
-      "**/*test.go"
+      "**/*test.go",
+      "images"
     ]
   },
   "context": {

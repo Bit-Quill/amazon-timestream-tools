@@ -146,26 +146,26 @@ func uploadDashboard(serviceAccountTokenKey string, workspaceUrl string, datasou
 			if plugin.Name == "Amazon Timestream" {
 				pluginInstalled = true
 				break
-			} else {
-				getGrafanaPluginsResp, err = httpClient.Do(getGrafanaPluginsReq)
-				if err != nil {
-					log.Printf("failed to retrieve plugins for grafana workspace: %s", err)
-					return "", err
-				}
 			}
 		}
 		if pluginInstalled {
 			break
 		}
+		getGrafanaPluginsResp, err = httpClient.Do(getGrafanaPluginsReq)
+		if err != nil {
+			log.Printf("failed to retrieve plugins for grafana workspace: %s", err)
+			return "", err
+		}
+
 		waiterInterval++
 	}
-
-	// Grafana still requires additional time after plugin is listed installed
-	time.Sleep(20 * time.Second)
 
 	if waiterInterval == MaxWaitIntervals {
 		return "", fmt.Errorf("timeout reached for installing Timestream plugin in workspace")
 	}
+
+	// Grafana still requires additional time after plugin is listed installed
+	time.Sleep(20 * time.Second)
 
 	enablePluginConfig := map[string]interface{}{
 		"enabled": true,

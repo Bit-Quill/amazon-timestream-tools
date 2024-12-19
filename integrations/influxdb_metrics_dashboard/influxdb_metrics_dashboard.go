@@ -14,7 +14,7 @@ import (
 	"os"
 )
 
-func addTelegrafEC2InstanceToStack(stack awscdk.Stack, stackProps awscdk.StackProps, databaseName string, vpcId string, influxDBEndpoint string, influxDBUsername string, influxDBPassword string) (awscdk.Stack, error) {
+func addTelegrafEC2InstanceToStack(stack awscdk.Stack, stackProps awscdk.StackProps, databaseName string, vpcID string, influxDBEndpoint string, influxDBUsername string, influxDBPassword string) (awscdk.Stack, error) {
 	instanceRole := awsiam.NewRole(stack, jsii.String("influxdb-dashboard-ec2-role"), &awsiam.RoleProps{
 		AssumedBy: awsiam.NewServicePrincipal(jsii.String("ec2.amazonaws.com"), nil),
 	})
@@ -182,7 +182,7 @@ service telegraf start
 	vpc := awsec2.Vpc_FromLookup(stack, jsii.String("testingInfluxDBMetricsDashboard"), &awsec2.VpcLookupOptions{
 		IsDefault: jsii.Bool(true),
 		Region:    jsii.String(*stackProps.Env.Region),
-		VpcId:     jsii.String(vpcId),
+		VpcId:     jsii.String(vpcID),
 	})
 	ec2SecurityGroup := awsec2.NewSecurityGroup(stack, jsii.String("TelegrafEC2SG"), &awsec2.SecurityGroupProps{
 		Vpc:               vpc,
@@ -198,7 +198,7 @@ service telegraf start
 	ec2SecurityGroup.AddIngressRule(
 		awsec2.Peer_Ipv4(jsii.String("0.0.0.0/0")),
 		awsec2.Port_Tcp(jsii.Number(8086)),
-		jsii.String("Allow InfluxDB metric port"),
+		jsii.String("Allow open access to InfluxDB /metrics endpoint"),
 		jsii.Bool(false),
 	)
 
@@ -230,15 +230,7 @@ func addGrafanaWorkspaceToStack(stack awscdk.Stack, stackProps awscdk.StackProps
 					jsii.String("timestream:Select"),
 				},
 				Resources: &[]*string{
-					jsii.String(fmt.Sprintf("arn:aws:timestream:%s:%s:database/%s/table/storage_bucket_series_num", *stackProps.Env.Region, *stackProps.Env.Account, databaseName)),
-					jsii.String(fmt.Sprintf("arn:aws:timestream:%s:%s:database/%s/table/go_memstats_mcache_inuse_bytes", *stackProps.Env.Region, *stackProps.Env.Account, databaseName)),
-					jsii.String(fmt.Sprintf("arn:aws:timestream:%s:%s:database/%s/table/boltdb_writes_total", *stackProps.Env.Region, *stackProps.Env.Account, databaseName)),
-					jsii.String(fmt.Sprintf("arn:aws:timestream:%s:%s:database/%s/table/go_memstats_alloc_bytes", *stackProps.Env.Region, *stackProps.Env.Account, databaseName)),
-					jsii.String(fmt.Sprintf("arn:aws:timestream:%s:%s:database/%s/table/http_write_request_count", *stackProps.Env.Region, *stackProps.Env.Account, databaseName)),
-					jsii.String(fmt.Sprintf("arn:aws:timestream:%s:%s:database/%s/table/go_memstats_frees_total", *stackProps.Env.Region, *stackProps.Env.Account, databaseName)),
-					jsii.String(fmt.Sprintf("arn:aws:timestream:%s:%s:database/%s/table/go_memstats_sys_bytes", *stackProps.Env.Region, *stackProps.Env.Account, databaseName)),
-					jsii.String(fmt.Sprintf("arn:aws:timestream:%s:%s:database/%s/table/qc_executing_duration_seconds", *stackProps.Env.Region, *stackProps.Env.Account, databaseName)),
-					jsii.String(fmt.Sprintf("arn:aws:timestream:%s:%s:database/%s/table/http_query_request_count", *stackProps.Env.Region, *stackProps.Env.Account, databaseName)),
+					jsii.String(fmt.Sprintf("arn:aws:timestream:%s:%s:database/%s/table/*", *stackProps.Env.Region, *stackProps.Env.Account, databaseName)),
 				},
 			}),
 		},
@@ -319,8 +311,8 @@ func main() {
 
 	// Need to use context to access variables at time of App Synthesization
 	// Required context
-	vpcIdContext := stack.Node().TryGetContext(jsii.String("VpcId"))
-	if vpcIdContext == nil {
+	vpcIDContext := stack.Node().TryGetContext(jsii.String("VpcId"))
+	if vpcIDContext == nil {
 		log.Printf("VpcId context is required for Telegraf instance")
 		return
 	}
@@ -362,7 +354,7 @@ func main() {
 		databaseName = databaseNameContext.(string)
 	}
 
-	stack, err := addTelegrafEC2InstanceToStack(stack, stackProps, databaseName, vpcIdContext.(string), influxDBEndpointContext.(string), influxDBUsernameContext.(string), influxDBPasswordContext.(string))
+	stack, err := addTelegrafEC2InstanceToStack(stack, stackProps, databaseName, vpcIDContext.(string), influxDBEndpointContext.(string), influxDBUsernameContext.(string), influxDBPasswordContext.(string))
 	if err != nil {
 		log.Printf("Error adding Telegraf instance to stack: %s", err)
 		return
@@ -374,7 +366,7 @@ func main() {
 	}
 	stack, err = createLambdaResource(stack, stackProps, databaseName, grafanaWorkspaceName, dashboardName, timestreamDatasourceName)
 	if err != nil {
-		log.Printf("Error adding Grafana workspace to stack: %s", err)
+		log.Printf("Error adding Lambda function to stack: %s", err)
 		return
 	}
 
