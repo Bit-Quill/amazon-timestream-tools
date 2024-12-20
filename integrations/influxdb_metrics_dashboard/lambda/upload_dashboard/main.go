@@ -329,22 +329,68 @@ func createGrafanaDashboard() (string, error) {
 		return "", fmt.Errorf("Failed to create service account due to workspace creation timeout")
 	}
 
-	serviceAccountOutput, err := grafanaClient.CreateWorkspaceServiceAccount(
+	var maxWorkspaceServiceAccountsResult int32 = 200
+	workspaceServiceAccounts, err := grafanaClient.ListWorkspaceServiceAccounts(
 		context.TODO(),
-		&grafana.CreateWorkspaceServiceAccountInput{
-			GrafanaRole: grafanaTypes.RoleAdmin,
-			Name:        &workspaceName,
+		&grafana.ListWorkspaceServiceAccountsInput{
 			WorkspaceId: grafanaWorkspace.Id,
+			MaxResults:  &maxWorkspaceServiceAccountsResult,
 		},
 	)
 	if err != nil {
-		log.Printf("Error creating workspace service account: %s", err)
+		log.Printf("Error listing workspace service accounts: %s", err)
 		return "", err
 	}
+
+	serviceAccountID := ""
+	for _, serviceAccount := range workspaceServiceAccounts.ServiceAccounts {
+		if *serviceAccount.Name == workspaceName {
+			serviceAccountID = *serviceAccount.Id
+			break
+		}
+	}
+
+	if serviceAccountID == "" {
+		serviceAccountOutput, err := grafanaClient.CreateWorkspaceServiceAccount(
+			context.TODO(),
+			&grafana.CreateWorkspaceServiceAccountInput{
+				GrafanaRole: grafanaTypes.RoleAdmin,
+				Name:        &workspaceName,
+				WorkspaceId: grafanaWorkspace.Id,
+			},
+		)
+		if err != nil {
+			log.Printf("Error listing workspace service accounts: %s", err)
+			return "", err
+		}
+		serviceAccountID = *serviceAccountOutput.Id
+	} else {
+		serviceAccountTokens, err := grafanaClient.ListWorkspaceServiceAccountTokens(context.TODO(), &grafana.ListWorkspaceServiceAccountTokensInput{
+			ServiceAccountId: &serviceAccountID,
+			WorkspaceId:      grafanaWorkspace.Id,
+			MaxResults:       &maxWorkspaceServiceAccountsResult,
+		})
+		if err != nil {
+			log.Printf("Error listing workspace service account tokens: %s", err)
+			return "", err
+		}
+		for _, serviceAccountToken := range serviceAccountTokens.ServiceAccountTokens {
+			if *serviceAccountToken.Name == "ADMIN" {
+				log.Printf("Existing service account token exists which needs to be deleted and re-created")
+				grafanaClient.DeleteWorkspaceServiceAccountToken(context.TODO(), &grafana.DeleteWorkspaceServiceAccountTokenInput{
+					ServiceAccountId: &serviceAccountID,
+					TokenId:          *&serviceAccountToken.Id,
+					WorkspaceId:      grafanaWorkspace.Id,
+				})
+				break
+			}
+		}
+	}
+
 	serviceAccountTokenOutput, err := grafanaClient.CreateWorkspaceServiceAccountToken(context.TODO(), &grafana.CreateWorkspaceServiceAccountTokenInput{
 		Name:             &grafanaServiceAccountTokenName,
 		SecondsToLive:    &grafanaServiceAccountTokenSecondsToLive,
-		ServiceAccountId: serviceAccountOutput.Id,
+		ServiceAccountId: &serviceAccountID,
 		WorkspaceId:      grafanaWorkspace.Id,
 	})
 	if err != nil {
@@ -411,15 +457,15 @@ type panelField struct {
 func generatePanels(datasourceName string, databaseName string) []interface{} {
 
 	panelFields := []panelField{
-		{map[string]interface{}{"h": 6, "w": 7, "x": 0, "y": 0}, "Bucket Cardinality", "stat", "A", fmt.Sprintf("SELECT time,gauge FROM \"%s\".\"storage_bucket_series_num\" WHERE time between ago(15m) and now() group by 1,2 ORDER BY time,gauge DESC LIMIT 1", databaseName)},
-		{map[string]interface{}{"h": 6, "w": 6, "x": 7, "y": 0}, "Memory Cache Usage", "stat", "B", fmt.Sprintf("SELECT time, gauge FROM \"%s\".\"go_memstats_mcache_inuse_bytes\" WHERE time between ago(120m) and now() ORDER BY time DESC limit 1", databaseName)},
-		{map[string]interface{}{"h": 6, "w": 6, "x": 13, "y": 0}, "BoltDb Writes", "stat", "C", fmt.Sprintf("SELECT time, counter FROM \"%s\".\"boltdb_writes_total\" WHERE time between ago(10m) and now() ORDER BY time DESC limit 1", databaseName)},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 22}, "Allocated Memory", "timeseries", "G", fmt.Sprintf("SELECT time, host, gauge FROM \"%s\".\"go_memstats_alloc_bytes\" WHERE time between ago(120m) and now() ORDER BY time DESC", databaseName)},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 30}, "HTTP Write Requests Count", "timeseries", "I", fmt.Sprintf("SELECT time, host, sum(counter)  FROM \"%s\".\"http_write_request_count\" WHERE time between ago(15m) and now() and endpoint in ('/api/v2/write')  group by  time,host ORDER BY time DESC", databaseName)},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 38}, "Free Memory", "timeseries", "K", fmt.Sprintf("SELECT time, host, counter FROM \"%s\".\"go_memstats_frees_total\" WHERE time between ago(120m) and now() ORDER BY time DESC", databaseName)},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 38}, "Total Available Memory from System", "timeseries", "L", fmt.Sprintf("SELECT time, host, gauge FROM \"%s\".\"go_memstats_sys_bytes\" WHERE time between ago(120m) and now() ORDER BY time DESC", databaseName)},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 46}, "Query Execution Duration in Seconds", "timeseries", "M", fmt.Sprintf("SELECT * FROM \"%s\".\"qc_executing_duration_seconds\" WHERE time between ago(15m) and now() ORDER BY time desc", databaseName)},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 46}, "HTTP Query Requests Count", "timeseries", "N", fmt.Sprintf("SELECT time, host, sum(counter) FROM \"%s\".\"http_query_request_count\" WHERE time between ago(15m) and now() and endpoint in ('/api/v2/query') group by 1,2 ORDER BY time  desc", databaseName)},
+		{map[string]interface{}{"h": 6, "w": 7, "x": 0, "y": 0}, "Bucket Cardinality", "stat", "A", fmt.Sprintf("SELECT time,gauge FROM \"%s\".\"storage_bucket_series_num\" group by 1,2 ORDER BY time,gauge DESC LIMIT 1", databaseName)},
+		{map[string]interface{}{"h": 6, "w": 6, "x": 7, "y": 0}, "Memory Cache Usage", "stat", "B", fmt.Sprintf("SELECT time, gauge FROM \"%s\".\"go_memstats_mcache_inuse_bytes\" ORDER BY time DESC limit 1", databaseName)},
+		{map[string]interface{}{"h": 6, "w": 6, "x": 13, "y": 0}, "BoltDb Writes", "stat", "C", fmt.Sprintf("SELECT time, counter FROM \"%s\".\"boltdb_writes_total\" ORDER BY time DESC limit 1", databaseName)},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 22}, "Allocated Memory", "timeseries", "G", fmt.Sprintf("SELECT time, host, gauge FROM \"%s\".\"go_memstats_alloc_bytes\" ORDER BY time DESC", databaseName)},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 30}, "HTTP Write Requests Count", "timeseries", "I", fmt.Sprintf("SELECT time, host, sum(counter)  FROM \"%s\".\"http_write_request_count\" and endpoint in ('/api/v2/write')  group by  time,host ORDER BY time DESC", databaseName)},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 38}, "Free Memory", "timeseries", "K", fmt.Sprintf("SELECT time, host, counter FROM \"%s\".\"go_memstats_frees_total\" ORDER BY time DESC", databaseName)},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 38}, "Total Available Memory from System", "timeseries", "L", fmt.Sprintf("SELECT time, host, gauge FROM \"%s\".\"go_memstats_sys_bytes\" ORDER BY time DESC", databaseName)},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 46}, "Query Execution Duration in Seconds", "timeseries", "M", fmt.Sprintf("SELECT * FROM \"%s\".\"qc_executing_duration_seconds\" ORDER BY time desc", databaseName)},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 46}, "HTTP Query Requests Count", "timeseries", "N", fmt.Sprintf("SELECT time, host, sum(counter) FROM \"%s\".\"http_query_request_count\" WHERE endpoint in ('/api/v2/query') group by 1,2 ORDER BY time  desc", databaseName)},
 	}
 
 	var panelConfig []interface{}
@@ -452,6 +498,10 @@ func generateDashboard(datasourceName string, dashboardName string, databaseName
 		"dashboard": map[string]interface{}{
 			"panels": generatePanels(datasourceName, databaseName),
 			"title":  dashboardName,
+		},
+		"time": map[string]interface{}{
+			"from": "now-15m",
+			"to":   "now",
 		},
 	}
 

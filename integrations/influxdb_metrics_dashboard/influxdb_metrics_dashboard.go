@@ -12,6 +12,7 @@ import (
 	"github.com/aws/jsii-runtime-go"
 	"log"
 	"os"
+	"time"
 )
 
 func addTelegrafEC2InstanceToStack(stack awscdk.Stack, stackProps awscdk.StackProps, databaseName string, vpcID string, influxDBEndpoint string, influxDBUsername string, influxDBPassword string) (awscdk.Stack, error) {
@@ -281,6 +282,9 @@ func createLambdaResource(stack awscdk.Stack, stackProps awscdk.StackProps, data
 				Actions: &[]*string{
 					jsii.String("grafana:CreateWorkspaceServiceAccount"),
 					jsii.String("grafana:CreateWorkspaceServiceAccountToken"),
+					jsii.String("grafana:DeleteWorkspaceServiceAccountToken"),
+					jsii.String("grafana:ListWorkspaceServiceAccounts"),
+					jsii.String("grafana:ListWorkspaceServiceAccountTokens"),
 				},
 				Resources: &[]*string{
 					jsii.String(fmt.Sprintf("arn:aws:grafana:%s:%s:/workspaces/*", *stackProps.Env.Region, *stackProps.Env.Account)),
@@ -293,9 +297,15 @@ func createLambdaResource(stack awscdk.Stack, stackProps awscdk.StackProps, data
 		OnEventHandler: lambdaHandler,
 	})
 
+	// The timestamp is arbitrary, but will trigger execution for each cdk app deployment
+	customResourceProperties := map[string]interface{}{
+		"Trigger": fmt.Sprintf("%d", time.Now().Unix()),
+	}
+
 	// Custom Resource that triggers the Lambda function after stack creation
 	awscdk.NewCustomResource(stack, jsii.String("UploadDashboardCustomResource"), &awscdk.CustomResourceProps{
 		ServiceToken: customResourceProvider.ServiceToken(),
+		Properties:   &customResourceProperties,
 	})
 
 	return stack, nil
