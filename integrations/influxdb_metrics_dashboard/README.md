@@ -2,7 +2,7 @@
 
 ## Overview
 
-The InfluxDB Metrics Dashboard creates a Grafana dashboard to visualize existing Timestream for InfluxDB instance performance metrics.
+The InfluxDB Metrics Dashboard creates a Grafana dashboard to visualize existing Timestream for InfluxDB instance performance metrics. The application deploys an EC2 instance running Telegraf to scrape the `/metrics` endpoint of a Timestream for InfluxDB instance, and ingest the scraped metrics to Timestream for LiveAnalytics. After the CloudFormation stack has been deployed, a Lambda function creates a Grafana workspace, and uploads the performance metrics dashboard. The Lambda function is run only once during CDK app initialization.
 
 <img src="./images/architecture.png" alt="drawing" width="800"/>
 
