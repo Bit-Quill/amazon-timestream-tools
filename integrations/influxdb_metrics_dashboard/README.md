@@ -35,7 +35,7 @@ To deploy the InfluxDB Metrics Dashboard application, use the following CDK comm
 
 1. Provision AWS environment with the following command:
 ```shell
-cdk bootstrap
+cdk bootstrap --context InfluxDBEndpoint="{influxdb_endpoint}" --context InfluxDBUsername="{influxdb_username}" --context InfluxDBPassword="{influxdb_password}" --context VpcId="{vpc_id}"
 ```
 2. Deploy the application with the following command:
 ```shell
