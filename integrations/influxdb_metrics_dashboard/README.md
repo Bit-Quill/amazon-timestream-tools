@@ -77,5 +77,5 @@ Now that the dashboard has been deployed, you will need to add your AWS IAM Iden
 To cleanup AWS resources created by the application during deployment, execute the following command:
 
 ```shell
-cdk destroy
+cdk destroy --context InfluxDBEndpoint="{influxdb_endpoint}" --context InfluxDBUsername="{influxdb_username}" --context InfluxDBPassword="{influxdb_password}" --context VpcId="{vpc_id}"
 ```
