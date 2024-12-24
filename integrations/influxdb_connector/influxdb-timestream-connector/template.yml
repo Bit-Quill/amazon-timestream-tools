@@ -575,7 +575,7 @@ Outputs:
               {
                   "Effect": "Allow",
                   "Action": "execute-api:Invoke",
-                  "Resource": "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApiGateway}/dev/POST/api/v2/write"
+                  "Resource": "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApiGateway}/${RestApiGatewayStageName}/POST/api/v2/write"
               }
           ]
       }

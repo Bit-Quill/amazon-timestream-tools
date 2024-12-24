@@ -403,6 +403,8 @@ Replace all items listed below in the IAM policy with values from your AWS accou
 - *{region}* &mdash; The AWS region where the InfluxDB Timestream Connector is deployed.
 - *{account-id}* &mdash; The AWS account ID used to deploy the connector.
 - *{api-id}* &mdash; The API ID for the deployed REST API Gateway.
+- *{api-stage-name}* &mdash; The stage name for the deployed REST API Gateway.
+
 
 ```json
 {
@@ -411,7 +413,7 @@ Replace all items listed below in the IAM policy with values from your AWS accou
         {
             "Effect": "Allow",
             "Action": "execute-api:Invoke",
-            "Resource": "arn:aws:execute-api:{region}:{account-id}:{api-id}/dev/POST/api/v2/write"
+            "Resource": "arn:aws:execute-api:{region}:{account-id}:{api-id}/{api-stage-name}/POST/api/v2/write"
         }
     ]
 }
