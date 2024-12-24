@@ -260,6 +260,11 @@ The following permissions are the least-privilege permissions for deploying and 
 
 The following is the least-privilege IAM permissions for deploying the connector.
 
+Replace all items listed below in the IAM policy with values from your AWS account:
+
+- *{region}* &mdash; The AWS region where the InfluxDB Timestream Connector is deployed.
+- *{account-id}* &mdash; The AWS account ID used to deploy the connector.
+
 ```json
 {
     "Version": "2012-10-17",
@@ -391,7 +396,13 @@ The following is the least-privilege IAM permissions for deploying the connector
 
 ### IAM Execution Permissions
 
-The following is the least privileged IAM permissions for executing the connector.
+The following is the least privileged IAM permissions required for invoking the deployed InfluxDB Timestream connector REST API Gateway.
+
+Replace all items listed below in the IAM policy with values from your AWS account:
+
+- *{region}* &mdash; The AWS region where the InfluxDB Timestream Connector is deployed.
+- *{account-id}* &mdash; The AWS account ID used to deploy the connector.
+- *{api-id}* &mdash; The API ID for the deployed REST API Gateway.
 
 ```json
 {
@@ -399,28 +410,8 @@ The following is the least privileged IAM permissions for executing the connecto
     "Statement": [
         {
             "Effect": "Allow",
-            "Action": [
-                "timestream:WriteRecords",
-                "timestream:Select",
-                "timestream:DescribeTable",
-				"timestream:CreateTable"
-            ],
-            "Resource": "arn:aws:timestream:{region}:{account-id}:database/influxdb-line-protocol/table/*"
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
-                "timestream:DescribeEndpoints"
-            ],
-            "Resource": "*"
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
-                "timestream:DescribeDatabase",
-				"timestream:CreateDatabase"
-            ],
-            "Resource": "arn:aws:timestream:{region}:{account-id}:database/influxdb-line-protocol"
+            "Action": "execute-api:Invoke",
+            "Resource": "arn:aws:execute-api:{region}:{account-id}:{api-id}/dev/POST/api/v2/write"
         }
     ]
 }
