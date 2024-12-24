@@ -405,3 +405,4 @@ class FlightDataGenerator(DataGenerator):
                 return self._generate_random_string(10)
             else:
                 raise Exception("Unknown measure_value_type")
+

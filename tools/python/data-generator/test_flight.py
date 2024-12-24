@@ -186,3 +186,4 @@ class TestFlightDataGenerator:
         interpolated_lat, interpolated_lon = gen._interpolate_great_circle(lat1, lon1, lat2, lon2, fraction)
         assert interpolated_lat == pytest.approx(0.0, abs=1e-5), f"Interpolated latitude should be 0.0, got {interpolated_lat}."
         assert interpolated_lon == pytest.approx(45.0, abs=1e-5), f"Interpolated longitude should be 45.0, got {interpolated_lon}."
+

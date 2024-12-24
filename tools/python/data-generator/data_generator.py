@@ -235,3 +235,4 @@ class DataGenerator:
 
         letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
         return ''.join(random.choice(letters) for _ in range(length))
+
