@@ -419,6 +419,48 @@ Replace all items listed below in the IAM policy with values from your AWS accou
 }
 ```
 
+### IAM Lambda Permissions
+
+The following is the IAM permissions required for the InfluxDB Timestream Connector Lambda function to ingest data to Timestream for LiveAnalytics. This IAM policy is attached to the Lambda function when deployed with the CloudFormation template. Additional policies are also attached for logging and DLQ functionalities. For the complete list of IAM permissions attached to the Lambda function, see the [template.yml](./template.yml).
+
+All items listed below in the IAM policy are associated to the equivalent values from your AWS account:
+
+- *{region}* &mdash; The AWS region where the InfluxDB Timestream Connector is deployed.
+- *{account-id}* &mdash; The AWS account ID used to deploy the connector.
+
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "timestream:WriteRecords",
+                "timestream:Select",
+                "timestream:DescribeTable",
+                "timestream:CreateTable"
+            ],
+            "Resource": "arn:aws:timestream:{region}:{account-id}:database/influxdb-line-protocol/table/*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "timestream:DescribeEndpoints"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "timestream:DescribeDatabase",
+                "timestream:CreateDatabase"
+            ],
+            "Resource": "arn:aws:timestream:{region}:{account-id}:database/influxdb-line-protocol"
+        }
+    ]
+}
+```
+
 ## Example Application with Go Client
 
 A demo Go client application is available under `sample-code/aws-timestream/sample-influxdb-clients/go/line-protocol-client-demo.go` that sends line protocol data to a local or deployed instance of the connector. A line protocol sample dataset is included in `sample-code/aws-timestream/sample-influxdb-clients/data/bird-migration.line`, which the demo application uses for ingestion.
