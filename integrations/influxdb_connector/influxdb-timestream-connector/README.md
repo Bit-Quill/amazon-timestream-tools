@@ -396,7 +396,7 @@ Replace all items listed below in the IAM policy with values from your AWS accou
 
 ### IAM Execution Permissions
 
-The following is the least privileged IAM permissions required for invoking the deployed InfluxDB Timestream connector REST API Gateway.
+The following are the least privileged IAM permissions required for invoking the deployed InfluxDB Timestream connector REST API Gateway.
 
 Replace all items listed below in the IAM policy with values from your AWS account:
 
@@ -421,7 +421,7 @@ Replace all items listed below in the IAM policy with values from your AWS accou
 
 ### IAM Lambda Permissions
 
-The following is the IAM permissions required for the InfluxDB Timestream Connector Lambda function to ingest data to Timestream for LiveAnalytics. This IAM policy is attached to the Lambda function when deployed with the CloudFormation template. Additional policies are also attached for logging and DLQ functionalities. For the complete list of IAM permissions attached to the Lambda function, see the [template.yml](./template.yml).
+The following are the IAM permissions required for the InfluxDB Timestream Connector Lambda function to ingest data into Timestream for LiveAnalytics. This IAM policy is attached to the Lambda function when deployed with the CloudFormation template. Additional policies are also attached for logging and DLQ functionalities. For the complete list of IAM permissions attached to the Lambda function, see the [template.yml](./template.yml).
 
 All items listed below in the IAM policy are associated to the equivalent values from your AWS account:
 
