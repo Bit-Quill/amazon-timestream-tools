@@ -91,7 +91,7 @@ class DataGenerator:
         for _ in range(num_entities):
             entity = {"latest_measures": {}}
             for dimension_template in self.dimension_templates:
-                dimension_value_length = 20
+                dimension_value_length = 10
 
                 if "value_length" in dimension_template:
                     dimension_value_length = dimension_template["value_length"]

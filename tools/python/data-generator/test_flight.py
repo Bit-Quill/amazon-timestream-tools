@@ -103,15 +103,6 @@ class TestFlightDataGenerator:
         expected_num_records = 11 * num_entities
         assert len(records) == expected_num_records, f"Should generate {expected_num_records} records with fallback, got {len(records)}."
 
-    def test_compute_distance(self, generator):
-        """Test the _compute_distance helper method."""
-        gen = generator["generator"]
-        lat1, lon1 = 33.6407, -84.4277  # Atlanta
-        lat2, lon2 = 40.0799, 116.6031  # Beijing
-        distance = gen._compute_distance(lat1, lon1, lat2, lon2)
-        # The actual distance in nautical miles is approximately 6273 nm
-        assert abs(distance - 6273) <= 50, f"Distance should be approximately 6273 nm, got {distance} nm."
-
     def test_calculate_bearing(self, generator):
         """Test the _calculate_bearing helper method."""
         gen = generator["generator"]
@@ -174,16 +165,3 @@ class TestFlightDataGenerator:
         entity["latest_measures"]["speed_knots"] = 450
         value = gen._generate_measure_value(speed_measure, entity, is_first_datapoint=False)
         assert 440 <= value <= 460, f"speed_knots should vary within expected range (440-460), got {value}."
-
-    def test_interpolate_great_circle(self, generator):
-        """
-        Test the _interpolate_great_circle method for correct interpolation.
-        """
-        gen = generator["generator"]
-        lat1, lon1 = 0.0, 0.0
-        lat2, lon2 = 0.0, 90.0
-        fraction = 0.5
-        interpolated_lat, interpolated_lon = gen._interpolate_great_circle(lat1, lon1, lat2, lon2, fraction)
-        assert interpolated_lat == pytest.approx(0.0, abs=1e-5), f"Interpolated latitude should be 0.0, got {interpolated_lat}."
-        assert interpolated_lon == pytest.approx(45.0, abs=1e-5), f"Interpolated longitude should be 45.0, got {interpolated_lon}."
-

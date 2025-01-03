@@ -1,7 +1,16 @@
-import random
 import math
+import random
+import great_circle_calculator.great_circle_calculator as gcc
+from enum import Enum
 from datetime import datetime, timedelta
 from data_generator import DataGenerator
+from haversine import haversine, Unit
+
+
+class Direction(Enum):
+    UP = "UP"
+    DOWN = "DOWN"
+    BIDIRECTIONAL = "BIDIRECTIONAL"
 
 class FlightDataGenerator(DataGenerator):
     def __init__(self):
@@ -14,8 +23,8 @@ class FlightDataGenerator(DataGenerator):
             (51.4700, -0.4543),    # London Heathrow Airport (UK)
             (-33.9461, 151.1772),  # Sydney Kingsford Smith Airport (Australia)
             (-23.4356, -46.4731),  # São Paulo/Guarulhos – Governador André Franco Montoro International Airport (Brazil)
-            (-26.1333, 28.2425),   # O. R. Tambo International Airport (South Africa)
-            (55.6179, 37.2856)     # Sheremetyevo International Airport (Russia)
+            (-26.1333, 28.2425),   # O.R. Tambo International Airport (South Africa)
+            (55.973927, 37.412327) # Sheremetyevo International Airport (Russia)
         ]
 
         self.measure_templates = [
@@ -23,7 +32,7 @@ class FlightDataGenerator(DataGenerator):
                 "name": "fuel_level_gallons",
                 "type": "BIGINT",
                 "max_variation": 80,
-                "direction": "DOWN",
+                "direction": Direction.DOWN,
                 "initial_value": 10000,
                 "max": 10000,
                 "min": 1
@@ -39,7 +48,7 @@ class FlightDataGenerator(DataGenerator):
                 "type": "DOUBLE",
                 "max_variation": 2.0,
                 "max": 40.0,
-                "min": -90.0
+                "min": -90.0,
             },
             {
                 "name": "lat",
@@ -58,7 +67,7 @@ class FlightDataGenerator(DataGenerator):
                 "type": "BIGINT",
                 "max_variation": 10,
                 "max": 500,
-                "min": 400
+                "min": 400,
             }
         ]
 
@@ -74,6 +83,7 @@ class FlightDataGenerator(DataGenerator):
                 "random_options": ["Boeing 747", "Airbus A320", "Airbus A380"]
             }
         ]
+
 
     def generate(self, start_date, end_date, reporting_frequency, num_entities,
                  precision="MILLISECONDS", generate_unique_options_fallback=False):
@@ -121,9 +131,7 @@ class FlightDataGenerator(DataGenerator):
 
             # Pick departure and destination airports
             departure_index = random.randint(0, len(self.airports) - 1)
-            destination_index = random.randint(0, len(self.airports) - 1)
-            while destination_index == departure_index:
-                destination_index = random.randint(0, len(self.airports) - 1)
+            destination_index = random.choice(list(set(range(len(self.airports))) - {departure_index}))
 
             dep_lat, dep_lon = self.airports[departure_index]
             dest_lat, dest_lon = self.airports[destination_index]
@@ -194,44 +202,35 @@ class FlightDataGenerator(DataGenerator):
             current_date += reporting_frequency
         return records
 
-    def _interpolate_great_circle(self, lat1, lon1, lat2, lon2, fraction):
+    def _get_current_airport(self, lat, lon, threshold_nm=0.1):
         """
-        Interpolates between two points (lat1, lon1) and (lat2, lon2) along the great-circle path.
+        Checks if the given latitude and longitude are within a threshold distance of any airport.
+        If so, returns the index of the first such airport.
+        Otherwise, returns the index of the closest airport.
 
-        :param lat1: Starting latitude in degrees
-        :param lon1: Starting longitude in degrees
-        :param lat2: Target latitude in degrees
-        :param lon2: Target longitude in degrees
-        :param fraction: Fraction of the distance to interpolate (0.0 to 1.0)
-        :return: (latitude, longitude) tuple of the interpolated point
+        :param lat: Latitude of the point in degrees.
+        :type lat: float
+        :param lon: Longitude of the point in degrees.
+        :type lon: float
+        :param threshold_nm: Distance threshold in nautical miles to consider as "at" the airport.
+        :type threshold_nm: float
+        :return: Index of the current airport if within threshold; otherwise, index of the closest airport.
+        :rtype: int
         """
-        phi1 = math.radians(lat1)
-        phi2 = math.radians(lat2)
-        lambda1 = math.radians(lon1)
-        lambda2 = math.radians(lon2)
+        min_distance = float('inf')
+        closest_index = -1
 
-        # Compute the angular distance between the points
-        delta_sigma = math.acos(
-            math.sin(phi1) * math.sin(phi2) +
-            math.cos(phi1) * math.cos(phi2) * math.cos(lambda2 - lambda1)
-        )
+        for index, (airport_lat, airport_lon) in enumerate(self.airports):
+            distance = haversine((lat, lon), (airport_lat, airport_lon),  unit=Unit.NAUTICAL_MILES)
+            if distance <= threshold_nm:
+                return index
 
-        if delta_sigma == 0: # Points are identical
-            return lat1, lon1
+            if distance < min_distance:
+                min_distance = distance
+                closest_index = index
 
-        # Fractional distance along the arc
-        a = math.sin((1 - fraction) * delta_sigma) / math.sin(delta_sigma)
-        b = math.sin(fraction * delta_sigma) / math.sin(delta_sigma)
+        return closest_index
 
-        x = a * math.cos(phi1) * math.cos(lambda1) + b * math.cos(phi2) * math.cos(lambda2)
-        y = a * math.cos(phi1) * math.sin(lambda1) + b * math.cos(phi2) * math.sin(lambda2)
-        z = a * math.sin(phi1) + b * math.sin(phi2)
-
-        # Convert back to latitude and longitude
-        interpolated_lat = math.degrees(math.atan2(z, math.sqrt(x**2 + y**2)))
-        interpolated_lon = math.degrees(math.atan2(y, x))
-
-        return interpolated_lat, interpolated_lon
 
     def _update_entity_position(self, entity, measure_name, reporting_frequency, knot_speed=500):
         """
@@ -251,9 +250,10 @@ class FlightDataGenerator(DataGenerator):
             return entity.get(f"current_{measure_name}", 0.0)
 
         # Compute distance (in nautical miles) from current to target
-        distance_nm = self._compute_distance(
-            entity["current_lat"], entity["current_lon"],
-            entity["target_lat"], entity["target_lon"]
+        distance_nm = haversine(
+            (entity["current_lat"], entity["current_lon"]),
+            (entity["target_lat"], entity["target_lon"]),
+            unit=Unit.NAUTICAL_MILES
         )
         hours_delta = reporting_frequency.total_seconds() / 3600.0
         travel_distance_nm = knot_speed * hours_delta
@@ -264,13 +264,14 @@ class FlightDataGenerator(DataGenerator):
             entity["current_lat"] = entity["target_lat"]
             entity["current_lon"] = entity["target_lon"]
             # pick a new random destination
-            new_dest_index = random.randint(0, len(self.airports) - 1)
+            departure_index = self._get_current_airport(entity["current_lat"], entity["current_lon"], arrival_threshold_nm)
+            new_dest_index = random.choice(list(set(range(len(self.airports))) - {departure_index}))
             entity["target_lat"], entity["target_lon"] = self.airports[new_dest_index]
         else:
             fraction = travel_distance_nm / distance_nm  # 0 < fraction < 1
-            entity["current_lat"], entity["current_lon"] = self._interpolate_great_circle(
-                entity["current_lat"], entity["current_lon"],
-                entity["target_lat"], entity["target_lon"],
+            entity["current_lon"], entity["current_lat"] = gcc.intermediate_point(
+                (entity["current_lon"], entity["current_lat"]),
+                (entity["target_lon"], entity["target_lat"]),
                 fraction
             )
 
@@ -278,36 +279,6 @@ class FlightDataGenerator(DataGenerator):
             return entity["current_lat"]
         else:
             return entity["current_lon"]
-
-    def _compute_distance(self, lat1, lon1, lat2, lon2):
-        """
-        Computes the great-circle distance between two points using the Haversine formula.
-
-        :param lat1: Latitude of the first point in degrees.
-        :type lat1: float
-        :param lon1: Longitude of the first point in degrees.
-        :type lon1: float
-        :param lat2: Latitude of the second point in degrees.
-        :type lat2: float
-        :param lon2: Longitude of the second point in degrees.
-        :type lon2: float
-        :return: Distance between the two points in nautical miles (nm).
-        :rtype: float
-        """
-        R_km = 6371.0  # approximate Earth radius in kilometers
-
-        phi1 = math.radians(lat1)
-        phi2 = math.radians(lat2)
-        dphi = math.radians(lat2 - lat1)
-        dlambda = math.radians(lon2 - lon1)
-
-        a = (math.sin(dphi / 2) ** 2
-             + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2)
-        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-
-        distance_km = R_km * c
-        distance_nm = distance_km / 1.852
-        return distance_nm
 
     def _calculate_bearing(self, lat1, lon1, lat2, lon2):
         """
@@ -358,7 +329,7 @@ class FlightDataGenerator(DataGenerator):
         measure_name = measure_template["name"]
         measure_value_type = measure_template.get("type", "DOUBLE").upper()
         max_variation = measure_template.get("max_variation", 1.5)
-        direction = measure_template.get("direction", "BIDIRECTIONAL").upper()
+        direction = measure_template.get("direction", Direction.BIDIRECTIONAL)
         initial_value = measure_template.get("initial_value", None)
         max_val = measure_template.get("max", 100.0)
         min_val = measure_template.get("min", 0.0)
@@ -386,9 +357,9 @@ class FlightDataGenerator(DataGenerator):
             if prev_value is None:
                 raise Exception(f"Previous value for measure '{measure_name}' not found in entity's latest_measures.")
 
-            if direction == "UP":
+            if direction == Direction.UP:
                 variation = random.uniform(0, max_variation)
-            elif direction == "DOWN":
+            elif direction == Direction.DOWN:
                 variation = random.uniform(-max_variation, 0)
             else:
                 variation = random.uniform(-max_variation, max_variation)
