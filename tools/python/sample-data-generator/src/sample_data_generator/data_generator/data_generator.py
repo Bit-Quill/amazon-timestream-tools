@@ -1,5 +1,11 @@
 import random
 from datetime import datetime, timedelta
+from enum import Enum
+
+class Direction(Enum):
+    UP = "UP"
+    DOWN = "DOWN"
+    BIDIRECTIONAL = "BIDIRECTIONAL"
 
 class DataGenerator:
     def __init__(self, measure_templates: list, dimension_templates: list):
@@ -83,7 +89,7 @@ class DataGenerator:
         for _ in range(num_entities):
             entity = {"latest_measures": {}}
             for dimension_template in self.dimension_templates:
-                dimension_value_length = 20
+                dimension_value_length = 10
 
                 if "value_length" in dimension_template:
                     dimension_value_length = dimension_template["value_length"]
@@ -150,6 +156,13 @@ class DataGenerator:
                     if "varchar_length" in measure_template:
                         varchar_length = measure_template["varchar_length"]
 
+                    if direction == Direction.UP:
+                        variation = random.uniform(0, max_variation)
+                    elif direction == Direction.DOWN:
+                        variation = random.uniform(-max_variation, 0)
+                    else:
+                        variation = random.uniform(-max_variation, max_variation)
+
                     measure = {
                         "MeasureName": measure_name,
                         "MeasureValueType": measure_value_type
@@ -172,11 +185,11 @@ class DataGenerator:
                                 raise Exception("Measure value type not recognized")
                         else:
                             if measure_value_type == "DOUBLE":
-                                measure_value = max(min_value, min(entity["latest_measures"][measure_name] + random.uniform(-max_variation, max_variation), max_value))
+                                measure_value = max(min_value, min(entity["latest_measures"][measure_name] + variation, max_value))
                             elif measure_value_type == "VARCHAR":
                                 measure_value = self._generate_random_string(varchar_length)
                             elif measure_value_type == "BIGINT":
-                                measure_value = int(max(min_value, min(entity["latest_measures"][measure_name] + int(random.uniform(-max_variation, max_variation)), max_value)))
+                                measure_value = int(max(min_value, min(entity["latest_measures"][measure_name] + int(variation), max_value)))
                             elif measure_value_type == "BOOLEAN":
                                 measure_value = random.choice([True, False])
                             else:
