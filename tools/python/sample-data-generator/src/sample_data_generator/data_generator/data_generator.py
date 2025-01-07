@@ -17,6 +17,9 @@ class DataGenerator:
                 "BIGINT", "BOOLEAN", and "VARCHAR". Defaults to "DOUBLE".
             "max_variation": Optional. The maximum amount a measure value can changed over time, positively or negatively.
                 For example, with a value of 5.0, measure values will increment by a max of 5.0 and a min of -5.0. Defaults to 1.5.
+            "direction": Enum. Optional. Specifies the allowed direction of change for the measure value over time. This
+                field will only apply on measure types "DOUBLE" and "BIGINT". Valid options are "UP", "DOWN", and
+                "BIDIRECTIONAL". Defaults to "BIDIRECTIONAL".
             "max": Optional. The maximum measure value. Defaults to 100.0.
             "min": Optional. The minimum measure value. Defaults to 0.0.
             "random_options": Optional. A list of values the measure value can have. All elements of the list should be the same data type and
@@ -146,6 +149,9 @@ class DataGenerator:
                     max_variation = 1.5
                     if "max_variation" in measure_template:
                         max_variation = measure_template["max_variation"]
+                    direction = Direction.BIDIRECTIONAL
+                    if "direction" in measure_template:
+                        direction = measure_template["direction"]
                     max_value = 100.0
                     if "max" in measure_template:
                         max_value = measure_template["max"]
