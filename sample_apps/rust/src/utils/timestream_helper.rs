@@ -40,17 +40,39 @@ pub async fn get_connection(
 }
 
 pub async fn create_database(
-    client: &timestream_write::Client,
+    client: &Arc<timestream_write::Client>,
     database_name: &str,
+    kms_key_id: Option<&str>,
+    tags: Option<Vec<timestream_write::types::Tag>>,
 ) -> Result<(), timestream_write::Error> {
-    println!("Creating new database {:?}", database_name);
+    // Create a new Timestream database
+    info!("Creating new database: {}", database_name);
 
-    client
+    let mut create_db_builder = client
         .create_database()
-        .set_database_name(Some(database_name.to_owned()))
-        .send()
-        .await?;
+        .set_database_name(Some(database_name.to_owned()));
 
+    if let Some(kms) = kms_key_id.filter(|s| !s.is_empty()) {
+        info!("Using KMS Key ID: {}", kms);
+        create_db_builder = create_db_builder.set_kms_key_id(Some(kms.to_owned()));
+    } else {
+        info!("No KMS Key ID provided. Using default Timestream-managed KMS key.");
+    }
+
+    if let Some(tags_vec) = tags {
+        if !tags_vec.is_empty() {
+            info!("Adding {} tags to the database.", tags_vec.len());
+            create_db_builder = create_db_builder.set_tags(Some(tags_vec));
+        } else {
+            info!("Empty tags vector provided. Skipping tag assignment.");
+        }
+    } else {
+        info!("No tags provided for the database.");
+    }
+
+    create_db_builder.send().await?;
+
+    info!("Database '{}' created successfully.", database_name);
     Ok(())
 }
 
