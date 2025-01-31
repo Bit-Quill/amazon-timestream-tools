@@ -5,6 +5,7 @@ use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use log::info;
 use rayon::prelude::*;
+use serde_json::{Map, Value};
 use std::sync::Arc;
 use tokio::sync::Semaphore;
 use tokio::task;
@@ -50,16 +51,37 @@ pub async fn get_connection(
 pub async fn create_database(
     client: &Arc<timestream_write::Client>,
     database_name: &str,
+    kms_key_id: Option<&str>,
+    tags: Option<Vec<timestream_write::types::Tag>>,
 ) -> Result<(), timestream_write::Error> {
     // Create a new Timestream database
+    info!("Creating new database: {}", database_name);
 
-    info!("Creating new database {}", database_name);
-    client
+    let mut create_db_builder = client
         .create_database()
-        .set_database_name(Some(database_name.to_owned()))
-        .send()
-        .await?;
+        .set_database_name(Some(database_name.to_owned()));
 
+    if let Some(kms) = kms_key_id.filter(|s| !s.is_empty()) {
+        info!("Using KMS Key ID: {}", kms);
+        create_db_builder = create_db_builder.set_kms_key_id(Some(kms.to_owned()));
+    } else {
+        info!("No KMS Key ID provided. Using default Timestream-managed KMS key.");
+    }
+
+    if let Some(tags_vec) = tags {
+        if !tags_vec.is_empty() {
+            info!("Adding {} tags to the database.", tags_vec.len());
+            create_db_builder = create_db_builder.set_tags(Some(tags_vec));
+        } else {
+            info!("Empty tags vector provided. Skipping tag assignment.");
+        }
+    } else {
+        info!("No tags provided for the database.");
+    }
+
+    create_db_builder.send().await?;
+
+    info!("Database '{}' created successfully.", database_name);
     Ok(())
 }
 
@@ -164,6 +186,27 @@ pub async fn database_exists(
             _ => Err(anyhow!(error)),
         },
     }
+}
+
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
+pub fn parse_tags_from_json(json_str: &str) -> Result<Vec<timestream_write::types::Tag>> {
+    if json_str.trim().is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let map: Map<String, Value> = serde_json::from_str(json_str)
+        .map_err(|err| anyhow!("Invalid JSON format: {}", err))?;
+
+    map.into_iter()
+       .map(|(key, value)| match value {
+            Value::String(s) => timestream_write::types::Tag::builder()
+                .key(key)
+                .value(s)
+                .build()
+                .map_err(|err| anyhow!("Failed to build Tag: {}", err)),
+            _ => Err(anyhow!("Tag value must be a string")),
+        })
+       .collect()
 }
 
 #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]

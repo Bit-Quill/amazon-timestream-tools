@@ -67,13 +67,18 @@ async fn handle_ingestion(
     let database_name = std::env::var("database_name")?;
     let database_name = Arc::new(database_name);
 
+    let kms_key_id = std::env::var("kms_key_id").ok();
+
+    let tags_json = std::env::var("tags")?;
+    let tags = parse_tags_from_json(&tags_json)?;
+
     if let Ok(true) = std::env::var("enable_database_creation").map(env_var_to_bool) {
         match database_exists(client, &database_name).await {
             Ok(true) => (),
             Ok(false) => {
                 if database_creation_enabled()? {
                     thread::sleep(time::Duration::from_secs(TIMESTREAM_API_WAIT_SECONDS));
-                    create_database(client, &database_name).await?;
+                    create_database(client, &database_name, kms_key_id.as_deref(), Some(tags)).await?;
                 } else {
                     return Err(anyhow!(
                         "Database {} does not exist and database creation is not enabled",
