@@ -69,8 +69,8 @@ async fn handle_ingestion(
 
     let kms_key_id = std::env::var("kms_key_id").ok();
 
-    let tags = match std::env::var("tags") {
-        Ok(tags_json) => Some(parse_tags_from_json(&tags_json)?),
+    let database_tags = match std::env::var("database_tags") {
+        Ok(database_tags_str) => Some(parse_tags_from_str(&database_tags_str)?),
         Err(_) => None,
     };
 
@@ -80,7 +80,7 @@ async fn handle_ingestion(
             Ok(false) => {
                 if database_creation_enabled()? {
                     thread::sleep(time::Duration::from_secs(TIMESTREAM_API_WAIT_SECONDS));
-                    create_database(client, &database_name, kms_key_id.as_deref(), tags).await?;
+                    create_database(client, &database_name, kms_key_id.as_deref(), database_tags).await?;
                 } else {
                     return Err(anyhow!(
                         "Database {} does not exist and database creation is not enabled",
@@ -155,11 +155,15 @@ pub async fn create_table_if_non_existent(
     database_name: &Arc<String>,
     table_name: &str,
 ) -> Result<(), Error> {
+    let table_tags = match std::env::var("table_tags") {
+        Ok(table_tags_str) => Some(parse_tags_from_str(&table_tags_str)?),
+        Err(_) => None,
+    };
     match table_exists(client, database_name, table_name).await {
         Ok(true) => (),
         Ok(false) => {
             thread::sleep(time::Duration::from_secs(TIMESTREAM_API_WAIT_SECONDS));
-            create_table(client, database_name, table_name, get_table_config()?).await?
+            create_table(client, database_name, table_name, get_table_config()?, table_tags).await?
         }
         Err(error) => info!("error checking table exists: {:?}", error),
     }
@@ -321,4 +325,106 @@ pub fn test_get_precision_incorrect_precision_key() -> Result<(), Error> {
     let fake_event_value = json!({ "queryStringParameters": { "nomatch": "ms" } });
     assert!(get_precision(&fake_event_value).is_none());
     Ok(())
+}
+
+#[test]
+pub fn test_parse_tags_from_str_empty_string() -> Result<(), Error> {
+    let tags_str = "";
+    let tags = parse_tags_from_str(tags_str)?;
+    assert!(tags.is_empty());
+    Ok(())
+}
+
+#[test]
+pub fn test_parse_tags_from_str_whitespace_only() -> Result<(), Error> {
+    let tags_str = "   ";
+    let tags = parse_tags_from_str(tags_str)?;
+    assert!(tags.is_empty());
+    Ok(())
+}
+
+#[test]
+pub fn test_parse_tags_from_str_tag_with_no_value() -> Result<(), Error> {
+    let tags_str = "key1";
+    let tags = parse_tags_from_str(tags_str)?;
+    assert_eq!(tags.len(), 1);
+    assert_eq!(tags[0].key, "key1");
+    assert_eq!(tags[0].value, "");
+    Ok(())
+}
+
+#[test]
+pub fn test_parse_tags_from_str_multiple_tags() -> Result<(), Error> {
+    let tags_str = "key1=value1, key2=value2, key3=value3";
+    let tags = parse_tags_from_str(tags_str)?;
+    assert_eq!(tags.len(), 3);
+    assert_eq!(tags[0].key, "key1");
+    assert_eq!(tags[0].value, "value1");
+    assert_eq!(tags[1].key, "key2");
+    assert_eq!(tags[1].value, "value2");
+    assert_eq!(tags[2].key, "key3");
+    assert_eq!(tags[2].value, "value3");
+    Ok(())
+}
+
+#[test]
+pub fn test_parse_tags_from_str_extra_commas() -> Result<(), Error> {
+    let tags_str = "key1=value1, , key2=value2,";
+    let tags = parse_tags_from_str(tags_str)?;
+    assert_eq!(tags.len(), 2);
+    assert_eq!(tags[0].key, "key1");
+    assert_eq!(tags[0].value, "value1");
+    assert_eq!(tags[1].key, "key2");
+    assert_eq!(tags[1].value, "value2");
+    Ok(())
+}
+
+#[test]
+pub fn test_parse_tags_from_str_multiple_equals() -> Result<(), Error> {
+    let tags_str = "key1=value=with=equals";
+    let tags = parse_tags_from_str(tags_str)?;
+    assert_eq!(tags.len(), 1);
+    assert_eq!(tags[0].key, "key1");
+    assert_eq!(tags[0].value, "value=with=equals");
+    Ok(())
+}
+
+#[test]
+pub fn test_parse_tags_from_str_trimming_whitespace() -> Result<(), Error> {
+    let tags_str = "  key1  =  value1  ,   key2=   value2  ";
+    let tags = parse_tags_from_str(tags_str)?;
+    assert_eq!(tags.len(), 2);
+    assert_eq!(tags[0].key, "key1");
+    assert_eq!(tags[0].value, "value1");
+    assert_eq!(tags[1].key, "key2");
+    assert_eq!(tags[1].value, "value2");
+    Ok(())
+}
+
+#[test]
+pub fn test_parse_tags_from_str_tag_with_empty_value_explicit() -> Result<(), Error> {
+    let tags_str = "key1=,key2=2,key3";
+    let tags = parse_tags_from_str(tags_str)?;
+    assert_eq!(tags.len(), 3);
+    assert_eq!(tags[0].key, "key1");
+    assert_eq!(tags[0].value, "");
+    assert_eq!(tags[1].key, "key2");
+    assert_eq!(tags[1].value, "2");
+    assert_eq!(tags[2].key, "key3");
+    assert_eq!(tags[2].value, "");
+    Ok(())
+}
+
+#[test]
+pub fn test_parse_tags_from_str_error_empty_key() {
+    let tags_str = "=value";
+    let err = parse_tags_from_str(tags_str).unwrap_err();
+    assert!(err.to_string().contains("Tag key must not be empty"));
+}
+
+#[test]
+pub fn test_parse_tags_from_str_error_only_equals() {
+    let tags_str = "   =   ";
+    let err = parse_tags_from_str(tags_str).unwrap_err();
+    assert!(err.to_string().contains("Tag key must not be empty"));
 }

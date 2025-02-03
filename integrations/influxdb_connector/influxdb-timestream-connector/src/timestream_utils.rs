@@ -5,7 +5,6 @@ use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use log::info;
 use rayon::prelude::*;
-use serde_json::{Map, Value};
 use std::sync::Arc;
 use tokio::sync::Semaphore;
 use tokio::task;
@@ -91,13 +90,14 @@ pub async fn create_table(
     database_name: &str,
     table_name: &str,
     table_config: TableConfig,
+    tags: Option<Vec<timestream_write::types::Tag>>,
 ) -> Result<(), timestream_write::Error> {
     // Create a new Timestream table
-
     info!(
         "Creating new table {} for database {}",
         table_name, database_name
     );
+
     let retention_properties = timestream_write::types::RetentionProperties::builder()
         .set_magnetic_store_retention_period_in_days(Some(table_config.mag_store_retention_period))
         .set_memory_store_retention_period_in_hours(Some(table_config.mem_store_retention_period))
@@ -125,18 +125,31 @@ pub async fn create_table(
         None
     };
 
-    client
+    let mut create_table_builder = client
         .create_table()
         .set_schema(table_schema)
         .set_table_name(Some(table_name.to_owned()))
         .set_database_name(Some(database_name.to_owned()))
         .set_retention_properties(Some(retention_properties))
-        .set_magnetic_store_write_properties(Some(magnetic_store_properties))
-        .send()
-        .await?;
+        .set_magnetic_store_write_properties(Some(magnetic_store_properties));
 
+    if let Some(tags_vec) = tags {
+        if !tags_vec.is_empty() {
+            info!("Adding {} tags to the table.", tags_vec.len());
+            create_table_builder = create_table_builder.set_tags(Some(tags_vec));
+        } else {
+            info!("Empty tags vector provided. Skipping tag assignment.");
+        }
+    } else {
+        info!("No tags provided for the table.");
+    }
+
+    create_table_builder.send().await?;
+
+    info!("Table '{}' created successfully in database '{}'.", table_name, database_name);
     Ok(())
 }
+
 
 #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub async fn table_exists(
@@ -189,25 +202,39 @@ pub async fn database_exists(
 }
 
 #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
-pub fn parse_tags_from_json(json_str: &str) -> Result<Vec<timestream_write::types::Tag>> {
-    if json_str.trim().is_empty() {
-        return Ok(Vec::new());
+pub fn parse_tags_from_str(tags_str: &str) -> Result<Vec<timestream_write::types::Tag>, Error> {
+    let mut tags = Vec::new();
+
+    for tag in tags_str.split(',') {
+        let tag = tag.trim();
+        if tag.is_empty() {
+            continue;
+        }
+        let mut parts = tag.splitn(2, '=');
+        let key = parts
+            .next()
+            .ok_or_else(|| anyhow!("Missing key in tag '{}'", tag))?
+            .trim();
+
+        // ensure key is not empty
+        if key.is_empty() {
+            return Err(anyhow!("Tag key must not be empty in tag '{}'", tag));
+        }
+        let key = key.to_string();
+
+        // get the value if present; if it's missing or empty, use an empty string.
+        let value = parts.next().map(|v| v.trim()).unwrap_or("");
+
+        let tag_instance = timestream_write::types::Tag::builder()
+            .key(key)
+            .value(value.to_string())
+            .build()?;
+        tags.push(tag_instance);
     }
 
-    let map: Map<String, Value> = serde_json::from_str(json_str)
-        .map_err(|err| anyhow!("Invalid JSON format: {}", err))?;
-
-    map.into_iter()
-       .map(|(key, value)| match value {
-            Value::String(s) => timestream_write::types::Tag::builder()
-                .key(key)
-                .value(s)
-                .build()
-                .map_err(|err| anyhow!("Failed to build Tag: {}", err)),
-            _ => Err(anyhow!("Tag value must be a string")),
-        })
-       .collect()
+    Ok(tags)
 }
+
 
 #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub fn get_table_config() -> Result<TableConfig, Error> {

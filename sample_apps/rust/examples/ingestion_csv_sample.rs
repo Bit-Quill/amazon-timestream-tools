@@ -128,7 +128,7 @@ async fn main() -> Result<(), Error> {
             .map(|e| e.is_resource_not_found_exception())
             == Some(true)
         {
-            timestream_helper::create_database(&client, &args.database_name, None, None).await?;
+            timestream_helper::create_database(&client, &args.database_name).await?;
         } else {
             return Err(anyhow!(
                 "Failed to describe the database {:?}, Error: {:?}",
