@@ -70,9 +70,13 @@ async fn handle_ingestion(
     let kms_key_id = std::env::var("kms_key_id").ok();
 
     let database_tags = match std::env::var("database_tags") {
-        Ok(database_tags_str) => Some(parse_tags_from_str(&database_tags_str)?),
+        Ok(database_tags_str) => match parse_tags_from_str(&database_tags_str) {
+            Ok(tags) => Some(tags),
+            Err(_) => None,
+        },
         Err(_) => None,
     };
+
 
     if let Ok(true) = std::env::var("enable_database_creation").map(env_var_to_bool) {
         match database_exists(client, &database_name).await {
@@ -156,7 +160,10 @@ pub async fn create_table_if_non_existent(
     table_name: &str,
 ) -> Result<(), Error> {
     let table_tags = match std::env::var("table_tags") {
-        Ok(table_tags_str) => Some(parse_tags_from_str(&table_tags_str)?),
+        Ok(table_tags_str) => match parse_tags_from_str(&table_tags_str) {
+            Ok(tags) => Some(tags),
+            Err(_) => None,
+        },
         Err(_) => None,
     };
     match table_exists(client, database_name, table_name).await {
@@ -428,3 +435,4 @@ pub fn test_parse_tags_from_str_error_only_equals() {
     let err = parse_tags_from_str(tags_str).unwrap_err();
     assert!(err.to_string().contains("Tag key must not be empty"));
 }
+
