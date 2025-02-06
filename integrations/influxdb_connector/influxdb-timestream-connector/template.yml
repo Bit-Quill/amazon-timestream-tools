@@ -31,12 +31,15 @@ Parameters:
   KmsKeyId:
     Type: String
     Description: AWS KMS key for the database. If the KMS key is not specified, the database will be encrypted with a Timestream managed KMS key located in your account.
+    Default: ''
   DatabaseTags:
     Type: String
     Description: A comma-separated string of key-value pairs to label the database.
+    Default: ''
   TableTags:
     Type: String
     Description: A comma-separated string of key-value pairs to label the table(s).
+    Default: ''
   MeasureNameForMultiMeasureRecords:
     Type: String
     Default: influxdb-measure
