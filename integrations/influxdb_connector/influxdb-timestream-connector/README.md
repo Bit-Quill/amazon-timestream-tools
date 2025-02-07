@@ -97,7 +97,7 @@ The following parameters are available when deploying the connector as part of a
 | `DatabaseName`  | The name of the database to use for ingestion. | `influxdb-line-protocol` |
 | `KmsKey`  | AWS KMS key to encrypt the database on creation. If the KMS key is not specified, the database will be encrypted with a Timestream managed KMS key created under your account. | |
 | `DatabaseTags`  | A comma-separated string of key-value pairs to label the database. For example, `example_key1=example_value1,example_key2=example_value2` | |
-| `TableTags`  | A comma-separated string of key-value pairs to label the table(s). | |
+| `TableTags`  | A comma-separated string of key-value pairs to label the table(s). For example, `example_key1=example_value1,example_key2=example_value2` | |
 | `EnableDatabaseCreation` | Whether to allow database creation upon ingestion of records. | `true` |
 | `EnableTableCreation` | Whether to allow table creation upon ingestion of records. When using multi-table multi measure schema, each unique line protocol measurement in a request will result in the creation of a new table with the same name as the measurement. | `true` |
 | `EnableMagStoreWrites` | if `EnableTableCreation` is `true`, whether to enable mag store writes. | `true` |
