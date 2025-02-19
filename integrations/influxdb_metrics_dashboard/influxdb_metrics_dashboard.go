@@ -8,14 +8,14 @@ import (
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
 	"github.com/aws/aws-cdk-go/awscdk/v2/customresources"
-	"github.com/aws/aws-cdk-go/awscdklambdagoalpha/v2"
 	"github.com/aws/jsii-runtime-go"
 	"log"
 	"os"
+  "regexp"
 	"time"
 )
 
-func addTelegrafEC2InstanceToStack(stack awscdk.Stack, stackProps awscdk.StackProps, databaseName string, vpcID string, influxDBEndpoint string, influxDBUsername string, influxDBPassword string) (awscdk.Stack, error) {
+func addTelegrafEC2InstanceToStack(stack awscdk.Stack, stackProps awscdk.StackProps, databaseName string, vpcID string, influxDBEndpoints string) (awscdk.Stack, error) {
 	instanceRole := awsiam.NewRole(stack, jsii.String("influxdb-dashboard-ec2-role"), &awsiam.RoleProps{
 		AssumedBy: awsiam.NewServicePrincipal(jsii.String("ec2.amazonaws.com"), nil),
 	})
@@ -103,8 +103,6 @@ cat <<EOT >> /etc/telegraf/telegraf.conf
 
 [[inputs.prometheus]]
   urls = ["%s"]
-  username = "%s"
-  password = "%s"
 
 EOT
 
@@ -178,7 +176,7 @@ sudo chkconfig telegraf on
 
 # Start Telegraf Service
 service telegraf start
-`, *stackProps.Env.Region, *stackProps.Env.Region, databaseName, influxDBEndpoint, influxDBUsername, influxDBPassword)
+`, *stackProps.Env.Region, *stackProps.Env.Region, databaseName, influxDBEndpoints)
 
 	vpc := awsec2.Vpc_FromLookup(stack, jsii.String("testingInfluxDBMetricsDashboard"), &awsec2.VpcLookupOptions{
 		IsDefault: jsii.Bool(true),
@@ -257,9 +255,11 @@ func addGrafanaWorkspaceToStack(stack awscdk.Stack, stackProps awscdk.StackProps
 
 func createLambdaResource(stack awscdk.Stack, stackProps awscdk.StackProps, databaseName string, grafanaWorkspaceName string, dashboardName string, timestreamDatasourceName string) (awscdk.Stack, error) {
 	var lambdaTimeout float64 = 200.0
-	lambdaHandler := awscdklambdagoalpha.NewGoFunction(stack, jsii.String("influxDBMetricDashboardLambdaHandler"), &awscdklambdagoalpha.GoFunctionProps{
+
+	lambdaHandler := awslambda.NewFunction(stack, jsii.String("influxDBMetricDashboardLambdaHandler"), &awslambda.FunctionProps{
 		Runtime: awslambda.Runtime_PROVIDED_AL2(),
-		Entry:   jsii.String("./lambda/upload_dashboard"),
+    Architecture: awslambda.Architecture_ARM_64(),
+    Handler: jsii.String("main"),
 		Environment: &map[string]*string{
 			"GOARCH":                   jsii.String("arm64"),
 			"GOOS":                     jsii.String("linux"),
@@ -268,6 +268,10 @@ func createLambdaResource(stack awscdk.Stack, stackProps awscdk.StackProps, data
 			"DashboardName":            jsii.String(dashboardName),
 			"DatabaseName":             jsii.String(databaseName),
 		},
+    Code: awslambda.Code_FromCustomCommand(jsii.String("lambda/upload_dashboard/lambda.zip"), &[]*string{
+				jsii.String("bash"),
+				jsii.String("lambda/upload_dashboard/bundle.sh"),
+			}, nil),
 		Timeout: awscdk.Duration_Seconds(&lambdaTimeout),
 		InitialPolicy: &[]awsiam.PolicyStatement{
 			awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
@@ -318,29 +322,26 @@ func main() {
 	stackId := "InfluxDBMetricsDashboard"
 	var stackProps awscdk.StackProps = awscdk.StackProps{Env: env()}
 	stack := awscdk.NewStack(app, &stackId, &stackProps)
+  endpointsPattern := `^https://([a-zA-Z0-9-\.]+):(\d+)/metrics(,https://([a-zA-Z0-9-\.]+):(\d+)/metrics)*$`
+  endpointsRegex := regexp.MustCompile(endpointsPattern)
 
 	// Need to use context to access variables at time of App Synthesization
 	// Required context
 	vpcIDContext := stack.Node().TryGetContext(jsii.String("VpcId"))
 	if vpcIDContext == nil {
 		log.Printf("VpcId context is required for Telegraf instance")
-		return
+		os.Exit(1)
 	}
-	influxDBEndpointContext := stack.Node().TryGetContext(jsii.String("InfluxDBEndpoint"))
-	if influxDBEndpointContext == nil {
-		log.Printf("InfluxDBEndpoint context is required to scrape metric endpoint")
-		return
+	influxDBEndpointsContext := stack.Node().TryGetContext(jsii.String("InfluxDBEndpoints"))
+	if influxDBEndpointsContext == nil {
+		log.Printf("InfluxDBEndpoints context is required to scrape metric endpoints")
+		os.Exit(1)
 	}
-	influxDBUsernameContext := stack.Node().TryGetContext(jsii.String("InfluxDBUsername"))
-	if influxDBUsernameContext == nil {
-		log.Printf("InfluxDBUsername context is required to authenticate metric scraping with Telegraf instance")
-		return
-	}
-	influxDBPasswordContext := stack.Node().TryGetContext(jsii.String("InfluxDBPassword"))
-	if influxDBPasswordContext == nil {
-		log.Printf("InfluxDBPassword is required for authenticating metric scraping with Telegraf instance")
-		return
-	}
+  if !endpointsRegex.MatchString(influxDBEndpointsContext.(string)) {
+    log.Printf("Here's the string: %s", influxDBEndpointsContext.(string))
+    log.Printf("InfluxDB Endpoints context does not fit the format https://<influxdb-endpoint-url>.com:<port-number>/metrics. Additional instances are separated by commas.")
+		os.Exit(1)
+  }
 
 	// Optional context
 	grafanaWorkspaceNameContext := stack.Node().TryGetContext(jsii.String("GrafanaWorkspaceName"))
@@ -364,7 +365,7 @@ func main() {
 		databaseName = databaseNameContext.(string)
 	}
 
-	stack, err := addTelegrafEC2InstanceToStack(stack, stackProps, databaseName, vpcIDContext.(string), influxDBEndpointContext.(string), influxDBUsernameContext.(string), influxDBPasswordContext.(string))
+	stack, err := addTelegrafEC2InstanceToStack(stack, stackProps, databaseName, vpcIDContext.(string), influxDBEndpointsContext.(string))
 	if err != nil {
 		log.Printf("Error adding Telegraf instance to stack: %s", err)
 		return
