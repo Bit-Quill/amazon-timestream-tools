@@ -2,6 +2,12 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"os"
+	"regexp"
+	"strings"
+	"time"
+
 	"github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsgrafana"
@@ -9,10 +15,6 @@ import (
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
 	"github.com/aws/aws-cdk-go/awscdk/v2/customresources"
 	"github.com/aws/jsii-runtime-go"
-	"log"
-	"os"
-  "regexp"
-	"time"
 )
 
 func addTelegrafEC2InstanceToStack(stack awscdk.Stack, stackProps awscdk.StackProps, databaseName string, vpcID string, influxDBEndpoints string) (awscdk.Stack, error) {
@@ -53,7 +55,36 @@ func addTelegrafEC2InstanceToStack(stack awscdk.Stack, stackProps awscdk.StackPr
 
 	timestreamPolicy.AttachToRole(instanceRole)
 
-	userDataScript :=
+  // Split the comma separated list of uri's and create a map of instance id's and uri's
+  influxDBEndpointsArr := strings.Split(influxDBEndpoints, ",")
+  influxDBInstances := make(map[string]string)
+  for _, instanceEndpoint := range influxDBEndpointsArr {
+    influxDBInstances[strings.Split(strings.Split(instanceEndpoint, "https://")[1], ".")[0]] = instanceEndpoint
+  }
+
+  telegrafInputOutputConfig := ""
+  for instanceId, instanceUri := range influxDBInstances {
+    telegrafInputOutputConfig += fmt.Sprintf(`
+[[outputs.timestream]]
+  region = "%s"
+  database_name = "%s"
+  describe_database_on_start = false
+  mapping_mode = "multi-table"
+  measure_name_for_multi_measure_records = "telegraf_measure"
+  use_multi_measure_records = true
+  create_table_if_not_exists = true
+  create_table_magnetic_store_retention_period_in_days = 365
+  create_table_memory_store_retention_period_in_hours = 24
+  [outputs.timestream.tagpass]
+    influxDBInstance = ["%s"]
+[[inputs.prometheus]]
+  urls = ["%s"]
+  tags = { influxDBInstance = "%s" }
+`, *stackProps.Env.Region, databaseName, instanceId, instanceUri, instanceId)
+  }
+
+
+  userDataScript :=
 		fmt.Sprintf(`
 #!/bin/bash
 cat <<EOT >> /etc/yum.repos.d/influxdb.repo
@@ -73,7 +104,6 @@ mv /etc/telegraf/telegraf.conf /etc/telegraf/telegraf.bckp
 
 # Timestream Config
 cat <<EOT >> /etc/telegraf/telegraf.conf
-
 [global_tags]
   microservice = "web"
   region = "%s"
@@ -89,21 +119,7 @@ cat <<EOT >> /etc/telegraf/telegraf.conf
   precision = ""
   hostname = ""
   omit_hostname = false
-
-[[outputs.timestream]]
-  region = "%s"
-  database_name = "%s"
-  describe_database_on_start = false
-  mapping_mode = "multi-table"
-  measure_name_for_multi_measure_records = "telegraf_measure"
-  use_multi_measure_records = true
-  create_table_if_not_exists = true
-  create_table_magnetic_store_retention_period_in_days = 365
-  create_table_memory_store_retention_period_in_hours = 24
-
-[[inputs.prometheus]]
-  urls = ["%s"]
-
+%s
 EOT
 
 cat <<EOT >> /etc/init.d/telegraf
@@ -176,9 +192,9 @@ sudo chkconfig telegraf on
 
 # Start Telegraf Service
 service telegraf start
-`, *stackProps.Env.Region, *stackProps.Env.Region, databaseName, influxDBEndpoints)
+`, *stackProps.Env.Region, telegrafInputOutputConfig, *stackProps.Env.Region, databaseName, influxDBEndpoints)
 
-	vpc := awsec2.Vpc_FromLookup(stack, jsii.String("testingInfluxDBMetricsDashboard"), &awsec2.VpcLookupOptions{
+	vpc := awsec2.Vpc_FromLookup(stack, jsii.String("InfluxDBMetricsDashboardVpc"), &awsec2.VpcLookupOptions{
 		IsDefault: jsii.Bool(true),
 		Region:    jsii.String(*stackProps.Env.Region),
 		VpcId:     jsii.String(vpcID),
@@ -201,13 +217,18 @@ service telegraf start
 		jsii.Bool(false),
 	)
 
-	awsec2.NewInstance(stack, jsii.String("TelegrafInfluxDBMetricScraper"), &awsec2.InstanceProps{
+  ec2Instance := awsec2.NewInstance(stack, jsii.String("TelegrafInfluxDBMetricScraper"), &awsec2.InstanceProps{
 		InstanceType:  awsec2.InstanceType_Of(awsec2.InstanceClass_BURSTABLE2, awsec2.InstanceSize_NANO),
 		MachineImage:  awsec2.NewAmazonLinuxImage(&awsec2.AmazonLinuxImageProps{}),
 		Vpc:           vpc,
 		UserData:      awsec2.UserData_Custom(jsii.String(userDataScript)),
 		Role:          instanceRole,
 		SecurityGroup: ec2SecurityGroup,
+	})
+
+  awscdk.NewCfnOutput(stack, jsii.String("EC2InstanceID"), &awscdk.CfnOutputProps{
+		Value: ec2Instance.InstanceId(),
+		Description: jsii.String("The instance ID of the EC2 instance running Telegraf"),
 	})
 
 	return stack, nil
@@ -241,13 +262,19 @@ func addGrafanaWorkspaceToStack(stack awscdk.Stack, stackProps awscdk.StackProps
 
 	workspacePolicy.AttachToRole(workspaceRole)
 
-	awsgrafana.NewCfnWorkspace(stack, jsii.String(grafanaWorkspaceName), &awsgrafana.CfnWorkspaceProps{
+  grafanaWorkspace := awsgrafana.NewCfnWorkspace(stack, jsii.String(grafanaWorkspaceName), &awsgrafana.CfnWorkspaceProps{
 		AccountAccessType:       jsii.String("CURRENT_ACCOUNT"),
 		AuthenticationProviders: &[]*string{jsii.String("AWS_SSO")},
 		PermissionType:          jsii.String("CUSTOMER_MANAGED"),
 		PluginAdminEnabled:      true,
 		RoleArn:                 workspaceRole.RoleArn(),
 		Name:                    jsii.String(grafanaWorkspaceName),
+	})
+
+  workspaceUri := "https://" + *grafanaWorkspace.AttrEndpoint()
+  awscdk.NewCfnOutput(stack, jsii.String("GrafanaWorkspaceID"), &awscdk.CfnOutputProps{
+    Value: &workspaceUri,
+		Description: jsii.String("The URI of the Grafana workspace"),
 	})
 
 	return stack, nil
