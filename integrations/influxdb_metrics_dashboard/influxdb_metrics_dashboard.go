@@ -364,7 +364,6 @@ func main() {
 		os.Exit(1)
 	}
 	if !endpointsRegex.MatchString(influxDBEndpointsContext.(string)) {
-		log.Printf("Here's the string: %s", influxDBEndpointsContext.(string))
 		log.Printf("InfluxDB Endpoints context does not fit the format https://<influxdb-endpoint-url>.com:<port-number>/metrics. Additional instances are separated by commas.")
 		os.Exit(1)
 	}
