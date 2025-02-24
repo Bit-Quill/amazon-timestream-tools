@@ -537,69 +537,69 @@ func generatePanelFieldConfig(panelType string, panelTitle string) map[string]in
 	case "gauge":
 		if panelTitle == "Bucket Cardinality" || panelTitle == "Memory Cache Usage" {
 			return map[string]interface{}{
-        "defaults": map[string]interface{}{
-          "mappings": []string{},
-          "thresholds": map[string]interface{}{
-            "mode": "absolute",
-            "steps": []interface{}{
-              map[string]interface{}{
-                "color": "green",
-                "value": nil,
-              },
-              map[string]interface{}{
-                "value": 10000,
-                "color": "yellow",
-              },
-              map[string]interface{}{
-                "value": 100000,
-                "color": "red",
-              },
-            },
-          },
-        },
-        "overrides": []string{},
-      }
+				"defaults": map[string]interface{}{
+					"mappings": []string{},
+					"thresholds": map[string]interface{}{
+						"mode": "absolute",
+						"steps": []interface{}{
+							map[string]interface{}{
+								"color": "green",
+								"value": nil,
+							},
+							map[string]interface{}{
+								"value": 10000,
+								"color": "yellow",
+							},
+							map[string]interface{}{
+								"value": 100000,
+								"color": "red",
+							},
+						},
+					},
+				},
+				"overrides": []string{},
+			}
 		} else {
 			return map[string]interface{}{
-        "defaults": map[string]interface{}{
-          "mappings": []string{},
-          "thresholds": map[string]interface{}{
-            "mode": "absolute",
-            "steps": []interface{}{
-              map[string]interface{}{
-                "color": "red",
-                "value": nil,
-              },
-              map[string]interface{}{
-                "value": 10000,
-                "color": "yellow",
-              },
-              map[string]interface{}{
-                "value": 100000,
-                "color": "green",
-              },
-            },
-          },
-        },
-        "overrides": []string{},
-      }
+				"defaults": map[string]interface{}{
+					"mappings": []string{},
+					"thresholds": map[string]interface{}{
+						"mode": "absolute",
+						"steps": []interface{}{
+							map[string]interface{}{
+								"color": "red",
+								"value": nil,
+							},
+							map[string]interface{}{
+								"value": 10000,
+								"color": "yellow",
+							},
+							map[string]interface{}{
+								"value": 100000,
+								"color": "green",
+							},
+						},
+					},
+				},
+				"overrides": []string{},
+			}
 		}
 	case "stat":
 		return map[string]interface{}{
-      "defaults": map[string]interface{}{
-        "mappings": []string{},
-        "thresholds": map[string]interface{}{
-          "mode": "absolute",
-          "steps": []interface{}{
-            map[string]interface{}{
-              "color": "green",
-              "value": nil,
-            },
-          },
-        },
-      },
-      "overrides": []string{},
-    }
+			"defaults": map[string]interface{}{
+				"mappings": []string{},
+				"thresholds": map[string]interface{}{
+					"mode": "absolute",
+					"steps": []interface{}{
+						map[string]interface{}{
+							"color": "green",
+							"value": nil,
+						},
+					},
+				},
+			},
+			"overrides": []string{},
+		}
 	case "histogram":
 		return map[string]interface{}{"defaults": map[string]interface{}{
 			"custom": map[string]interface{}{
@@ -616,17 +616,17 @@ func generatePanelFieldConfig(panelType string, panelTitle string) map[string]in
 				},
 				"mappings": []string{},
 				"thresholds": map[string]interface{}{
-					"mode":  "absolute",
+					"mode": "absolute",
 					"steps": []interface{}{
-            map[string]interface{}{
-              "color": "green",
-              "value": nil,
-            },
-            map[string]interface{}{
-              "color": "red",
-              "value": 80,
-            },
-          },
+						map[string]interface{}{
+							"color": "green",
+							"value": nil,
+						},
+						map[string]interface{}{
+							"color": "red",
+							"value": 80,
+						},
+					},
 				},
 			},
 		},

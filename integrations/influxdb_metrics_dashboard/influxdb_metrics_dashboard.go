@@ -55,16 +55,16 @@ func addTelegrafEC2InstanceToStack(stack awscdk.Stack, stackProps awscdk.StackPr
 
 	timestreamPolicy.AttachToRole(instanceRole)
 
-  // Split the comma separated list of uri's and create a map of instance id's and uri's
-  influxDBEndpointsArr := strings.Split(influxDBEndpoints, ",")
-  influxDBInstances := make(map[string]string)
-  for _, instanceEndpoint := range influxDBEndpointsArr {
-    influxDBInstances[strings.Split(strings.Split(instanceEndpoint, "https://")[1], ".")[0]] = instanceEndpoint
-  }
+	// Split the comma separated list of uri's and create a map of instance id's and uri's
+	influxDBEndpointsArr := strings.Split(influxDBEndpoints, ",")
+	influxDBInstances := make(map[string]string)
+	for _, instanceEndpoint := range influxDBEndpointsArr {
+		influxDBInstances[strings.Split(strings.Split(instanceEndpoint, "https://")[1], ".")[0]] = instanceEndpoint
+	}
 
-  telegrafInputOutputConfig := ""
-  for instanceId, instanceUri := range influxDBInstances {
-    telegrafInputOutputConfig += fmt.Sprintf(`
+	telegrafInputOutputConfig := ""
+	for instanceId, instanceUri := range influxDBInstances {
+		telegrafInputOutputConfig += fmt.Sprintf(`
 [[outputs.timestream]]
   region = "%s"
   database_name = "%s"
@@ -81,10 +81,9 @@ func addTelegrafEC2InstanceToStack(stack awscdk.Stack, stackProps awscdk.StackPr
   urls = ["%s"]
   tags = { influxDBInstance = "%s" }
 `, *stackProps.Env.Region, databaseName, instanceId, instanceUri, instanceId)
-  }
+	}
 
-
-  userDataScript :=
+	userDataScript :=
 		fmt.Sprintf(`
 #!/bin/bash
 cat <<EOT >> /etc/yum.repos.d/influxdb.repo
@@ -217,7 +216,7 @@ service telegraf start
 		jsii.Bool(false),
 	)
 
-  ec2Instance := awsec2.NewInstance(stack, jsii.String("TelegrafInfluxDBMetricScraper"), &awsec2.InstanceProps{
+	ec2Instance := awsec2.NewInstance(stack, jsii.String("TelegrafInfluxDBMetricScraper"), &awsec2.InstanceProps{
 		InstanceType:  awsec2.InstanceType_Of(awsec2.InstanceClass_BURSTABLE2, awsec2.InstanceSize_NANO),
 		MachineImage:  awsec2.NewAmazonLinuxImage(&awsec2.AmazonLinuxImageProps{}),
 		Vpc:           vpc,
@@ -226,8 +225,8 @@ service telegraf start
 		SecurityGroup: ec2SecurityGroup,
 	})
 
-  awscdk.NewCfnOutput(stack, jsii.String("EC2InstanceID"), &awscdk.CfnOutputProps{
-		Value: ec2Instance.InstanceId(),
+	awscdk.NewCfnOutput(stack, jsii.String("EC2InstanceID"), &awscdk.CfnOutputProps{
+		Value:       ec2Instance.InstanceId(),
 		Description: jsii.String("The instance ID of the EC2 instance running Telegraf"),
 	})
 
@@ -262,7 +261,7 @@ func addGrafanaWorkspaceToStack(stack awscdk.Stack, stackProps awscdk.StackProps
 
 	workspacePolicy.AttachToRole(workspaceRole)
 
-  grafanaWorkspace := awsgrafana.NewCfnWorkspace(stack, jsii.String(grafanaWorkspaceName), &awsgrafana.CfnWorkspaceProps{
+	grafanaWorkspace := awsgrafana.NewCfnWorkspace(stack, jsii.String(grafanaWorkspaceName), &awsgrafana.CfnWorkspaceProps{
 		AccountAccessType:       jsii.String("CURRENT_ACCOUNT"),
 		AuthenticationProviders: &[]*string{jsii.String("AWS_SSO")},
 		PermissionType:          jsii.String("CUSTOMER_MANAGED"),
@@ -271,9 +270,9 @@ func addGrafanaWorkspaceToStack(stack awscdk.Stack, stackProps awscdk.StackProps
 		Name:                    jsii.String(grafanaWorkspaceName),
 	})
 
-  workspaceUri := "https://" + *grafanaWorkspace.AttrEndpoint()
-  awscdk.NewCfnOutput(stack, jsii.String("GrafanaWorkspaceID"), &awscdk.CfnOutputProps{
-    Value: &workspaceUri,
+	workspaceUri := "https://" + *grafanaWorkspace.AttrEndpoint()
+	awscdk.NewCfnOutput(stack, jsii.String("GrafanaWorkspaceID"), &awscdk.CfnOutputProps{
+		Value:       &workspaceUri,
 		Description: jsii.String("The URI of the Grafana workspace"),
 	})
 
@@ -284,9 +283,9 @@ func createLambdaResource(stack awscdk.Stack, stackProps awscdk.StackProps, data
 	var lambdaTimeout float64 = 200.0
 
 	lambdaHandler := awslambda.NewFunction(stack, jsii.String("influxDBMetricDashboardLambdaHandler"), &awslambda.FunctionProps{
-		Runtime: awslambda.Runtime_PROVIDED_AL2(),
-    Architecture: awslambda.Architecture_ARM_64(),
-    Handler: jsii.String("main"),
+		Runtime:      awslambda.Runtime_PROVIDED_AL2(),
+		Architecture: awslambda.Architecture_ARM_64(),
+		Handler:      jsii.String("main"),
 		Environment: &map[string]*string{
 			"GOARCH":                   jsii.String("arm64"),
 			"GOOS":                     jsii.String("linux"),
@@ -295,10 +294,10 @@ func createLambdaResource(stack awscdk.Stack, stackProps awscdk.StackProps, data
 			"DashboardName":            jsii.String(dashboardName),
 			"DatabaseName":             jsii.String(databaseName),
 		},
-    Code: awslambda.Code_FromCustomCommand(jsii.String("lambda/upload_dashboard/lambda.zip"), &[]*string{
-				jsii.String("bash"),
-				jsii.String("lambda/upload_dashboard/bundle.sh"),
-			}, nil),
+		Code: awslambda.Code_FromCustomCommand(jsii.String("lambda/upload_dashboard/lambda.zip"), &[]*string{
+			jsii.String("bash"),
+			jsii.String("lambda/upload_dashboard/bundle.sh"),
+		}, nil),
 		Timeout: awscdk.Duration_Seconds(&lambdaTimeout),
 		InitialPolicy: &[]awsiam.PolicyStatement{
 			awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
@@ -349,8 +348,8 @@ func main() {
 	stackId := "InfluxDBMetricsDashboard"
 	var stackProps awscdk.StackProps = awscdk.StackProps{Env: env()}
 	stack := awscdk.NewStack(app, &stackId, &stackProps)
-  endpointsPattern := `^https://([a-zA-Z0-9-\.]+):(\d+)/metrics(,https://([a-zA-Z0-9-\.]+):(\d+)/metrics)*$`
-  endpointsRegex := regexp.MustCompile(endpointsPattern)
+	endpointsPattern := `^https://([a-zA-Z0-9-\.]+):(\d+)/metrics(,https://([a-zA-Z0-9-\.]+):(\d+)/metrics)*$`
+	endpointsRegex := regexp.MustCompile(endpointsPattern)
 
 	// Need to use context to access variables at time of App Synthesization
 	// Required context
@@ -364,11 +363,11 @@ func main() {
 		log.Printf("InfluxDBEndpoints context is required to scrape metric endpoints")
 		os.Exit(1)
 	}
-  if !endpointsRegex.MatchString(influxDBEndpointsContext.(string)) {
-    log.Printf("Here's the string: %s", influxDBEndpointsContext.(string))
-    log.Printf("InfluxDB Endpoints context does not fit the format https://<influxdb-endpoint-url>.com:<port-number>/metrics. Additional instances are separated by commas.")
+	if !endpointsRegex.MatchString(influxDBEndpointsContext.(string)) {
+		log.Printf("Here's the string: %s", influxDBEndpointsContext.(string))
+		log.Printf("InfluxDB Endpoints context does not fit the format https://<influxdb-endpoint-url>.com:<port-number>/metrics. Additional instances are separated by commas.")
 		os.Exit(1)
-  }
+	}
 
 	// Optional context
 	grafanaWorkspaceNameContext := stack.Node().TryGetContext(jsii.String("GrafanaWorkspaceName"))
