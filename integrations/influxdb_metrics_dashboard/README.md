@@ -17,7 +17,7 @@ The InfluxDB Metrics Dashboard creates a Grafana dashboard to visualize existing
 
 The following context options are required when deploying the CDK application:
 
-1. **InfluxDBEndpoint**: The URL of the Timestream for InfluxDB endpoint, for example `https://example-1234567890.timestream-influxdb.us-east-1.on.aws:8086/metrics`.
+1. **InfluxDBEndpointx**: The comma separated list of URL(s) for Timestream for InfluxDB endpoints, for example `https://example-1234567890.timestream-influxdb.us-east-1.on.aws:8086`.
 4. **VpcId**: The ID for the VPC in which the Timestream for InfluxDB instance has been deployed.
 
 The following context options are optional when deploying the CDK application:

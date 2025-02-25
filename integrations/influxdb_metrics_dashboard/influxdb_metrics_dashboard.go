@@ -59,7 +59,7 @@ func addTelegrafEC2InstanceToStack(stack awscdk.Stack, stackProps awscdk.StackPr
 	influxDBEndpointsArr := strings.Split(influxDBEndpoints, ",")
 	influxDBInstances := make(map[string]string)
 	for _, instanceEndpoint := range influxDBEndpointsArr {
-		influxDBInstances[strings.Split(strings.Split(instanceEndpoint, "https://")[1], ".")[0]] = instanceEndpoint
+		influxDBInstances[strings.Split(strings.Split(instanceEndpoint, "https://")[1], ".")[0]] = instanceEndpoint + "/metrics"
 	}
 
 	telegrafInputOutputConfig := ""
@@ -194,7 +194,6 @@ service telegraf start
 `, *stackProps.Env.Region, telegrafInputOutputConfig, *stackProps.Env.Region, databaseName, influxDBEndpoints)
 
 	vpc := awsec2.Vpc_FromLookup(stack, jsii.String("InfluxDBMetricsDashboardVpc"), &awsec2.VpcLookupOptions{
-		IsDefault: jsii.Bool(true),
 		Region:    jsii.String(*stackProps.Env.Region),
 		VpcId:     jsii.String(vpcID),
 	})
@@ -348,7 +347,7 @@ func main() {
 	stackId := "InfluxDBMetricsDashboard"
 	var stackProps awscdk.StackProps = awscdk.StackProps{Env: env()}
 	stack := awscdk.NewStack(app, &stackId, &stackProps)
-	endpointsPattern := `^https://([a-zA-Z0-9-\.]+):(\d+)/metrics(,https://([a-zA-Z0-9-\.]+):(\d+)/metrics)*$`
+	endpointsPattern := `^https://([a-zA-Z0-9-\.]+):(\d+)(,https://([a-zA-Z0-9-\.]+):(\d+))*$`
 	endpointsRegex := regexp.MustCompile(endpointsPattern)
 
 	// Need to use context to access variables at time of App Synthesization
@@ -364,7 +363,7 @@ func main() {
 		os.Exit(1)
 	}
 	if !endpointsRegex.MatchString(influxDBEndpointsContext.(string)) {
-		log.Printf("InfluxDB Endpoints context does not fit the format https://<influxdb-endpoint-url>.com:<port-number>/metrics. Additional instances are separated by commas.")
+		log.Printf("InfluxDB Endpoints context does not fit the format https://<influxdb-endpoint-url>:<port-number>. Additional instances are separated by commas.")
 		os.Exit(1)
 	}
 
