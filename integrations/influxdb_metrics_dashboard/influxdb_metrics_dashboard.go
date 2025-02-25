@@ -55,7 +55,7 @@ func addTelegrafEC2InstanceToStack(stack awscdk.Stack, stackProps awscdk.StackPr
 
 	timestreamPolicy.AttachToRole(instanceRole)
 
-	// Split the comma separated list of uri's and create a map of instance id's and uri's
+	// Split the comma separated list of uris and create a map of instance ids and uris
 	influxDBEndpointsArr := strings.Split(influxDBEndpoints, ",")
 	influxDBInstances := make(map[string]string)
 	for _, instanceEndpoint := range influxDBEndpointsArr {
