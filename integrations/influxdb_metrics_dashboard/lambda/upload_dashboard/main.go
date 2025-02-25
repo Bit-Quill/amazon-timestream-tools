@@ -492,7 +492,7 @@ func generatePanelOptions(panelType string) map[string]interface{} {
 			"orientation":  "auto",
 			"reduceOptions": map[string]interface{}{
 				"calcs": []string{
-					"lasNotNull",
+					"lastNotNull",
 				},
 				"fields": "",
 				"values": true,
@@ -509,7 +509,7 @@ func generatePanelOptions(panelType string) map[string]interface{} {
 			"orientation": "auto",
 			"reduceOptions": map[string]interface{}{
 				"calcs": []string{
-					"lasNotNull",
+					"lastNotNull",
 				},
 				"fields": "",
 				"values": true,
