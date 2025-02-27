@@ -59,7 +59,7 @@ func addTelegrafEC2InstanceToStack(stack awscdk.Stack, stackProps awscdk.StackPr
 	influxDBEndpointsArr := strings.Split(influxDBEndpoints, ",")
 	influxDBInstances := make(map[string]string)
 	for _, instanceEndpoint := range influxDBEndpointsArr {
-		influxDBInstances[strings.Split(strings.Split(instanceEndpoint, "https://")[1], ".")[0]] = instanceEndpoint + "/metrics"
+		influxDBInstances[strings.Split(strings.Split(instanceEndpoint, "https://")[1], "-")[0]] = instanceEndpoint + "/metrics"
 	}
 
 	telegrafInputOutputConfig := ""
