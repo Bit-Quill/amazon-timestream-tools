@@ -455,7 +455,7 @@ type panelField struct {
 }
 
 func generateBucketedGaugePanelQuery(instanceName string, databaseName string, tableName string) string {
-	return fmt.Sprintf(`SELECT %s, bucket, gauge FROM "%s"."%s"
+	return fmt.Sprintf(`SELECT CONCAT('ID: ', %s), CONCAT('bucket: ', bucket), gauge FROM "%s"."%s"
   WHERE time = (
     SELECT MAX(time)
       FROM "%s"."%s" as subquery
@@ -466,7 +466,7 @@ ORDER BY %s, bucket LIMIT 25`, instanceName, databaseName, tableName, databaseNa
 }
 
 func generateGaugePanelQuery(instanceName string, databaseName string, tableName string) string {
-	return fmt.Sprintf(`SELECT %s, gauge FROM "%s"."%s"
+	return fmt.Sprintf(`SELECT CONCAT('ID: ', %s), gauge FROM "%s"."%s"
   WHERE time = (
     SELECT MAX(time)
       FROM "%s"."%s" as subquery
@@ -476,11 +476,11 @@ ORDER BY %s LIMIT 25`, instanceName, databaseName, tableName, databaseName, tabl
 }
 
 func generateCounterStatPanelQuery(instanceName string, databaseName string, tableName string) string {
-	return fmt.Sprintf("SELECT %s, MAX(counter) FROM \"%s\".\"%s\" GROUP BY %s ORDER BY %s DESC LIMIT 25", instanceName, databaseName, tableName, instanceName, instanceName)
+	return fmt.Sprintf("SELECT CONCAT('ID: ', %s), MAX(counter) FROM \"%s\".\"%s\" GROUP BY %s ORDER BY %s DESC LIMIT 25", instanceName, databaseName, tableName, instanceName, instanceName)
 }
 
 func generateEndpointCounterStatPanelQuery(instanceName string, databaseName string, tableName string, endpoint string) string {
-	return fmt.Sprintf("SELECT %s, MAX(counter) FROM \"%s\".\"%s\" WHERE endpoint LIKE '%s' GROUP BY %s ORDER BY %s DESC LIMIT 25", instanceName, databaseName, tableName, endpoint, instanceName, instanceName)
+	return fmt.Sprintf("SELECT CONCAT('ID: ', %s), MAX(counter) FROM \"%s\".\"%s\" WHERE endpoint LIKE '%s' GROUP BY %s ORDER BY %s DESC LIMIT 25", instanceName, databaseName, tableName, endpoint, instanceName, instanceName)
 }
 
 func generatePanelOptions(panelType string) map[string]interface{} {
