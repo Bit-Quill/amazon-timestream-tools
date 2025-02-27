@@ -194,8 +194,8 @@ service telegraf start
 `, *stackProps.Env.Region, telegrafInputOutputConfig, *stackProps.Env.Region, databaseName, influxDBEndpoints)
 
 	vpc := awsec2.Vpc_FromLookup(stack, jsii.String("InfluxDBMetricsDashboardVpc"), &awsec2.VpcLookupOptions{
-		Region:    jsii.String(*stackProps.Env.Region),
-		VpcId:     jsii.String(vpcID),
+		Region: jsii.String(*stackProps.Env.Region),
+		VpcId:  jsii.String(vpcID),
 	})
 	ec2SecurityGroup := awsec2.NewSecurityGroup(stack, jsii.String("TelegrafEC2SG"), &awsec2.SecurityGroupProps{
 		Vpc:               vpc,

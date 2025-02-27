@@ -480,27 +480,11 @@ func generateCounterStatPanelQuery(instanceName string, databaseName string, tab
 }
 
 func generateEndpointCounterStatPanelQuery(instanceName string, databaseName string, tableName string, endpoint string) string {
-	return fmt.Sprintf("SELECT %s, MAX(counter) FROM \"%s\".\"%s\" WHERE endpoint in ('%s') GROUP BY %s ORDER BY %s DESC LIMIT 25", instanceName, databaseName, tableName, endpoint, instanceName, instanceName)
+	return fmt.Sprintf("SELECT %s, MAX(counter) FROM \"%s\".\"%s\" WHERE endpoint LIKE '%s' GROUP BY %s ORDER BY %s DESC LIMIT 25", instanceName, databaseName, tableName, endpoint, instanceName, instanceName)
 }
 
 func generatePanelOptions(panelType string) map[string]interface{} {
 	switch panelType {
-	case "gauge":
-		return map[string]interface{}{
-			"minVizHeight": 75,
-			"minVizWidth":  75,
-			"orientation":  "auto",
-			"reduceOptions": map[string]interface{}{
-				"calcs": []string{
-					"lastNotNull",
-				},
-				"fields": "",
-				"values": true,
-			},
-			"showThresholdLabels":  false,
-			"showThresholdMarkers": true,
-			"sizing":               "auto",
-		}
 	case "stat":
 		return map[string]interface{}{
 			"colorMode":   "value",
@@ -518,14 +502,26 @@ func generatePanelOptions(panelType string) map[string]interface{} {
 			"textMode":          "auto",
 			"wideLayout":        true,
 		}
-	case "histogram":
+	case "bargauge":
 		return map[string]interface{}{
-			"legend": map[string]interface{}{
-				"calcs":       []string{},
-				"displayMode": "list",
-				"placement":   "bottom",
-				"showLegend":  true,
+			"minVizHeight":  16,
+			"minVizWidth":   8,
+			"maxVizHeight":  300,
+			"orientation":   "auto",
+			"displayMode":   "gradient",
+			"valueMode":     "color",
+			"namePlacement": "auto",
+			"reduceOptions": map[string]interface{}{
+				"calcs": []string{
+					"lastNotNull",
+				},
+				"fields": "",
+				"values": false,
 			},
+			"showUnfilled":         true,
+			"showThresholdLabels":  false,
+			"showThresholdMarkers": true,
+			"sizing":               "auto",
 		}
 	default:
 		return map[string]interface{}{}
@@ -534,8 +530,8 @@ func generatePanelOptions(panelType string) map[string]interface{} {
 
 func generatePanelFieldConfig(panelType string, panelTitle string) map[string]interface{} {
 	switch panelType {
-	case "gauge":
-		if panelTitle == "Bucket Cardinality" || panelTitle == "Memory Cache Usage" {
+	case "stat":
+		if panelTitle == "HTTP Write Requests Count" || panelTitle == "HTTP Query Requests Count" || panelTitle == "Bucket Cardinality" {
 			return map[string]interface{}{
 				"defaults": map[string]interface{}{
 					"mappings": []string{},
@@ -543,19 +539,16 @@ func generatePanelFieldConfig(panelType string, panelTitle string) map[string]in
 						"mode": "absolute",
 						"steps": []interface{}{
 							map[string]interface{}{
-								"color": "green",
+								"color": "yellow",
 								"value": nil,
 							},
 							map[string]interface{}{
-								"value": 10000,
-								"color": "yellow",
-							},
-							map[string]interface{}{
-								"value": 100000,
-								"color": "red",
+								"color": "green",
+								"value": 1,
 							},
 						},
 					},
+					"noValue": "0",
 				},
 				"overrides": []string{},
 			}
@@ -567,70 +560,67 @@ func generatePanelFieldConfig(panelType string, panelTitle string) map[string]in
 						"mode": "absolute",
 						"steps": []interface{}{
 							map[string]interface{}{
-								"color": "red",
-								"value": nil,
-							},
-							map[string]interface{}{
-								"value": 10000,
-								"color": "yellow",
-							},
-							map[string]interface{}{
-								"value": 100000,
 								"color": "green",
+								"value": nil,
 							},
 						},
 					},
+					"noValue": 0,
+					"unit":    "bytes",
 				},
 				"overrides": []string{},
 			}
 		}
-	case "stat":
-		return map[string]interface{}{
-			"defaults": map[string]interface{}{
-				"mappings": []string{},
-				"thresholds": map[string]interface{}{
-					"mode": "absolute",
-					"steps": []interface{}{
-						map[string]interface{}{
-							"color": "green",
-							"value": nil,
-						},
+	case "bargauge":
+		return map[string]interface{}{"defaults": map[string]interface{}{
+			"mappings": []string{},
+			"thresholds": map[string]interface{}{
+				"mode": "absolute",
+				"steps": []interface{}{
+					map[string]interface{}{
+						"color": "yellow",
+						"value": nil,
+					},
+					map[string]interface{}{
+						"color": "green",
+						"value": 1,
 					},
 				},
 			},
-			"overrides": []string{},
-		}
-	case "histogram":
-		return map[string]interface{}{"defaults": map[string]interface{}{
-			"custom": map[string]interface{}{
-				"lineWidth":    1,
-				"fillOpacity":  80,
-				"gradientMode": "none",
-				"hideFrom": map[string]interface{}{
-					"tooltip": false,
-					"viz":     false,
-					"legend":  false,
-				},
-				"color": map[string]interface{}{
-					"mode": "palette-classic",
-				},
-				"mappings": []string{},
-				"thresholds": map[string]interface{}{
-					"mode": "absolute",
-					"steps": []interface{}{
-						map[string]interface{}{
-							"color": "green",
-							"value": nil,
-						},
-						map[string]interface{}{
-							"color": "red",
-							"value": 80,
-						},
-					},
-				},
+			"color": map[string]interface{}{
+				"mode": "thresholds",
 			},
 		},
-			"overrides": []string{},
+			"overrides": []interface{}{
+				map[string]interface{}{
+					"matcher": map[string]interface{}{
+						"id":      "byName",
+						"options": "sum",
+					},
+					"properties": []interface{}{
+						map[string]interface{}{
+							"id": "thresholds",
+							"value": map[string]interface{}{
+								"mode": "absolute",
+								"steps": []interface{}{
+									map[string]interface{}{
+										"color": "green",
+										"value": nil,
+									},
+									map[string]interface{}{
+										"color": "yellow",
+										"value": 1,
+									},
+									map[string]interface{}{
+										"color": "red",
+										"value": 50,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
 		}
 	default:
 		return map[string]interface{}{}
@@ -640,14 +630,14 @@ func generatePanelFieldConfig(panelType string, panelTitle string) map[string]in
 func generatePanels(datasourceName string, databaseName string) []interface{} {
 
 	panelFields := []panelField{
-		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 0}, "Query Execution Duration in Seconds", "histogram", "M", fmt.Sprintf("SELECT * FROM \"%s\".\"qc_executing_duration_seconds\" ORDER BY time desc", databaseName)},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 0}, "Total Available Memory from System", "gauge", "L", generateGaugePanelQuery("influxDBInstance", databaseName, "go_memstats_sys_bytes")},
-		{map[string]interface{}{"h": 6, "w": 7, "x": 0, "y": 22}, "Bucket Cardinality", "gauge", "A", generateBucketedGaugePanelQuery("influxDBInstance", databaseName, "storage_bucket_series_num")},
-		{map[string]interface{}{"h": 6, "w": 6, "x": 7, "y": 22}, "Memory Cache Usage", "gauge", "B", generateGaugePanelQuery("influxDBInstance", databaseName, "go_memstats_mcache_inuse_bytes")},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 0}, "Query Execution Duration in Seconds", "bargauge", "M", fmt.Sprintf("SELECT * FROM \"%s\".\"qc_executing_duration_seconds\" ORDER BY time desc", databaseName)},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 0}, "Total Available Memory from System", "stat", "L", generateGaugePanelQuery("influxDBInstance", databaseName, "go_memstats_sys_bytes")},
+		{map[string]interface{}{"h": 6, "w": 7, "x": 0, "y": 22}, "Bucket Cardinality", "stat", "A", generateBucketedGaugePanelQuery("influxDBInstance", databaseName, "storage_bucket_series_num")},
+		{map[string]interface{}{"h": 6, "w": 6, "x": 7, "y": 22}, "Memory Cache Usage", "stat", "B", generateGaugePanelQuery("influxDBInstance", databaseName, "go_memstats_mcache_inuse_bytes")},
 		{map[string]interface{}{"h": 6, "w": 6, "x": 13, "y": 22}, "BoltDb Writes", "stat", "C", generateCounterStatPanelQuery("influxDBInstance", databaseName, "boltdb_writes_total")},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 30}, "Allocated Memory", "gauge", "G", generateGaugePanelQuery("influxDBInstance", databaseName, "go_memstats_alloc_bytes")},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 30}, "HTTP Write Requests Count", "stat", "I", generateEndpointCounterStatPanelQuery("influxDBInstance", databaseName, "http_write_request_count", "/api/v2/write")},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 30}, "HTTP Query Requests Count", "stat", "N", generateEndpointCounterStatPanelQuery("influxDBInstance", databaseName, "http_query_request_count", "/api/v2/query")},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 30}, "Allocated Memory", "stat", "G", generateGaugePanelQuery("influxDBInstance", databaseName, "go_memstats_alloc_bytes")},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 30}, "HTTP Write Requests Count", "stat", "I", generateEndpointCounterStatPanelQuery("influxDBInstance", databaseName, "http_write_request_count", "%write%")},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 30}, "HTTP Query Requests Count", "stat", "N", generateEndpointCounterStatPanelQuery("influxDBInstance", databaseName, "http_query_request_count", "%query%")},
 	}
 
 	var panelConfig []interface{}
