@@ -1,10 +1,12 @@
-use super::{validate_env_variables, BuildRecords};
+use super::BuildRecords;
 use crate::{
     metric::{FieldValue, Metric},
+    timestream_utils::get_timestream_env_config,
     SchemaType,
 };
-use anyhow::{Error, Result};
+use anyhow::{anyhow, Error, Result};
 use aws_sdk_timestreamwrite as timestream_write;
+use log::error;
 use std::collections::HashMap;
 
 pub struct MultiMeasureBuilder {
@@ -21,7 +23,6 @@ impl BuildRecords for MultiMeasureBuilder {
         metrics: &[Metric],
         precision: &timestream_write::types::TimeUnit,
     ) -> Result<HashMap<String, Vec<timestream_write::types::Record>>, Error> {
-        validate_env_variables()?;
         match self.schema_type {
             SchemaType::SingleTableMultiMeasure => {
                 return build_single_table_multi_measure_records(metrics, precision)
@@ -50,16 +51,25 @@ impl std::fmt::Debug for MultiMeasureBuilder {
     }
 }
 
+/// Builds multi-measure records hashmap to be ingested to one table.
 #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 fn build_single_table_multi_measure_records(
     metrics: &[Metric],
     precision: &timestream_write::types::TimeUnit,
 ) -> Result<HashMap<String, Vec<timestream_write::types::Record>>, Error> {
-    // Builds multi-measure records hashmap to be ingested to one table
+    let timestream_env_config = get_timestream_env_config().map_err(|err| anyhow!(err))?;
 
     let mut records_batch: HashMap<String, Vec<aws_sdk_timestreamwrite::types::Record>> =
         HashMap::new();
-    let table_name = std::env::var("single_table_name")?;
+    let table_name = match &timestream_env_config.single_table_name {
+        Some(table_name) => table_name.clone(),
+        None => {
+            let err_message = "single_table_name environment variable is not defined";
+            error!("{}", err_message);
+            return Err(anyhow!(err_message));
+        }
+    };
+
     for metric in metrics.iter() {
         let new_record = metric_to_timestream_record(metric.name(), metric, precision)?;
         if let Some(record_vec) = records_batch.get_mut(&table_name) {
@@ -72,14 +82,13 @@ fn build_single_table_multi_measure_records(
     Ok(records_batch)
 }
 
+/// Builds multi-measure records hashmap to be ingested to multiple tables.
 #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 fn build_multi_table_multi_measure_records(
     metrics: &[Metric],
     measure_name: Option<&str>,
     precision: &timestream_write::types::TimeUnit,
 ) -> Result<HashMap<String, Vec<timestream_write::types::Record>>, Error> {
-    // Builds multi-measure records hashmap to be ingested to multiple tables
-
     let mut records_batch: HashMap<String, Vec<aws_sdk_timestreamwrite::types::Record>> =
         HashMap::new();
     for metric in metrics.iter() {
@@ -99,14 +108,13 @@ fn build_multi_table_multi_measure_records(
     Ok(records_batch)
 }
 
+/// Converts the metric struct to a timestream multi-measure record.
 #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub fn metric_to_timestream_record(
     measure_name: &str,
     metric: &Metric,
     precision: &timestream_write::types::TimeUnit,
 ) -> Result<timestream_write::types::Record, Error> {
-    // Converts the metric struct to a timestream multi-measure record
-
     let mut dimensions: Vec<timestream_write::types::Dimension> = Vec::new();
     for tag in metric.tags().iter().flatten() {
         dimensions.push(
@@ -143,12 +151,11 @@ pub fn metric_to_timestream_record(
     Ok(new_record)
 }
 
+/// Converts a metric struct type to a timestream measure value type.
 #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub fn get_timestream_measure_type(
     field_value: &FieldValue,
 ) -> Result<timestream_write::types::MeasureValueType, Error> {
-    // Converts a metric struct type to a timestream measure value type
-
     match field_value {
         FieldValue::Boolean(_) => Ok(timestream_write::types::MeasureValueType::Boolean),
         FieldValue::I64(_) => Ok(timestream_write::types::MeasureValueType::Bigint),

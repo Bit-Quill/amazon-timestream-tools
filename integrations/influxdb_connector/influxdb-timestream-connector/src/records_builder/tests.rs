@@ -4,10 +4,9 @@ use anyhow::Error;
 use aws_sdk_timestreamwrite as timestream_write;
 use std::env;
 
+/// Single measure for multi-measure record.
 #[test]
 fn test_mtmm_single_record() -> Result<(), Error> {
-    // Single measure for multi-measure record
-
     setup_minimal_env_vars();
     setup_multi_table_multi_measure_env_vars();
     setup_table_mapping_env_variables(super::SchemaType::MultiTableMultiMeasure);
@@ -63,10 +62,9 @@ fn test_mtmm_single_record() -> Result<(), Error> {
     Ok(())
 }
 
+/// Dataset all going to same table.
 #[test]
 fn test_mtmm_single_destination() -> Result<(), Error> {
-    // Dataset all going to same table
-
     setup_minimal_env_vars();
     setup_multi_table_multi_measure_env_vars();
     setup_table_mapping_env_variables(super::SchemaType::MultiTableMultiMeasure);
@@ -152,10 +150,9 @@ fn test_mtmm_single_destination() -> Result<(), Error> {
     Ok(())
 }
 
+/// Dataset going to multiple table destinations.
 #[test]
 fn test_mtmm_multi_record() -> Result<(), Error> {
-    // Dataset going to multiple table destinations
-
     setup_minimal_env_vars();
     setup_multi_table_multi_measure_env_vars();
     setup_table_mapping_env_variables(super::SchemaType::MultiTableMultiMeasure);
@@ -242,10 +239,9 @@ fn test_mtmm_multi_record() -> Result<(), Error> {
     Ok(())
 }
 
+/// Dataset with empty dimensions.
 #[test]
 fn test_mtmm_empty_dimensions() -> Result<(), Error> {
-    // Dataset with empty dimensions
-
     setup_minimal_env_vars();
     setup_multi_table_multi_measure_env_vars();
     setup_table_mapping_env_variables(super::SchemaType::MultiTableMultiMeasure);
@@ -292,10 +288,9 @@ fn test_mtmm_empty_dimensions() -> Result<(), Error> {
     Ok(())
 }
 
+/// Varying timestamp parsing.
 #[test]
 fn test_mtmm_varying_timestamp_records() -> Result<(), Error> {
-    // Varying timestamp parsing
-
     setup_minimal_env_vars();
     setup_multi_table_multi_measure_env_vars();
     setup_table_mapping_env_variables(super::SchemaType::MultiTableMultiMeasure);
@@ -393,10 +388,9 @@ fn test_mtmm_varying_timestamp_records() -> Result<(), Error> {
     Ok(())
 }
 
+/// Single measure for multi-measure record.
 #[test]
 fn test_stmm_single_record() -> Result<(), Error> {
-    // Single measure for multi-measure record
-
     setup_minimal_env_vars();
     setup_table_mapping_env_variables(super::SchemaType::SingleTableMultiMeasure);
     let single_table_multi_measure_builder = super::get_builder(
@@ -448,10 +442,9 @@ fn test_stmm_single_record() -> Result<(), Error> {
     Ok(())
 }
 
+/// Dataset with differing metric names going to the same table.
 #[test]
 fn test_stmm_multi_record() -> Result<(), Error> {
-    // Dataset with differing metric names going to the same table
-
     setup_minimal_env_vars();
     setup_table_mapping_env_variables(super::SchemaType::SingleTableMultiMeasure);
     let single_table_multi_measure_builder = super::get_builder(
@@ -531,10 +524,12 @@ fn test_stmm_multi_record() -> Result<(), Error> {
     Ok(())
 }
 
+/// Sets up multi-table multi-measure environment variables.
 fn setup_multi_table_multi_measure_env_vars() {
     env::set_var("measure_name_for_multi_measure_records", "influxdb-measure");
 }
 
+/// Sets up table mapping environment variables.
 fn setup_table_mapping_env_variables(schema_type: super::SchemaType) {
     match schema_type {
         super::SchemaType::MultiTableMultiMeasure => {
@@ -547,6 +542,7 @@ fn setup_table_mapping_env_variables(schema_type: super::SchemaType) {
     }
 }
 
+/// Sets up minimal environment variables for testing.
 fn setup_minimal_env_vars() {
     env::set_var("enable_table_creation", "false");
     env::set_var("region", "us-west-2");
