@@ -61,7 +61,7 @@ static LIB_ENV_CONFIG: OnceLock<Mutex<Option<Result<LibEnvConfig, Error>>>> = On
 /// # Examples
 ///
 /// ```
-/// // The following is an efficient way to use LIB_ENV_CONFIG and get a
+/// // The following is an efficient way to use get_lib_env_config and get a
 /// // usable &LibEnvConfig.
 /// let lib_env_config = get_lib_env_config().map_err(|err| anyhow!(err))?;
 /// ```

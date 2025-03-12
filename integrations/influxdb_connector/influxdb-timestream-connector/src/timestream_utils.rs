@@ -245,8 +245,8 @@ static TIMESTREAM_ENV_CONFIG: OnceLock<Mutex<Option<Result<TimestreamEnvConfig, 
 /// # Examples
 ///
 /// ```
-/// // The following is an efficient way to use LIB_ENV_CONFIG and get a
-/// // usable &LibEnvConfig.
+/// // The following is an efficient way to use get_timestream_env_config and get a
+/// // usable &TimestreamEnvConfig.
 /// let timestream_env_config = get_timestream_env_config().map_err(|err| anyhow!(err))?;
 /// ```
 pub fn get_timestream_env_config() -> Result<TimestreamEnvConfig, Error> {
