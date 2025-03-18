@@ -3,7 +3,7 @@ use aws_sdk_timestreamwrite as timestream_write;
 use aws_types::region::Region;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
-use log::info;
+use log::{error, info};
 use rayon::prelude::{ParallelIterator, ParallelSlice};
 use std::sync::Arc;
 use tokio::sync::Semaphore;
@@ -52,7 +52,7 @@ pub async fn create_database(
     database_name: &str,
     kms_key_id: Option<&str>,
     tags: Option<Vec<timestream_write::types::Tag>>,
-) -> Result<(), timestream_write::Error> {
+) -> Result<(), Error> {
     info!("Creating new database: {}", database_name);
 
     let mut create_db_builder = client
@@ -77,10 +77,19 @@ pub async fn create_database(
         info!("No tags provided for the database.");
     }
 
-    create_db_builder.send().await?;
+    let create_db_result = create_db_builder.send().await;
 
-    info!("Database '{}' created successfully.", database_name);
-    Ok(())
+    match create_db_result {
+        Ok(_) => {
+            info!("Database '{}' created successfully.", database_name);
+            Ok(())
+        },
+        Err(err) => {
+            let err_message = format!("Failed to create database '{}': {:?}", database_name, err);
+            error!("{}", err_message);
+            Err(anyhow!(err_message))
+        }
+    }
 }
 
 /// Create a new Timestream table.
@@ -91,7 +100,7 @@ pub async fn create_table(
     table_name: &str,
     table_config: TableConfig,
     tags: Option<Vec<timestream_write::types::Tag>>,
-) -> Result<(), timestream_write::Error> {
+) -> Result<(), Error> {
     info!(
         "Creating new table {} for database {}",
         table_name, database_name
@@ -143,13 +152,22 @@ pub async fn create_table(
         info!("No tags provided for the table.");
     }
 
-    create_table_builder.send().await?;
+    let create_table_result = create_table_builder.send().await;
 
-    info!(
-        "Table '{}' created successfully in database '{}'.",
-        table_name, database_name
-    );
-    Ok(())
+    match create_table_result {
+        Ok(_) => {
+            info!(
+                "Table '{}' created successfully in database '{}'.",
+                table_name, database_name
+            );
+            Ok(())
+        },
+        Err(err) => {
+            let err_message = format!("Failed to create table '{}' in database '{}': {:?}", table_name, database_name, err);
+            error!("{}", err_message);
+            Err(anyhow!(err_message))
+        }
+    }
 }
 
 /// Checks if a table already exists.
@@ -383,7 +401,7 @@ pub async fn ingest_record_batch(
     {
         Ok(_) => {}
         Err(error) => {
-            info!("SdkError: {:?}", error.raw_response().unwrap());
+            error!("SdkError: {:?}", error.raw_response().unwrap());
             return Err(anyhow!(error));
         }
     };
