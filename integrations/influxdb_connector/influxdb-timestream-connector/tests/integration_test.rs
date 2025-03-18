@@ -2,8 +2,9 @@ use anyhow::Error;
 use aws_credential_types::Credentials;
 use aws_sdk_timestreamwrite as timestream_write;
 use aws_types::region::Region;
+use core::time;
 use influxdb_timestream_connector::{
-    records_builder::SchemaType, timestream_utils::retry_with_backoff,
+    records_builder::SchemaType, timestream_utils::TIMESTREAM_API_BASE_WAIT_SECONDS,
 };
 use lambda_runtime::{Context, LambdaEvent};
 use rand::{distributions::uniform::SampleUniform, distributions::Alphanumeric, Rng};
@@ -11,6 +12,7 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::env;
 use std::sync::Arc;
+use std::thread;
 
 static DATABASE_NAME: &str = "influxdb_timestream_connector_integ_db";
 static REGION: &str = "us-west-2";
@@ -36,12 +38,13 @@ impl CleanupBatch {
                 "Deleting table {} in database {}",
                 table_name_to_delete, self.database_name
             );
-            let delete_table_builder = client
+            thread::sleep(time::Duration::from_secs(TIMESTREAM_API_BASE_WAIT_SECONDS));
+            let result = client
                 .delete_table()
                 .database_name(&self.database_name)
-                .table_name(table_name_to_delete);
-
-            let result = retry_with_backoff(|| delete_table_builder.clone().send()).await;
+                .table_name(table_name_to_delete)
+                .send()
+                .await;
 
             match result {
                 Ok(_) => (),
@@ -297,9 +300,6 @@ async fn test_mtmm_multiple_timestamps() -> Result<(), Error> {
 
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
 
-    let mut cleanup_batch = CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
-    cleanup_batch.cleanup(&client).await;
-
     assert!(response.is_err());
     Ok(())
 }
@@ -536,9 +536,6 @@ async fn test_mtmm_beyond_max_tag_length() -> Result<(), Error> {
     );
 
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
-
-    let mut cleanup_batch = CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
-    cleanup_batch.cleanup(&client).await;
 
     assert!(response.is_err());
     Ok(())
@@ -864,9 +861,6 @@ async fn test_mtmm_beyond_max_table_name_length() -> Result<(), Error> {
     );
 
     let response = influxdb_timestream_connector::lambda_handler(&client, request).await;
-
-    let mut cleanup_batch = CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
-    cleanup_batch.cleanup(&client).await;
 
     assert!(response.is_err());
     Ok(())
