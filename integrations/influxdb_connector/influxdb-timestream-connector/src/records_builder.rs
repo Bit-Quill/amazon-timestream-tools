@@ -39,10 +39,9 @@ pub fn build_records(
     records_builder.build_records(metrics, precision)
 }
 
+/// Converts the environment variable "table_creation_enabled" to bool.
 #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub fn table_creation_enabled() -> Result<bool, Error> {
-    // Convert the env var table_creation_enabled to bool
-
     match std::env::var("enable_table_creation") {
         Ok(enabled) => Ok(env_var_to_bool(enabled)),
         Err(_) => Err(anyhow!(
@@ -51,9 +50,9 @@ pub fn table_creation_enabled() -> Result<bool, Error> {
     }
 }
 
+/// Converts the environment variable "database_creation_enabled" to bool.
 #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub fn database_creation_enabled() -> Result<bool, Error> {
-    // Convert the env var database_creation_enabled to bool
     match std::env::var("enable_database_creation") {
         Ok(enabled) => Ok(env_var_to_bool(enabled)),
         Err(_) => Err(anyhow!(
@@ -62,17 +61,15 @@ pub fn database_creation_enabled() -> Result<bool, Error> {
     }
 }
 
+/// Converts an environment variable to bool.
 #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub fn env_var_to_bool(env_var: String) -> bool {
-    // Convert the env var to bool
-
     matches!(env_var.as_str(), "true" | "t" | "1")
 }
 
+/// Validates environment variables for all schema types.
 #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub fn validate_env_variables() -> Result<(), Error> {
-    // Validate environment variables for all schema types
-
     if std::env::var("region").is_err() {
         return Err(anyhow!("region environment variable is not defined"));
     }

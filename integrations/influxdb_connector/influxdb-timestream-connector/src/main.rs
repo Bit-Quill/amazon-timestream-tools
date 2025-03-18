@@ -9,9 +9,9 @@ use tracing_subscriber::{
     fmt::{self, format::FmtSpan},
 };
 
-// The number of threads to use to chunk Vecs in parallel
-// using rayon
-// Lambda functions have a maximum of 1024 threads
+/// The number of threads to use to chunk Vecs in parallel
+/// using rayon.
+/// Lambda functions have a maximum of 1024 threads.
 pub static NUM_RAYON_THREADS: usize = 32;
 
 #[tokio::main]

@@ -9,8 +9,8 @@ use std::sync::Arc;
 use tokio::sync::Semaphore;
 use tokio::task;
 
-// The maximum number of threads to use for ingesting
-// batches of records to Timestream in parallel
+/// The maximum number of threads to use for ingesting
+/// batches of records to Timestream in parallel.
 static NUM_TIMESTREAM_INGEST_THREADS: usize = 12;
 
 pub const DIMENSION_PARTITION_KEY_TYPE: &str = "dimension";
@@ -26,12 +26,11 @@ pub struct TableConfig {
     pub custom_partition_key_dimension: Option<String>,
 }
 
+/// Gets a connection to Timestream.
 #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub async fn get_connection(
     region: &str,
 ) -> Result<timestream_write::Client, timestream_write::Error> {
-    // Get a connection to Timestream
-
     let config = aws_config::defaults(aws_config::BehaviorVersion::latest())
         .region(Region::new(region.to_owned()))
         .load()
@@ -46,6 +45,7 @@ pub async fn get_connection(
     Ok(client)
 }
 
+/// Creates a new Timestream database.
 #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub async fn create_database(
     client: &Arc<timestream_write::Client>,
@@ -53,7 +53,6 @@ pub async fn create_database(
     kms_key_id: Option<&str>,
     tags: Option<Vec<timestream_write::types::Tag>>,
 ) -> Result<(), timestream_write::Error> {
-    // Create a new Timestream database
     info!("Creating new database: {}", database_name);
 
     let mut create_db_builder = client
@@ -84,6 +83,7 @@ pub async fn create_database(
     Ok(())
 }
 
+/// Create a new Timestream table.
 #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub async fn create_table(
     client: &Arc<timestream_write::Client>,
@@ -92,7 +92,6 @@ pub async fn create_table(
     table_config: TableConfig,
     tags: Option<Vec<timestream_write::types::Tag>>,
 ) -> Result<(), timestream_write::Error> {
-    // Create a new Timestream table
     info!(
         "Creating new table {} for database {}",
         table_name, database_name
@@ -153,14 +152,13 @@ pub async fn create_table(
     Ok(())
 }
 
+/// Checks if a table already exists.
 #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub async fn table_exists(
     client: &Arc<timestream_write::Client>,
     database_name: &str,
     table_name: &str,
 ) -> Result<bool, Error> {
-    // Check if table already exists
-
     match client
         .describe_table()
         .table_name(table_name)
@@ -179,13 +177,12 @@ pub async fn table_exists(
     }
 }
 
+/// Checks if a database already exists.
 #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub async fn database_exists(
     client: &Arc<timestream_write::Client>,
     database_name: &str,
 ) -> Result<bool, Error> {
-    // Check if database already exists
-
     match client
         .describe_database()
         .database_name(database_name)
@@ -237,10 +234,9 @@ pub fn parse_tags_from_str(tags_str: &str) -> Result<Vec<timestream_write::types
     Ok(tags)
 }
 
+/// Gets a populated table_config struct.
 #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub fn get_table_config() -> Result<TableConfig, Error> {
-    // Get the populated table_config struct
-
     let custom_partition_key_type = match std::env::var("custom_partition_key_type") {
         Ok(custom_partition_key_type_value) => {
             match custom_partition_key_type_value.to_lowercase().as_str() {
@@ -304,6 +300,8 @@ pub fn get_table_config() -> Result<TableConfig, Error> {
     })
 }
 
+/// Ingests records to Timestream in batches of 100 (max supported Timestream batch size)
+/// in parallel.
 #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub async fn ingest_records(
     client: Arc<timestream_write::Client>,
@@ -311,9 +309,6 @@ pub async fn ingest_records(
     table_name: String,
     records: Vec<timestream_write::types::Record>,
 ) -> Result<(), Error> {
-    // Ingest records to Timestream in batches of 100 (Max supported Timestream batch size)
-    // in parallel
-
     let mut records_ingested: usize = 0;
     const MAX_TIMESTREAM_BATCH_SIZE: usize = 100;
 

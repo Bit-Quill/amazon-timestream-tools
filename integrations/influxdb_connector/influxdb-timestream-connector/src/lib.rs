@@ -25,22 +25,22 @@ pub mod metric;
 pub mod records_builder;
 pub mod timestream_utils;
 
-// The maximum number of database/table creation/delete API calls
-// that can be made per second is 1.
+/// The maximum number of database/table creation/delete API calls
+/// that can be made per second is 1.
 pub static TIMESTREAM_API_WAIT_SECONDS: u64 = 1;
 
-// The number of batches processed at the same time.
-// For multi-table multi measure schema, batches are a combination of
-// a table name and a Vec of records bound for that table
+/// The number of batches processed at the same time.
+/// For multi-table multi measure schema, batches are a combination of
+/// a table name and a Vec of records bound for that table
 pub static NUM_BATCH_THREADS: usize = 16;
 
+/// Handles parsing body in request.
 #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 async fn handle_body(
     client: &Arc<timestream_write::Client>,
     body: &[u8],
     precision: &timestream_write::types::TimeUnit,
 ) -> Result<(), Error> {
-    // Handle parsing body in request
 
     let line_protocol = match str::from_utf8(body) {
         Ok(line_protocol) => line_protocol,
@@ -68,13 +68,12 @@ async fn handle_body(
     Ok(())
 }
 
+/// Ingests records for multi-measure schema type.
 #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 async fn handle_ingestion(
     client: &Arc<timestream_write::Client>,
     records: HashMap<String, Vec<timestream_write::types::Record>>,
 ) -> Result<(), Error> {
-    // Ingestion for multi-measure schema type
-
     let database_name = std::env::var("database_name")?;
     let database_name = Arc::new(database_name);
 
@@ -196,10 +195,9 @@ pub async fn create_table_if_non_existent(
     Ok(())
 }
 
+/// Retrieves the optional "precision" query string parameter from a serde_json::Value.
 #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub fn get_precision(event: &Value) -> Option<&str> {
-    // Retrieves the optional "precision" query string parameter from a serde_json::Value
-
     // Query string parameters may be included as "queryStringParameters"
     if let Some(precision) = event
         .get("queryStringParameters")
@@ -222,13 +220,12 @@ pub fn get_precision(event: &Value) -> Option<&str> {
     None
 }
 
+/// Handler for lambda runtime.
 #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub async fn lambda_handler(
     client: &Arc<timestream_write::Client>,
     event: LambdaEvent<Value>,
 ) -> Result<Value, Error> {
-    // Handler for lambda runtime
-
     let (event, _context) = event.into_parts();
 
     let precision = match get_precision(&event) {

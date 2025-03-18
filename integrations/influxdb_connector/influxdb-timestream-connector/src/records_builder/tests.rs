@@ -4,10 +4,9 @@ use anyhow::Error;
 use aws_sdk_timestreamwrite as timestream_write;
 use std::env;
 
+/// Tests single measure for multi-measure record.
 #[test]
 fn test_mtmm_single_record() -> Result<(), Error> {
-    // Single measure for multi-measure record
-
     setup_minimal_env_vars();
     setup_multi_table_multi_measure_env_vars();
     setup_table_mapping_env_variables(super::SchemaType::MultiTableMultiMeasure);
@@ -63,10 +62,9 @@ fn test_mtmm_single_record() -> Result<(), Error> {
     Ok(())
 }
 
+/// Tests dataset all going to the same table.
 #[test]
 fn test_mtmm_single_destination() -> Result<(), Error> {
-    // Dataset all going to same table
-
     setup_minimal_env_vars();
     setup_multi_table_multi_measure_env_vars();
     setup_table_mapping_env_variables(super::SchemaType::MultiTableMultiMeasure);
@@ -152,10 +150,9 @@ fn test_mtmm_single_destination() -> Result<(), Error> {
     Ok(())
 }
 
+/// Tests dataset going to multiple table destinations.
 #[test]
 fn test_mtmm_multi_record() -> Result<(), Error> {
-    // Dataset going to multiple table destinations
-
     setup_minimal_env_vars();
     setup_multi_table_multi_measure_env_vars();
     setup_table_mapping_env_variables(super::SchemaType::MultiTableMultiMeasure);
@@ -242,10 +239,9 @@ fn test_mtmm_multi_record() -> Result<(), Error> {
     Ok(())
 }
 
+/// Tests dataset with empty dimensions.
 #[test]
 fn test_mtmm_empty_dimensions() -> Result<(), Error> {
-    // Dataset with empty dimensions
-
     setup_minimal_env_vars();
     setup_multi_table_multi_measure_env_vars();
     setup_table_mapping_env_variables(super::SchemaType::MultiTableMultiMeasure);
@@ -292,10 +288,9 @@ fn test_mtmm_empty_dimensions() -> Result<(), Error> {
     Ok(())
 }
 
+/// Tests varying timestamp parsing.
 #[test]
 fn test_mtmm_varying_timestamp_records() -> Result<(), Error> {
-    // Varying timestamp parsing
-
     setup_minimal_env_vars();
     setup_multi_table_multi_measure_env_vars();
     setup_table_mapping_env_variables(super::SchemaType::MultiTableMultiMeasure);
@@ -393,10 +388,9 @@ fn test_mtmm_varying_timestamp_records() -> Result<(), Error> {
     Ok(())
 }
 
+/// Tests single measure for multi-measure record.
 #[test]
 fn test_stmm_single_record() -> Result<(), Error> {
-    // Single measure for multi-measure record
-
     setup_minimal_env_vars();
     setup_table_mapping_env_variables(super::SchemaType::SingleTableMultiMeasure);
     let single_table_multi_measure_builder = super::get_builder(
@@ -448,10 +442,9 @@ fn test_stmm_single_record() -> Result<(), Error> {
     Ok(())
 }
 
+/// Tests dataset with differing metric names going to the same table.
 #[test]
 fn test_stmm_multi_record() -> Result<(), Error> {
-    // Dataset with differing metric names going to the same table
-
     setup_minimal_env_vars();
     setup_table_mapping_env_variables(super::SchemaType::SingleTableMultiMeasure);
     let single_table_multi_measure_builder = super::get_builder(

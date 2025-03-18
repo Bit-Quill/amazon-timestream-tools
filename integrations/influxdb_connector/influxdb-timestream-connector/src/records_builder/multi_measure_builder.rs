@@ -12,9 +12,8 @@ pub struct MultiMeasureBuilder {
     pub schema_type: SchemaType,
 }
 
+/// Trait implementation to support multi-measure records Timestream.
 impl BuildRecords for MultiMeasureBuilder {
-    // trait implementation to support multi-measure records Timestream
-
     #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
     fn build_records(
         &self,
@@ -50,13 +49,12 @@ impl std::fmt::Debug for MultiMeasureBuilder {
     }
 }
 
+/// Builds multi-measure records HashMap to be ingested to one table.
 #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 fn build_single_table_multi_measure_records(
     metrics: &[Metric],
     precision: &timestream_write::types::TimeUnit,
 ) -> Result<HashMap<String, Vec<timestream_write::types::Record>>, Error> {
-    // Builds multi-measure records hashmap to be ingested to one table
-
     let mut records_batch: HashMap<String, Vec<aws_sdk_timestreamwrite::types::Record>> =
         HashMap::new();
     let table_name = std::env::var("single_table_name")?;
@@ -72,14 +70,13 @@ fn build_single_table_multi_measure_records(
     Ok(records_batch)
 }
 
+/// Builds multi-measure records HashMap to be ingested to multiple tables.
 #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 fn build_multi_table_multi_measure_records(
     metrics: &[Metric],
     measure_name: Option<&str>,
     precision: &timestream_write::types::TimeUnit,
 ) -> Result<HashMap<String, Vec<timestream_write::types::Record>>, Error> {
-    // Builds multi-measure records hashmap to be ingested to multiple tables
-
     let mut records_batch: HashMap<String, Vec<aws_sdk_timestreamwrite::types::Record>> =
         HashMap::new();
     for metric in metrics.iter() {
@@ -99,14 +96,13 @@ fn build_multi_table_multi_measure_records(
     Ok(records_batch)
 }
 
+/// Converts a Metric struct to a timestream multi-measure Record.
 #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub fn metric_to_timestream_record(
     measure_name: &str,
     metric: &Metric,
     precision: &timestream_write::types::TimeUnit,
 ) -> Result<timestream_write::types::Record, Error> {
-    // Converts the metric struct to a timestream multi-measure record
-
     let mut dimensions: Vec<timestream_write::types::Dimension> = Vec::new();
     for tag in metric.tags().iter().flatten() {
         dimensions.push(
@@ -143,12 +139,11 @@ pub fn metric_to_timestream_record(
     Ok(new_record)
 }
 
+/// Converts a Metric struct type to a timestream MeasureValue type.
 #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub fn get_timestream_measure_type(
     field_value: &FieldValue,
 ) -> Result<timestream_write::types::MeasureValueType, Error> {
-    // Converts a metric struct type to a timestream measure value type
-
     match field_value {
         FieldValue::Boolean(_) => Ok(timestream_write::types::MeasureValueType::Boolean),
         FieldValue::I64(_) => Ok(timestream_write::types::MeasureValueType::Bigint),
