@@ -4,14 +4,24 @@ use aws_types::region::Region;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use log::{error, info};
+use rand::Rng;
 use rayon::prelude::{ParallelIterator, ParallelSlice};
 use std::sync::Arc;
+use std::thread;
+use std::time::Duration;
 use tokio::sync::Semaphore;
 use tokio::task;
 
 /// The maximum number of threads to use for ingesting
 /// batches of records to Timestream in parallel.
 static NUM_TIMESTREAM_INGEST_THREADS: usize = 12;
+
+/// The maximum number of database/table creation/delete API calls
+/// that can be made per second is 1.
+pub static TIMESTREAM_API_BASE_WAIT_SECONDS: u64 = 1;
+
+/// The maximum number of retries for any Timestream API call.
+static MAX_RETRIES: u32 = 7;
 
 pub const DIMENSION_PARTITION_KEY_TYPE: &str = "dimension";
 pub const MEASURE_PARTITION_KEY_TYPE: &str = "measure";
@@ -77,13 +87,13 @@ pub async fn create_database(
         info!("No tags provided for the database.");
     }
 
-    let create_db_result = create_db_builder.send().await;
+    let create_db_result = retry_with_backoff(|| create_db_builder.clone().send()).await;
 
     match create_db_result {
         Ok(_) => {
             info!("Database '{}' created successfully.", database_name);
             Ok(())
-        },
+        }
         Err(err) => {
             let err_message = format!("Failed to create database '{}': {:?}", database_name, err);
             error!("{}", err_message);
@@ -152,7 +162,7 @@ pub async fn create_table(
         info!("No tags provided for the table.");
     }
 
-    let create_table_result = create_table_builder.send().await;
+    let create_table_result = retry_with_backoff(|| create_table_builder.clone().send()).await;
 
     match create_table_result {
         Ok(_) => {
@@ -160,12 +170,15 @@ pub async fn create_table(
                 "Table '{}' created successfully in database '{}'.",
                 table_name, database_name
             );
-            Ok(())
-        },
+            return Ok(());
+        }
         Err(err) => {
-            let err_message = format!("Failed to create table '{}' in database '{}': {:?}", table_name, database_name, err);
+            let err_message = format!(
+                "Failed to create table '{}' in database '{}': {:?}",
+                table_name, database_name, err
+            );
             error!("{}", err_message);
-            Err(anyhow!(err_message))
+            return Err(anyhow!(err_message));
         }
     }
 }
@@ -216,6 +229,54 @@ pub async fn database_exists(
             _ => Err(anyhow!(error)),
         },
     }
+}
+
+/// Retries a Timestream operation with exponential backoff and jitter.
+/// The operation F must return a Future where the output of the Future is a Result<T, E>,
+/// where T is any successful output, and E is an error that can be translated
+/// into an anyhow::Error. This is tailored for Timestream Write API calls.
+///
+/// # Examples
+///
+/// ```
+/// // Create a Timestream table.
+/// // The builder must be cloned as each call to send() consumes the builder.
+/// retry_with_backoff(|| create_table_builder.clone().send()).await?;
+/// ```
+#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
+pub async fn retry_with_backoff<F, Fut, T, E>(mut operation: F) -> Result<(), Error>
+where
+    F: FnMut() -> Fut,
+    Fut: std::future::Future<Output = Result<T, E>>,
+    E: Into<Error>,
+{
+    for attempt in 0..MAX_RETRIES {
+        match operation().await {
+            Ok(_) => {
+                return Ok(());
+            }
+            Err(err) => {
+                if attempt == MAX_RETRIES - 1 {
+                    return Err(anyhow!(err));
+                }
+
+                let exp_backoff =
+                    Duration::from_secs(TIMESTREAM_API_BASE_WAIT_SECONDS * u64::pow(2, attempt));
+                let jitter = Duration::from_millis(rand::thread_rng().gen_range(0, 1000));
+                let delay = exp_backoff + jitter;
+
+                info!(
+                    "Attempt {}/{} failed. Retrying in {}s",
+                    attempt + 1,
+                    MAX_RETRIES,
+                    delay.as_secs()
+                );
+
+                thread::sleep(delay);
+            }
+        }
+    }
+    unreachable!()
 }
 
 #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]

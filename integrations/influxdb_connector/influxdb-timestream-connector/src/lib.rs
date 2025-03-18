@@ -10,9 +10,9 @@ use records_builder::{
 };
 use serde_json::{json, Value};
 use std::collections::HashMap;
+use std::str;
 use std::sync::Arc;
 use std::time::Instant;
-use std::{str, thread, time};
 use timestream_utils::{
     create_database, create_table, database_exists, get_table_config, ingest_records,
     parse_tags_from_str, table_exists,
@@ -24,10 +24,6 @@ pub mod line_protocol_parser;
 pub mod metric;
 pub mod records_builder;
 pub mod timestream_utils;
-
-/// The maximum number of database/table creation/delete API calls
-/// that can be made per second is 1.
-pub static TIMESTREAM_API_WAIT_SECONDS: u64 = 1;
 
 /// The number of batches processed at the same time.
 /// For multi-table multi measure schema, batches are a combination of
@@ -41,7 +37,6 @@ async fn handle_body(
     body: &[u8],
     precision: &timestream_write::types::TimeUnit,
 ) -> Result<(), Error> {
-
     let line_protocol = match str::from_utf8(body) {
         Ok(line_protocol) => line_protocol,
         Err(err) => {
@@ -92,7 +87,6 @@ async fn handle_ingestion(
             Ok(true) => (),
             Ok(false) => {
                 if database_creation_enabled()? {
-                    thread::sleep(time::Duration::from_secs(TIMESTREAM_API_WAIT_SECONDS));
                     create_database(client, &database_name, kms_key_id.as_deref(), database_tags)
                         .await?;
                 } else {
@@ -179,7 +173,6 @@ pub async fn create_table_if_non_existent(
     match table_exists(client, database_name, table_name).await {
         Ok(true) => (),
         Ok(false) => {
-            thread::sleep(time::Duration::from_secs(TIMESTREAM_API_WAIT_SECONDS));
             create_table(
                 client,
                 database_name,

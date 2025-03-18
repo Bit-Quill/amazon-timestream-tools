@@ -2,13 +2,15 @@ use anyhow::Error;
 use aws_credential_types::Credentials;
 use aws_sdk_timestreamwrite as timestream_write;
 use aws_types::region::Region;
-use influxdb_timestream_connector::records_builder::SchemaType;
+use influxdb_timestream_connector::{
+    records_builder::SchemaType, timestream_utils::retry_with_backoff,
+};
 use lambda_runtime::{Context, LambdaEvent};
 use rand::{distributions::uniform::SampleUniform, distributions::Alphanumeric, Rng};
 use serde_json::{json, Value};
 use std::collections::HashMap;
+use std::env;
 use std::sync::Arc;
-use std::{env, thread, time};
 
 static DATABASE_NAME: &str = "influxdb_timestream_connector_integ_db";
 static REGION: &str = "us-west-2";
@@ -34,23 +36,20 @@ impl CleanupBatch {
                 "Deleting table {} in database {}",
                 table_name_to_delete, self.database_name
             );
-            thread::sleep(time::Duration::from_secs(
-                influxdb_timestream_connector::TIMESTREAM_API_WAIT_SECONDS,
-            ));
-            let result = client
+            let delete_table_builder = client
                 .delete_table()
                 .database_name(&self.database_name)
-                .table_name(table_name_to_delete)
-                .send()
-                .await;
+                .table_name(table_name_to_delete);
+
+            let result = retry_with_backoff(|| delete_table_builder.clone().send()).await;
+
             match result {
                 Ok(_) => (),
 
                 Err(error) => {
                     println!(
                         "Table deletion failed for table {}: {:?}",
-                        table_name_to_delete,
-                        error.raw_response()
+                        table_name_to_delete, error
                     );
                 }
             }
@@ -1701,7 +1700,7 @@ async fn test_stmm_varying_metrics() -> Result<(), Error> {
     let lp_velocity_measurement_name = String::from("velocity");
     for i in 0..10 {
         let lp_velocity_measurement_name = format!("{lp_velocity_measurement_name}{i}").to_string();
-        table_names_to_delete.push(lp_readings_measurement_name.clone());
+        table_names_to_delete.push(lp_velocity_measurement_name.clone());
 
         let point = format!(
             "{},tag1={} field1={}i {}\n",
