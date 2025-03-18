@@ -390,3 +390,106 @@ pub async fn ingest_record_batch(
 
     Ok(())
 }
+
+#[cfg(test)]
+#[test]
+pub fn test_parse_tags_from_str_empty_string() -> Result<(), Error> {
+    let tags_str = "";
+    let tags = parse_tags_from_str(tags_str)?;
+    assert!(tags.is_empty());
+    Ok(())
+}
+
+#[test]
+pub fn test_parse_tags_from_str_whitespace_only() -> Result<(), Error> {
+    let tags_str = "   ";
+    let tags = parse_tags_from_str(tags_str)?;
+    assert!(tags.is_empty());
+    Ok(())
+}
+
+#[test]
+pub fn test_parse_tags_from_str_tag_with_no_value() -> Result<(), Error> {
+    let tags_str = "key1";
+    let tags = parse_tags_from_str(tags_str)?;
+    assert_eq!(tags.len(), 1);
+    assert_eq!(tags[0].key, "key1");
+    assert_eq!(tags[0].value, "");
+    Ok(())
+}
+
+#[test]
+pub fn test_parse_tags_from_str_multiple_tags() -> Result<(), Error> {
+    let tags_str = "key1=value1, key2=value2, key3=value3";
+    let tags = parse_tags_from_str(tags_str)?;
+    assert_eq!(tags.len(), 3);
+    assert_eq!(tags[0].key, "key1");
+    assert_eq!(tags[0].value, "value1");
+    assert_eq!(tags[1].key, "key2");
+    assert_eq!(tags[1].value, "value2");
+    assert_eq!(tags[2].key, "key3");
+    assert_eq!(tags[2].value, "value3");
+    Ok(())
+}
+
+#[test]
+pub fn test_parse_tags_from_str_extra_commas() -> Result<(), Error> {
+    let tags_str = "key1=value1, , key2=value2,";
+    let tags = parse_tags_from_str(tags_str)?;
+    assert_eq!(tags.len(), 2);
+    assert_eq!(tags[0].key, "key1");
+    assert_eq!(tags[0].value, "value1");
+    assert_eq!(tags[1].key, "key2");
+    assert_eq!(tags[1].value, "value2");
+    Ok(())
+}
+
+#[test]
+pub fn test_parse_tags_from_str_multiple_equals() -> Result<(), Error> {
+    let tags_str = "key1=value=with=equals";
+    let tags = parse_tags_from_str(tags_str)?;
+    assert_eq!(tags.len(), 1);
+    assert_eq!(tags[0].key, "key1");
+    assert_eq!(tags[0].value, "value=with=equals");
+    Ok(())
+}
+
+#[test]
+pub fn test_parse_tags_from_str_trimming_whitespace() -> Result<(), Error> {
+    let tags_str = "  key1  =  value1  ,   key2=   value2  ";
+    let tags = parse_tags_from_str(tags_str)?;
+    assert_eq!(tags.len(), 2);
+    assert_eq!(tags[0].key, "key1");
+    assert_eq!(tags[0].value, "value1");
+    assert_eq!(tags[1].key, "key2");
+    assert_eq!(tags[1].value, "value2");
+    Ok(())
+}
+
+#[test]
+pub fn test_parse_tags_from_str_tag_with_empty_value_explicit() -> Result<(), Error> {
+    let tags_str = "key1=,key2=2,key3";
+    let tags = parse_tags_from_str(tags_str)?;
+    assert_eq!(tags.len(), 3);
+    assert_eq!(tags[0].key, "key1");
+    assert_eq!(tags[0].value, "");
+    assert_eq!(tags[1].key, "key2");
+    assert_eq!(tags[1].value, "2");
+    assert_eq!(tags[2].key, "key3");
+    assert_eq!(tags[2].value, "");
+    Ok(())
+}
+
+#[test]
+pub fn test_parse_tags_from_str_error_empty_key() {
+    let tags_str = "=value";
+    let err = parse_tags_from_str(tags_str).unwrap_err();
+    assert!(err.to_string().contains("Tag key must not be empty"));
+}
+
+#[test]
+pub fn test_parse_tags_from_str_error_only_equals() {
+    let tags_str = "   =   ";
+    let err = parse_tags_from_str(tags_str).unwrap_err();
+    assert!(err.to_string().contains("Tag key must not be empty"));
+}
