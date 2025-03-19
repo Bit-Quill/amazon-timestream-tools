@@ -4,20 +4,22 @@ use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use lambda_runtime::LambdaEvent;
 use line_protocol_parser::parse_line_protocol;
-use log::{error, info, trace};
+use log::{error, trace};
 use records_builder::{
     build_records, database_creation_enabled, env_var_to_bool, get_builder, SchemaType,
 };
 use serde_json::{json, Value};
-use std::collections::HashMap;
-use std::str;
-use std::sync::Arc;
-use std::time::Instant;
+use std::{
+    collections::{HashMap, HashSet},
+    str,
+    sync::Arc,
+    time::Instant,
+};
 use timestream_utils::{
     create_database, create_table, database_exists, get_table_config, ingest_records,
-    parse_tags_from_str, table_exists,
+    parse_tags_from_str,
 };
-use tokio::sync::Semaphore;
+use tokio::sync::{Mutex, Semaphore};
 use tokio::task;
 
 pub mod line_protocol_parser;
@@ -104,11 +106,16 @@ async fn handle_ingestion(
     let ingestion_semaphore = Arc::new(Semaphore::new(NUM_BATCH_THREADS));
     let mut batch_ingestion_futures = FuturesUnordered::new();
 
+    // Keep track of created tables to avoid unnecessary API calls to verify tables exist
+    let created_table_names = Arc::new(Mutex::new(HashSet::<String>::new()));
+
     // Track total time taken to check existence of tables and ingest records
     let ingestion_start = Instant::now();
 
     // Ingest records for each table, in parallel
     for (table_name, records) in records {
+        let created_table_names_clone = Arc::clone(&created_table_names);
+
         let permit = ingestion_semaphore
             .clone()
             .acquire_owned()
@@ -122,9 +129,28 @@ async fn handle_ingestion(
         // Create a future for ingesting to the current table
         let future = task::spawn(async move {
             if let Ok(true) = std::env::var("enable_table_creation").map(env_var_to_bool) {
-                let _ =
-                    create_table_if_non_existent(&client_clone, &database_name_clone, &table_name)
-                        .await;
+                let table_tags = match std::env::var("table_tags") {
+                    Ok(table_tags_str) => match parse_tags_from_str(&table_tags_str) {
+                        Ok(tags) => Some(tags),
+                        Err(_) => None,
+                    },
+                    Err(_) => None,
+                };
+
+                let mut created_table_names = created_table_names_clone.lock().await;
+                let table_name_clone = String::from(table_name.as_str());
+
+                // If the table name wasn't in the created_table_names HashSet, create the table.
+                if created_table_names.insert(table_name_clone) {
+                    create_table(
+                        &client_clone,
+                        &database_name_clone,
+                        &table_name,
+                        get_table_config()?,
+                        table_tags,
+                    )
+                    .await?;
+                }
             }
 
             // Ingest the data to the table
@@ -154,37 +180,6 @@ async fn handle_ingestion(
         "Total asynchronous ingestion duration: {:?}",
         ingestion_start.elapsed()
     );
-    Ok(())
-}
-
-#[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
-pub async fn create_table_if_non_existent(
-    client: &Arc<timestream_write::Client>,
-    database_name: &Arc<String>,
-    table_name: &str,
-) -> Result<(), Error> {
-    let table_tags = match std::env::var("table_tags") {
-        Ok(table_tags_str) => match parse_tags_from_str(&table_tags_str) {
-            Ok(tags) => Some(tags),
-            Err(_) => None,
-        },
-        Err(_) => None,
-    };
-    match table_exists(client, database_name, table_name).await {
-        Ok(true) => (),
-        Ok(false) => {
-            create_table(
-                client,
-                database_name,
-                table_name,
-                get_table_config()?,
-                table_tags,
-            )
-            .await?
-        }
-        Err(error) => info!("error checking table exists: {:?}", error),
-    }
-
     Ok(())
 }
 

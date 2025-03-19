@@ -102,7 +102,7 @@ pub async fn create_database(
     }
 }
 
-/// Create a new Timestream table.
+/// Creates a new Timestream table.
 #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub async fn create_table(
     client: &Arc<timestream_write::Client>,
