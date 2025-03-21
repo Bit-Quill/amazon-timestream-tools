@@ -518,10 +518,21 @@ To configure the sample application and ingest all line protocol data contained 
 
 ### All Tests
 
-To run all tests, including integration tests and unit tests, use the following command:
+To run all tests, including integration, unit, and doc tests, use the following command:
 
 ```shell
 cargo test -- --test-threads=1
+```
+
+`-- --test-threads=1` is required since integration tests change environment variables and `cargo test` uses a single process for testing. To run tests, except doc tests, with any number of threads, use [`nextest`](https://nexte.st/):
+
+```shell
+cargo nextest run --test-threads=16 # Any thread number
+```
+
+`nextest` can be installed with the command:
+```shell
+cargo install --locked cargo-nextest
 ```
 
 ### Integration Tests
@@ -532,7 +543,7 @@ To run all integration tests, use the following command, from the project root:
 cargo test --test '*' -- --test-threads=1
 ```
 
-> **NOTE**: It is important to use the flag `--test-threads=1` in order to avoid throttling errors, as the integration tests will create and delete tables.
+> **NOTE**: It is important to use the flag `--test-threads=1` in order to avoid issues with environment variables, as integration tests set and remove environment variables.
 
 To run a specific integration test, use the following command:
 
@@ -552,6 +563,14 @@ To run a single unit test, use the following command:
 
 ```shell
 cargo test <unit test name>
+```
+
+### Doc Tests
+
+To run all doc tests, use the following command:
+
+```shell
+cargo test --doc
 ```
 
 ## Limitations
