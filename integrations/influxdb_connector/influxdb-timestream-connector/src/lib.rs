@@ -6,15 +6,11 @@ use lambda_runtime::LambdaEvent;
 use line_protocol_parser::parse_line_protocol;
 use log::{error, trace};
 use records_builder::{
-    build_records, database_creation_enabled, env_var_to_bool, get_builder, SchemaType,
+    build_records, database_creation_enabled, env_var_to_bool, get_builder,
+    AttributeGroupedRecords, SchemaType, TableGroupedRecords,
 };
 use serde_json::{json, Value};
-use std::{
-    collections::{HashMap, HashSet},
-    str,
-    sync::Arc,
-    time::Instant,
-};
+use std::{collections::HashSet, str, sync::Arc, time::Instant};
 use timestream_utils::{
     create_database, create_table, database_exists, get_table_config, ingest_records,
     parse_tags_from_str,
@@ -69,7 +65,7 @@ async fn handle_body(
 #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 async fn handle_ingestion(
     client: &Arc<timestream_write::Client>,
-    records: HashMap<String, Vec<timestream_write::types::Record>>,
+    records: TableGroupedRecords,
 ) -> Result<(), Error> {
     let database_name = std::env::var("database_name")?;
     let database_name = Arc::new(database_name);
@@ -113,53 +109,68 @@ async fn handle_ingestion(
     let ingestion_start = Instant::now();
 
     // Ingest records for each table, in parallel
-    for (table_name, records) in records {
-        let created_table_names_clone = Arc::clone(&created_table_names);
+    for (table_name, common_attributes_grouped_records_map) in records {
+        for (_, common_attributes_grouped_records) in common_attributes_grouped_records_map {
+            let created_table_names_clone = Arc::clone(&created_table_names);
 
-        let permit = ingestion_semaphore
-            .clone()
-            .acquire_owned()
-            .await
-            .expect("Failed to get semaphore permit");
+            let permit = ingestion_semaphore
+                .clone()
+                .acquire_owned()
+                .await
+                .expect("Failed to get semaphore permit");
 
-        // Use Arc::clone to create a shallow clone of the client
-        let client_clone = Arc::clone(client);
-        let database_name_clone = Arc::clone(&database_name);
+            // Use Arc::clone to create a shallow clone of the client
+            let client_clone = Arc::clone(client);
+            let database_name_clone = Arc::clone(&database_name);
+            let table_name_clone = table_name.clone();
 
-        // Create a future for ingesting to the current table
-        let future = task::spawn(async move {
-            if let Ok(true) = std::env::var("enable_table_creation").map(env_var_to_bool) {
-                let table_tags = match std::env::var("table_tags") {
-                    Ok(table_tags_str) => match parse_tags_from_str(&table_tags_str) {
-                        Ok(tags) => Some(tags),
+            // Create a future for ingesting to the current table
+            let future = task::spawn(async move {
+                if let Ok(true) = std::env::var("enable_table_creation").map(env_var_to_bool) {
+                    let table_tags = match std::env::var("table_tags") {
+                        Ok(table_tags_str) => match parse_tags_from_str(&table_tags_str) {
+                            Ok(tags) => Some(tags),
+                            Err(_) => None,
+                        },
                         Err(_) => None,
-                    },
-                    Err(_) => None,
-                };
+                    };
 
-                let mut created_table_names = created_table_names_clone.lock().await;
-                let table_name_clone = String::from(table_name.as_str());
+                    let mut created_table_names = created_table_names_clone.lock().await;
 
-                // If the table name wasn't in the created_table_names HashSet, create the table.
-                if created_table_names.insert(table_name_clone) {
-                    create_table(
-                        &client_clone,
-                        &database_name_clone,
-                        &table_name,
-                        get_table_config()?,
-                        table_tags,
-                    )
-                    .await?;
+                    // If the table name wasn't in the created_table_names HashSet, create the table.
+                    if created_table_names.insert(table_name_clone.to_string()) {
+                        create_table(
+                            &client_clone,
+                            &database_name_clone,
+                            &table_name_clone,
+                            get_table_config()?,
+                            table_tags,
+                        )
+                        .await?;
+                    }
                 }
-            }
 
-            // Ingest the data to the table
-            let result =
-                ingest_records(client_clone, database_name_clone, table_name, records).await;
-            drop(permit);
-            result
-        });
-        batch_ingestion_futures.push(future);
+                // Destructuring common_attributes_grouped_records in order to
+                // use it for ingestion without cloning
+                let AttributeGroupedRecords {
+                    common_attributes,
+                    records,
+                } = common_attributes_grouped_records;
+
+                // Ingest the data to the table
+                let result = ingest_records(
+                    client_clone,
+                    database_name_clone,
+                    table_name_clone,
+                    common_attributes,
+                    records,
+                )
+                .await;
+                drop(permit);
+                result
+            });
+            batch_ingestion_futures.push(future);
+        }
     }
 
     while let Some(result) = batch_ingestion_futures.next().await {

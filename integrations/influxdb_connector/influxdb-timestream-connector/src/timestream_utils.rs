@@ -239,9 +239,20 @@ pub async fn database_exists(
 /// # Examples
 ///
 /// ```
-/// // Create a Timestream table.
-/// // The builder must be cloned as each call to send() consumes the builder.
-/// retry_with_backoff(|| create_table_builder.clone().send()).await?;
+/// use influxdb_timestream_connector::timestream_utils::{get_connection, retry_with_backoff};
+/// use tokio_test::block_on;
+///
+/// # block_on(async {
+/// let timestream_client = get_connection("us-west-2")
+///     .await
+///     .expect("Failed to get a Timestream client connection");
+///
+/// let list_databases_result = retry_with_backoff(|| {
+///     timestream_client.list_databases().set_max_results(Some(1)).send()
+/// }).await;
+///
+/// assert!(list_databases_result.is_ok());
+/// # })
 /// ```
 #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 pub async fn retry_with_backoff<F, Fut, T, E>(mut operation: F) -> Result<(), Error>
@@ -386,6 +397,7 @@ pub async fn ingest_records(
     client: Arc<timestream_write::Client>,
     database_name: Arc<String>,
     table_name: String,
+    common_attributes: timestream_write::types::Record,
     records: Vec<timestream_write::types::Record>,
 ) -> Result<(), Error> {
     let mut records_ingested: usize = 0;
@@ -412,11 +424,17 @@ pub async fn ingest_records(
         let client_clone = Arc::clone(&client);
         let table_name_clone = table_name.clone();
         let database_name_clone = Arc::clone(&database_name).to_string();
+        let common_attributes_clone = common_attributes.clone();
 
         let future = task::spawn(async move {
-            let result =
-                ingest_record_batch(client_clone, database_name_clone, table_name_clone, chunk)
-                    .await;
+            let result = ingest_record_batch(
+                client_clone,
+                database_name_clone,
+                table_name_clone,
+                common_attributes_clone,
+                chunk,
+            )
+            .await;
             drop(permit);
             result
         });
@@ -450,6 +468,7 @@ pub async fn ingest_record_batch(
     client: Arc<timestream_write::Client>,
     database_name: String,
     table_name: String,
+    common_attributes: timestream_write::types::Record,
     chunk: Vec<timestream_write::types::Record>,
 ) -> Result<(), Error> {
     match client
@@ -457,6 +476,7 @@ pub async fn ingest_record_batch(
         .database_name(database_name)
         .table_name(table_name)
         .set_records(Some(chunk))
+        .set_common_attributes(Some(common_attributes))
         .send()
         .await
     {

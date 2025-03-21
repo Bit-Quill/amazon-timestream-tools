@@ -22,25 +22,35 @@ fn test_mtmm_single_record() -> Result<(), Error> {
         1577836800000,
     )];
 
-    let records = build_records(
+    let table_grouped_records = build_records(
         &multi_table_multi_measure_builder,
         &metrics,
         &timestream_write::types::TimeUnit::Nanoseconds,
     )?;
-    assert_eq!(records.len(), 1);
-    let first_record = records
-        .get("readings")
-        .expect("Failed to unwrap")
+    assert_eq!(table_grouped_records.len(), 1);
+
+    let attribute_grouped_records_vec =
+        &table_grouped_records.get_attribute_grouped_records_vec(Some("readings"));
+
+    let common_attributes = &attribute_grouped_records_vec
         .first()
-        .expect("Failed to unwrap");
+        .expect("Failed to get common attributes")
+        .common_attributes;
+    let first_record = &attribute_grouped_records_vec
+        .first()
+        .expect("Failed to get record group")
+        .records
+        .first()
+        .expect("Failed to get the first record");
+
     assert_eq!(first_record.time, Some(String::from("1577836800000")));
 
     assert_eq!(
-        first_record.measure_name(),
+        common_attributes.measure_name(),
         Some("influxdb-connector-measure")
     );
     assert_eq!(
-        first_record.measure_value_type(),
+        common_attributes.measure_value_type(),
         Some(&timestream_write::types::MeasureValueType::Multi)
     );
     assert!(first_record.measure_values().contains(
@@ -51,7 +61,7 @@ fn test_mtmm_single_record() -> Result<(), Error> {
             .build()
             .expect("Failed to build measure")
     ));
-    assert!(first_record.dimensions().contains(
+    assert!(common_attributes.dimensions().contains(
         &timestream_write::types::Dimension::builder()
             .name(String::from("goal"))
             .value(String::from("baseline"))
@@ -88,34 +98,51 @@ fn test_mtmm_single_destination() -> Result<(), Error> {
         ),
     ];
 
-    let records = build_records(
+    let table_grouped_records = build_records(
         &multi_table_multi_measure_builder,
         &metrics,
         &timestream_write::types::TimeUnit::Nanoseconds,
     )?;
-    assert_eq!(records.len(), 1);
-    let readings = records.get("readings").expect("Failed to unwrap");
-    let first_record = &readings[0];
-    let second_record = &readings[1];
+    assert_eq!(table_grouped_records.len(), 1);
+
+    let attribute_grouped_records_vec =
+        &table_grouped_records.get_attribute_grouped_records_vec(Some("readings"));
+
+    let common_attributes = &attribute_grouped_records_vec
+        .first()
+        .expect("Failed to get common attributes")
+        .common_attributes;
+    let first_record = &attribute_grouped_records_vec
+        .first()
+        .expect("Failed to get the first record group")
+        .records
+        .first()
+        .expect("Failed to get the first record");
+    let second_record = &attribute_grouped_records_vec
+        .first()
+        .expect("Failed to get the second record group")
+        .records
+        .get(1)
+        .expect("Failed to get the second record");
+
     assert_eq!(first_record.time, Some(String::from("1577836800000")));
     assert_eq!(second_record.time, Some(String::from("1577836900032")));
 
     assert_eq!(
-        first_record.measure_name(),
+        common_attributes.measure_name(),
         Some("influxdb-connector-measure")
     );
     assert_eq!(
-        second_record.measure_name(),
-        Some("influxdb-connector-measure")
-    );
-    assert_eq!(
-        first_record.measure_value_type(),
+        common_attributes.measure_value_type(),
         Some(&timestream_write::types::MeasureValueType::Multi)
     );
-    assert_eq!(
-        second_record.measure_value_type(),
-        Some(&timestream_write::types::MeasureValueType::Multi)
-    );
+    assert!(common_attributes.dimensions().contains(
+        &timestream_write::types::Dimension::builder()
+            .name(String::from("goal"))
+            .value(String::from("baseline"))
+            .build()
+            .expect("Failed to build dimension")
+    ));
     assert!(first_record.measure_values().contains(
         &timestream_write::types::MeasureValue::builder()
             .name(String::from("incline"))
@@ -124,13 +151,6 @@ fn test_mtmm_single_destination() -> Result<(), Error> {
             .build()
             .expect("Failed to build measure")
     ));
-    assert!(first_record.dimensions().contains(
-        &timestream_write::types::Dimension::builder()
-            .name(String::from("goal"))
-            .value(String::from("baseline"))
-            .build()
-            .expect("Failed to build dimension")
-    ));
     assert!(second_record.measure_values().contains(
         &timestream_write::types::MeasureValue::builder()
             .name(String::from("incline"))
@@ -138,13 +158,6 @@ fn test_mtmm_single_destination() -> Result<(), Error> {
             .r#type(timestream_write::types::MeasureValueType::Bigint)
             .build()
             .expect("Failed to build measure")
-    ));
-    assert!(second_record.dimensions().contains(
-        &timestream_write::types::Dimension::builder()
-            .name(String::from("goal"))
-            .value(String::from("baseline"))
-            .build()
-            .expect("Failed to build dimension")
     ));
 
     Ok(())
@@ -176,36 +189,59 @@ fn test_mtmm_multi_record() -> Result<(), Error> {
         ),
     ];
 
-    let records = build_records(
+    let table_grouped_records = build_records(
         &multi_table_multi_measure_builder,
         &metrics,
         &timestream_write::types::TimeUnit::Nanoseconds,
     )?;
-    assert_eq!(records.len(), 2);
-    let readings = records
-        .get("readings")
-        .expect("Failed to unwrap")
-        .first()
-        .expect("Failed to unwrap");
-    let velocity = records
-        .get("velocity")
-        .expect("Failed to unwrap")
-        .first()
-        .expect("Failed to unwrap");
-    assert_eq!(readings.time, Some(String::from("1577836800000")));
-    assert_eq!(velocity.time, Some(String::from("1577836911132")));
+    assert_eq!(table_grouped_records.len(), 2);
 
-    assert_eq!(readings.measure_name(), Some("influxdb-connector-measure"));
-    assert_eq!(velocity.measure_name(), Some("influxdb-connector-measure"));
+    let readings_attribute_grouped_records_vec =
+        &table_grouped_records.get_attribute_grouped_records_vec(Some("readings"));
+    let readings_common_attributes = &readings_attribute_grouped_records_vec
+        .first()
+        .expect("Failed to get the readings common attributes")
+        .common_attributes;
+    let readings_record = &readings_attribute_grouped_records_vec
+        .first()
+        .expect("Failed to get the readings record group")
+        .records
+        .first()
+        .expect("Failed to get the readings record");
+
+    let velocity_attribute_grouped_records_vec =
+        &table_grouped_records.get_attribute_grouped_records_vec(Some("velocity"));
+    let velocity_common_attributes = &velocity_attribute_grouped_records_vec
+        .first()
+        .expect("Failed to get the velocity common attributes")
+        .common_attributes;
+    let velocity_record = &velocity_attribute_grouped_records_vec
+        .first()
+        .expect("Failed to get the velocity record group")
+        .records
+        .first()
+        .expect("Failed to get the velocity record");
+
+    assert_eq!(readings_record.time, Some(String::from("1577836800000")));
+    assert_eq!(velocity_record.time, Some(String::from("1577836911132")));
+
     assert_eq!(
-        readings.measure_value_type(),
+        readings_common_attributes.measure_name(),
+        Some("influxdb-connector-measure")
+    );
+    assert_eq!(
+        velocity_common_attributes.measure_name(),
+        Some("influxdb-connector-measure")
+    );
+    assert_eq!(
+        readings_common_attributes.measure_value_type(),
         Some(&timestream_write::types::MeasureValueType::Multi)
     );
     assert_eq!(
-        velocity.measure_value_type(),
+        velocity_common_attributes.measure_value_type(),
         Some(&timestream_write::types::MeasureValueType::Multi)
     );
-    assert!(readings.measure_values().contains(
+    assert!(readings_record.measure_values().contains(
         &timestream_write::types::MeasureValue::builder()
             .name(String::from("incline"))
             .value(String::from("125"))
@@ -213,14 +249,14 @@ fn test_mtmm_multi_record() -> Result<(), Error> {
             .build()
             .expect("Failed to build measure")
     ));
-    assert!(readings.dimensions().contains(
+    assert!(readings_common_attributes.dimensions().contains(
         &timestream_write::types::Dimension::builder()
             .name(String::from("goal"))
             .value(String::from("baseline"))
             .build()
             .expect("Failed to build dimension")
     ));
-    assert!(velocity.measure_values().contains(
+    assert!(velocity_record.measure_values().contains(
         &timestream_write::types::MeasureValue::builder()
             .name(String::from("km/h"))
             .value(String::from("4.6"))
@@ -228,7 +264,7 @@ fn test_mtmm_multi_record() -> Result<(), Error> {
             .build()
             .expect("Failed to build measure")
     ));
-    assert!(velocity.dimensions().contains(
+    assert!(velocity_common_attributes.dimensions().contains(
         &timestream_write::types::Dimension::builder()
             .name(String::from("goal"))
             .value(String::from("baseline"))
@@ -257,22 +293,34 @@ fn test_mtmm_empty_dimensions() -> Result<(), Error> {
         1577836800000,
     )];
 
-    let records = build_records(
+    let table_grouped_records = build_records(
         &multi_table_multi_measure_builder,
         &metrics,
         &timestream_write::types::TimeUnit::Nanoseconds,
     )?;
-    assert_eq!(records.len(), 1);
-    let readings = records.get("readings").expect("Failed to unwrap");
-    let first_record = &readings[0];
+    assert_eq!(table_grouped_records.len(), 1);
+
+    let attribute_grouped_records_vec =
+        &table_grouped_records.get_attribute_grouped_records_vec(Some("readings"));
+    let common_attributes = &attribute_grouped_records_vec
+        .first()
+        .expect("Failed to get common attributes")
+        .common_attributes;
+    let first_record = &attribute_grouped_records_vec
+        .first()
+        .expect("Failed to get the first record group")
+        .records
+        .first()
+        .expect("Failed to get the first record");
+
     assert_eq!(first_record.time, Some(String::from("1577836800000")));
 
     assert_eq!(
-        first_record.measure_name(),
+        common_attributes.measure_name(),
         Some("influxdb-connector-measure")
     );
     assert_eq!(
-        first_record.measure_value_type(),
+        common_attributes.measure_value_type(),
         Some(&timestream_write::types::MeasureValueType::Multi)
     );
     assert!(first_record.measure_values().contains(
@@ -283,7 +331,7 @@ fn test_mtmm_empty_dimensions() -> Result<(), Error> {
             .build()
             .expect("Failed to build measure")
     ));
-    assert!(first_record.dimensions().is_empty());
+    assert!(common_attributes.dimensions().is_empty());
 
     Ok(())
 }
@@ -314,29 +362,36 @@ fn test_mtmm_varying_timestamp_records() -> Result<(), Error> {
         ),
     ];
 
-    let records = build_records(
+    let table_grouped_records = build_records(
         &multi_table_multi_measure_builder,
         &metrics,
         &timestream_write::types::TimeUnit::Nanoseconds,
     )?;
-    assert_eq!(records.len(), 2);
+    assert_eq!(table_grouped_records.len(), 2);
 
-    let first_record = records
-        .get("readings")
-        .expect("Failed to unwrap")
+    let readings_attribute_grouped_records_vec =
+        &table_grouped_records.get_attribute_grouped_records_vec(Some("readings"));
+    let readings_common_attributes = &readings_attribute_grouped_records_vec
         .first()
-        .expect("Failed to unwrap");
+        .expect("Failed to get the readings common attributes")
+        .common_attributes;
+    let readings_record = &readings_attribute_grouped_records_vec
+        .first()
+        .expect("Failed to get the readings record group")
+        .records
+        .first()
+        .expect("Failed to get the readings record");
 
-    assert_eq!(first_record.time, Some(String::from("1577836866658")));
+    assert_eq!(readings_record.time, Some(String::from("1577836866658")));
     assert_eq!(
-        first_record.measure_name(),
+        readings_common_attributes.measure_name(),
         Some("influxdb-connector-measure")
     );
     assert_eq!(
-        first_record.measure_value_type(),
+        readings_common_attributes.measure_value_type(),
         Some(&timestream_write::types::MeasureValueType::Multi)
     );
-    assert!(first_record.measure_values().contains(
+    assert!(readings_record.measure_values().contains(
         &timestream_write::types::MeasureValue::builder()
             .name(String::from("incline"))
             .value(String::from("125"))
@@ -344,7 +399,7 @@ fn test_mtmm_varying_timestamp_records() -> Result<(), Error> {
             .build()
             .expect("Failed to build measure")
     ));
-    assert!(first_record.dimensions().contains(
+    assert!(readings_common_attributes.dimensions().contains(
         &timestream_write::types::Dimension::builder()
             .name(String::from("goal"))
             .value(String::from("baseline"))
@@ -352,23 +407,30 @@ fn test_mtmm_varying_timestamp_records() -> Result<(), Error> {
             .expect("Failed to build dimension")
     ));
 
-    let second_record = records
-        .get("velocity")
-        .expect("Failed to unwrap")
+    let velocity_attribute_grouped_records_vec =
+        &table_grouped_records.get_attribute_grouped_records_vec(Some("velocity"));
+    let velocity_common_attributes = &velocity_attribute_grouped_records_vec
         .first()
-        .expect("Failed to unwrap");
+        .expect("Failed to get the velocity common attributes")
+        .common_attributes;
+    let velocity_record = &velocity_attribute_grouped_records_vec
+        .first()
+        .expect("Failed to get the velocity record group")
+        .records
+        .first()
+        .expect("Failed to get the velocity record");
 
-    assert_eq!(second_record.time, Some(String::from("1577836911132")));
+    assert_eq!(velocity_record.time, Some(String::from("1577836911132")));
     assert_eq!(
-        second_record.measure_name(),
+        velocity_common_attributes.measure_name(),
         Some("influxdb-connector-measure")
     );
     assert_eq!(
-        second_record.measure_value_type(),
+        velocity_common_attributes.measure_value_type(),
         Some(&timestream_write::types::MeasureValueType::Multi)
     );
 
-    assert!(second_record.measure_values().contains(
+    assert!(velocity_record.measure_values().contains(
         &timestream_write::types::MeasureValue::builder()
             .name(String::from("km/h"))
             .value(String::from("4.6"))
@@ -377,7 +439,7 @@ fn test_mtmm_varying_timestamp_records() -> Result<(), Error> {
             .expect("Failed to build measure")
     ));
 
-    assert!(second_record.dimensions().contains(
+    assert!(velocity_common_attributes.dimensions().contains(
         &timestream_write::types::Dimension::builder()
             .name(String::from("goal"))
             .value(String::from("baseline"))
@@ -404,23 +466,33 @@ fn test_stmm_single_record() -> Result<(), Error> {
         1577836800000,
     )];
 
-    let records = build_records(
+    let table_grouped_records = build_records(
         &single_table_multi_measure_builder,
         &metrics,
         &timestream_write::types::TimeUnit::Nanoseconds,
     )?;
-    assert_eq!(records.len(), 1);
+    assert_eq!(table_grouped_records.len(), 1);
+
     // Table name should align with environment variable
-    let first_record = records
-        .get("influxdb-measures")
-        .expect("Failed to unwrap")
+    let attribute_grouped_records_vec =
+        &table_grouped_records.get_attribute_grouped_records_vec(Some("influxdb-measures"));
+
+    let common_attributes = &attribute_grouped_records_vec
         .first()
-        .expect("Failed to unwrap");
+        .expect("Failed to get common attributes")
+        .common_attributes;
+    let first_record = &attribute_grouped_records_vec
+        .first()
+        .expect("Failed to get record group")
+        .records
+        .first()
+        .expect("Failed to get the first record");
+
     assert_eq!(first_record.time, Some(String::from("1577836800000")));
 
-    assert_eq!(first_record.measure_name(), Some("readings"));
+    assert_eq!(common_attributes.measure_name(), Some("readings"));
     assert_eq!(
-        first_record.measure_value_type(),
+        common_attributes.measure_value_type(),
         Some(&timestream_write::types::MeasureValueType::Multi)
     );
     assert!(first_record.measure_values().contains(
@@ -431,7 +503,7 @@ fn test_stmm_single_record() -> Result<(), Error> {
             .build()
             .expect("Failed to build measure")
     ));
-    assert!(first_record.dimensions().contains(
+    assert!(common_attributes.dimensions().contains(
         &timestream_write::types::Dimension::builder()
             .name(String::from("goal"))
             .value(String::from("baseline"))
@@ -466,31 +538,66 @@ fn test_stmm_multi_record() -> Result<(), Error> {
         ),
     ];
 
-    let records = build_records(
+    let table_grouped_records = build_records(
         &single_table_multi_measure_builder,
         &metrics,
         &timestream_write::types::TimeUnit::Nanoseconds,
     )?;
     // All items should only be going to one table
-    assert_eq!(records.len(), 1);
-    // Table name should align with environment variable
-    let records_vec = records.get("influxdb-measures").expect("failed to unwrap");
-    let readings = records_vec.first().expect("Failed to unwrap");
-    let velocity = records_vec.get(1).expect("Failed to unwrap");
-    assert_eq!(readings.time, Some(String::from("1577836800000")));
-    assert_eq!(velocity.time, Some(String::from("1577836911132")));
+    assert_eq!(table_grouped_records.len(), 1);
 
-    assert_eq!(readings.measure_name(), Some("readings"));
-    assert_eq!(velocity.measure_name(), Some("velocity"));
+    // Table name should align with environment variable
+    let attribute_grouped_records_vec =
+        &table_grouped_records.get_attribute_grouped_records_vec(Some("influxdb-measures"));
+
+    let readings_common_attributes = &attribute_grouped_records_vec
+        .iter()
+        .find(|attribute_grouped_records| {
+            attribute_grouped_records.common_attributes.measure_name() == Some("readings")
+        })
+        .expect("Failed to get the readings attributes group")
+        .common_attributes;
+    let readings_record = &attribute_grouped_records_vec
+        .iter()
+        .find(|attribute_grouped_records| {
+            attribute_grouped_records.common_attributes.measure_name() == Some("readings")
+        })
+        .expect("Failed to get the readings attributes group")
+        .records
+        .first()
+        .expect("Failed to get the readings record");
+
+    let velocity_common_attributes = &attribute_grouped_records_vec
+        .iter()
+        .find(|attribute_grouped_records| {
+            attribute_grouped_records.common_attributes.measure_name() == Some("velocity")
+        })
+        .expect("Failed to get the velocity attributes group")
+        .common_attributes;
+    let velocity_record = &attribute_grouped_records_vec
+        .iter()
+        .find(|attribute_grouped_records| {
+            attribute_grouped_records.common_attributes.measure_name() == Some("velocity")
+        })
+        .expect("Failed to get the velocity attributes group")
+        .records
+        .first()
+        .expect("Failed to get the velocity record");
+
+    assert_eq!(readings_record.time, Some(String::from("1577836800000")));
+    assert_eq!(velocity_record.time, Some(String::from("1577836911132")));
+
+    assert_eq!(readings_common_attributes.measure_name(), Some("readings"));
+    assert_eq!(velocity_common_attributes.measure_name(), Some("velocity"));
     assert_eq!(
-        readings.measure_value_type(),
+        readings_common_attributes.measure_value_type(),
         Some(&timestream_write::types::MeasureValueType::Multi)
     );
     assert_eq!(
-        velocity.measure_value_type(),
+        velocity_common_attributes.measure_value_type(),
         Some(&timestream_write::types::MeasureValueType::Multi)
     );
-    assert!(readings.measure_values().contains(
+    assert!(readings_record.measure_values().contains(
         &timestream_write::types::MeasureValue::builder()
             .name(String::from("incline"))
             .value(String::from("125"))
@@ -498,14 +605,14 @@ fn test_stmm_multi_record() -> Result<(), Error> {
             .build()
             .expect("Failed to build measure")
     ));
-    assert!(readings.dimensions().contains(
+    assert!(readings_common_attributes.dimensions().contains(
         &timestream_write::types::Dimension::builder()
             .name(String::from("goal"))
             .value(String::from("baseline"))
             .build()
             .expect("Failed to build dimension")
     ));
-    assert!(velocity.measure_values().contains(
+    assert!(velocity_record.measure_values().contains(
         &timestream_write::types::MeasureValue::builder()
             .name(String::from("km/h"))
             .value(String::from("4.6"))
@@ -513,7 +620,7 @@ fn test_stmm_multi_record() -> Result<(), Error> {
             .build()
             .expect("Failed to build measure")
     ));
-    assert!(velocity.dimensions().contains(
+    assert!(velocity_common_attributes.dimensions().contains(
         &timestream_write::types::Dimension::builder()
             .name(String::from("goal"))
             .value(String::from("baseline"))

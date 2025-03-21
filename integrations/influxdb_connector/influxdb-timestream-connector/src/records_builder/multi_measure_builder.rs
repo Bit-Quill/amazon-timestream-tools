@@ -1,11 +1,10 @@
-use super::{validate_env_variables, BuildRecords};
+use super::{validate_env_variables, BuildRecords, RecordPair, TableGroupedRecords};
 use crate::{
     metric::{FieldValue, Metric},
     SchemaType,
 };
 use anyhow::{Error, Result};
 use aws_sdk_timestreamwrite as timestream_write;
-use std::collections::HashMap;
 
 pub struct MultiMeasureBuilder {
     pub measure_name: Option<String>,
@@ -19,7 +18,7 @@ impl BuildRecords for MultiMeasureBuilder {
         &self,
         metrics: &[Metric],
         precision: &timestream_write::types::TimeUnit,
-    ) -> Result<HashMap<String, Vec<timestream_write::types::Record>>, Error> {
+    ) -> Result<TableGroupedRecords, Error> {
         validate_env_variables()?;
         match self.schema_type {
             SchemaType::SingleTableMultiMeasure => {
@@ -54,55 +53,53 @@ impl std::fmt::Debug for MultiMeasureBuilder {
 fn build_single_table_multi_measure_records(
     metrics: &[Metric],
     precision: &timestream_write::types::TimeUnit,
-) -> Result<HashMap<String, Vec<timestream_write::types::Record>>, Error> {
-    let mut records_batch: HashMap<String, Vec<aws_sdk_timestreamwrite::types::Record>> =
-        HashMap::new();
+) -> Result<TableGroupedRecords, Error> {
+    let mut records_batch: TableGroupedRecords = TableGroupedRecords::new();
     let table_name = std::env::var("single_table_name")?;
     for metric in metrics.iter() {
-        let new_record = metric_to_timestream_record(metric.name(), metric, precision)?;
-        if let Some(record_vec) = records_batch.get_mut(&table_name) {
-            record_vec.push(new_record);
-        } else {
-            records_batch.insert(table_name.to_string(), vec![new_record]);
-        }
+        let record_pair = metric_to_timestream_record_pair(metric.name(), metric, precision)?;
+        records_batch.insert_record_pair(table_name.to_string(), record_pair);
     }
 
     Ok(records_batch)
 }
 
 /// Builds multi-measure records HashMap to be ingested to multiple tables.
+/// The HashMap's key is the table name, the inner HashMap groups records
+/// according to a common attribute record. The key of this inner HashMap
+/// is the records' list of dimensions and measure name as a String. The
+/// value for this HashMap, the tuple, is a pair of a common attribute record
+/// made up of a list of dimensions and a measure name, and a Vec of records
+/// that share that common attribute.
 #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 fn build_multi_table_multi_measure_records(
     metrics: &[Metric],
     measure_name: Option<&str>,
     precision: &timestream_write::types::TimeUnit,
-) -> Result<HashMap<String, Vec<timestream_write::types::Record>>, Error> {
-    let mut records_batch: HashMap<String, Vec<aws_sdk_timestreamwrite::types::Record>> =
-        HashMap::new();
+) -> Result<TableGroupedRecords, Error> {
+    let mut records_batch: TableGroupedRecords = TableGroupedRecords::new();
+
     for metric in metrics.iter() {
-        let new_record = metric_to_timestream_record(
+        let record_pair = metric_to_timestream_record_pair(
             measure_name.expect("Failed to unwrap"),
             metric,
             precision,
         )?;
         let table_name = metric.name();
-        if let Some(record_vec) = records_batch.get_mut(table_name) {
-            record_vec.push(new_record);
-        } else {
-            records_batch.insert(table_name.to_string(), vec![new_record]);
-        }
+        records_batch.insert_record_pair(table_name.to_string(), record_pair);
     }
 
     Ok(records_batch)
 }
 
-/// Converts a Metric struct to a timestream multi-measure Record.
+/// Converts a Metric struct to a tuple containing a timestream multi-measure Record and its
+/// common attribute, comprised of the record's dimensions, measure name, and timestamp precision.
 #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
-pub fn metric_to_timestream_record(
+pub fn metric_to_timestream_record_pair(
     measure_name: &str,
     metric: &Metric,
     precision: &timestream_write::types::TimeUnit,
-) -> Result<timestream_write::types::Record, Error> {
+) -> Result<RecordPair, Error> {
     let mut dimensions: Vec<timestream_write::types::Dimension> = Vec::new();
     for tag in metric.tags().iter().flatten() {
         dimensions.push(
@@ -127,16 +124,22 @@ pub fn metric_to_timestream_record(
         );
     }
 
-    let new_record = timestream_write::types::Record::builder()
+    let common_attributes = timestream_write::types::Record::builder()
         .measure_name(measure_name)
-        .set_measure_values(Some(measure_values))
+        .set_dimensions(Some(dimensions))
         .set_measure_value_type(Some(timestream_write::types::MeasureValueType::Multi))
         .set_time_unit(Some(precision.clone()))
-        .time(metric.timestamp().to_string())
-        .set_dimensions(Some(dimensions))
         .build();
 
-    Ok(new_record)
+    let record = timestream_write::types::Record::builder()
+        .set_measure_values(Some(measure_values))
+        .time(metric.timestamp().to_string())
+        .build();
+
+    Ok(RecordPair {
+        common_attributes,
+        record,
+    })
 }
 
 /// Converts a Metric struct type to a timestream MeasureValue type.
