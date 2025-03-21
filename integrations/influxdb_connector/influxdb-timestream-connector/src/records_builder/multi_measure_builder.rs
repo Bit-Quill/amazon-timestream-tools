@@ -1,9 +1,11 @@
-use super::{validate_env_variables, BuildRecords, RecordPair, TableGroupedRecords};
+use super::{BuildRecords, RecordPair, TableGroupedRecords};
 use crate::{
     metric::{FieldValue, Metric},
+    timestream_utils::TimestreamEnvConfig,
     SchemaType,
 };
-use anyhow::{Error, Result};
+use anyhow::{anyhow, Error, Result};
+use async_trait::async_trait;
 use aws_sdk_timestreamwrite as timestream_write;
 
 pub struct MultiMeasureBuilder {
@@ -12,17 +14,18 @@ pub struct MultiMeasureBuilder {
 }
 
 /// Trait implementation to support multi-measure records Timestream.
+#[async_trait]
 impl BuildRecords for MultiMeasureBuilder {
     #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
-    fn build_records(
+    async fn build_records(
         &self,
         metrics: &[Metric],
         precision: &timestream_write::types::TimeUnit,
     ) -> Result<TableGroupedRecords, Error> {
-        validate_env_variables()?;
         match self.schema_type {
             SchemaType::SingleTableMultiMeasure => {
-                return build_single_table_multi_measure_records(metrics, precision)
+                let records = build_single_table_multi_measure_records(metrics, precision).await;
+                return records;
             }
             SchemaType::MultiTableMultiMeasure => {
                 return build_multi_table_multi_measure_records(
@@ -50,12 +53,16 @@ impl std::fmt::Debug for MultiMeasureBuilder {
 
 /// Builds multi-measure records HashMap to be ingested to one table.
 #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
-fn build_single_table_multi_measure_records(
+async fn build_single_table_multi_measure_records(
     metrics: &[Metric],
     precision: &timestream_write::types::TimeUnit,
 ) -> Result<TableGroupedRecords, Error> {
+    let timestream_env_config = TimestreamEnvConfig::get().await?;
+
     let mut records_batch: TableGroupedRecords = TableGroupedRecords::new();
-    let table_name = std::env::var("single_table_name")?;
+    let table_name = timestream_env_config
+        .single_table_name
+        .ok_or(anyhow!("Failed to get single_table_name"))?;
     for metric in metrics.iter() {
         let record_pair = metric_to_timestream_record_pair(metric.name(), metric, precision)?;
         records_batch.insert_record_pair(table_name.to_string(), record_pair);

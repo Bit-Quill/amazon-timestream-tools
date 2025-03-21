@@ -5,15 +5,15 @@ use futures::StreamExt;
 use lambda_runtime::LambdaEvent;
 use line_protocol_parser::parse_line_protocol;
 use log::{error, trace};
+use once_cell::sync::OnceCell;
 use records_builder::{
-    build_records, database_creation_enabled, env_var_to_bool, get_builder,
-    AttributeGroupedRecords, SchemaType, TableGroupedRecords,
+    build_records, get_builder, AttributeGroupedRecords, SchemaType, TableGroupedRecords,
 };
 use serde_json::{json, Value};
 use std::{collections::HashSet, str, sync::Arc, time::Instant};
 use timestream_utils::{
     create_database, create_table, database_exists, get_table_config, ingest_records,
-    parse_tags_from_str,
+    TimestreamEnvConfig,
 };
 use tokio::sync::{Mutex, Semaphore};
 use tokio::task;
@@ -28,6 +28,90 @@ pub mod timestream_utils;
 /// a table name and a Vec of records bound for that table
 pub static NUM_BATCH_THREADS: usize = 16;
 
+/// Environment variables common to all inputs and outputs.
+#[derive(Debug, Clone)]
+pub struct LibEnvConfig {
+    /// Whether the connector is being invoked locally, not as a Lambda function.
+    pub local_invocation: bool,
+}
+
+impl LibEnvConfig {
+    fn new() -> Result<Self, Error> {
+        Ok(Self {
+            local_invocation: std::env::var("local_invocation")
+                .map(|val| matches!(val.to_lowercase().as_str(), "true" | "t" | "1"))
+                .unwrap_or(false),
+        })
+    }
+
+    /// Gets LIB_ENV_CONFIG.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use influxdb_timestream_connector::LibEnvConfig;
+    /// # use tokio_test::block_on;
+    ///
+    /// # block_on(async {
+    /// let lib_env_config_result = LibEnvConfig::get().await;
+    /// assert!(lib_env_config_result.is_ok());
+    /// # })
+    /// ```
+    pub async fn get() -> Result<LibEnvConfig, Error> {
+        let config_lock = LIB_ENV_CONFIG.get_or_init(|| Mutex::new(None));
+        let mut config = config_lock.lock().await;
+
+        if config.is_none() {
+            *config = Some(LibEnvConfig::new());
+        }
+
+        match config.take() {
+            Some(Ok(env_config)) => Ok(env_config),
+            Some(Err(err)) => Err(anyhow!("{}", err)),
+            None => Err(anyhow!("Library configuration has not been initialized")),
+        }
+    }
+
+    /// Resets LIB_ENV_CONFIG, requiring it to be reinitialized for any future use.
+    /// This function may return an Err, if a lock cannot be acquired on
+    /// LIB_ENV_CONFIG.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use influxdb_timestream_connector::LibEnvConfig;
+    /// use std::env;
+    /// # use tokio_test::block_on;
+    ///
+    /// // Here, reset_lib_env_config is used to reset environment variables during
+    /// // testing.
+    /// // Changes to environment variables are only picked up by the connector after
+    /// // reset_lib_env_config is called
+    /// # block_on(async {
+    /// env::remove_var("some_environment_variable_removed_for_test");
+    ///
+    /// // . . . test code
+    ///
+    /// // Reset LibEnvConfig so that the next test has its environment variables
+    /// // picked up
+    /// LibEnvConfig::reset();
+    /// # })
+    /// ```
+    pub async fn reset() {
+        if let Some(config_lock) = LIB_ENV_CONFIG.get() {
+            let mut config = config_lock.lock().await;
+            *config = None;
+        }
+    }
+}
+
+/// Library environment variable configuration, making sure that environment
+/// variables are read once.
+/// This being a OnceCell<Mutex<Option<Result<LibEnvConfig, Error>>>> means
+/// that it can handle checking for required environment variables and is
+/// thread safe.
+static LIB_ENV_CONFIG: OnceCell<Mutex<Option<Result<LibEnvConfig, Error>>>> = OnceCell::new();
+
 /// Handles parsing body in request.
 #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 async fn handle_body(
@@ -35,6 +119,8 @@ async fn handle_body(
     body: &[u8],
     precision: &timestream_write::types::TimeUnit,
 ) -> Result<(), Error> {
+    let timestream_env_config = TimestreamEnvConfig::get().await?;
+
     let line_protocol = match str::from_utf8(body) {
         Ok(line_protocol) => line_protocol,
         Err(err) => {
@@ -44,19 +130,37 @@ async fn handle_body(
     };
     let metric_data = parse_line_protocol(line_protocol)?;
 
-    let multi_measure_builder = match std::env::var("table_mapping")?.to_lowercase().as_str() {
-        "multi-table" => get_builder(
-            SchemaType::MultiTableMultiMeasure,
-            std::env::var("measure_name_for_multi_measure_records")?,
-        ),
-        _ => get_builder(
-            SchemaType::SingleTableMultiMeasure,
-            std::env::var("single_table_name")?,
-        ),
+    let multi_measure_builder = match timestream_env_config.table_mapping.as_str() {
+        "multi-table" => {
+            let measure_name_for_multi_measure_records =
+                match &timestream_env_config.measure_name_for_multi_measure_records {
+                    Some(val) => val.clone(),
+                    None => {
+                        let err_message = "measure_name_for_multi_measure_records is not defined";
+                        error!("{}", err_message);
+                        return Err(anyhow!(err_message));
+                    }
+                };
+            get_builder(
+                SchemaType::MultiTableMultiMeasure,
+                measure_name_for_multi_measure_records,
+            )
+        }
+        _ => {
+            let single_table_name = match &timestream_env_config.single_table_name {
+                Some(val) => val.clone(),
+                None => {
+                    let err_message = "single_table_name is not defined";
+                    error!("{}", err_message);
+                    return Err(anyhow!(err_message));
+                }
+            };
+            get_builder(SchemaType::SingleTableMultiMeasure, single_table_name)
+        }
     };
 
     // Only currently supports multi-measure
-    let multi_table_batch = build_records(&multi_measure_builder, &metric_data, precision)?;
+    let multi_table_batch = build_records(&multi_measure_builder, &metric_data, precision).await?;
     handle_ingestion(client, multi_table_batch).await?;
     Ok(())
 }
@@ -67,32 +171,19 @@ async fn handle_ingestion(
     client: &Arc<timestream_write::Client>,
     records: TableGroupedRecords,
 ) -> Result<(), Error> {
-    let database_name = std::env::var("database_name")?;
+    let timestream_env_config = TimestreamEnvConfig::get().await?;
+
+    let database_name = timestream_env_config.database_name.clone();
+    let kms_key_id = timestream_env_config.kms_key_id.clone();
+    let database_tags = timestream_env_config.database_tags.clone();
     let database_name = Arc::new(database_name);
 
-    let kms_key_id = std::env::var("kms_key_id").ok();
-
-    let database_tags = match std::env::var("database_tags") {
-        Ok(database_tags_str) => match parse_tags_from_str(&database_tags_str) {
-            Ok(tags) => Some(tags),
-            Err(_) => None,
-        },
-        Err(_) => None,
-    };
-
-    if let Ok(true) = std::env::var("enable_database_creation").map(env_var_to_bool) {
+    if timestream_env_config.enable_database_creation {
         match database_exists(client, &database_name).await {
             Ok(true) => (),
             Ok(false) => {
-                if database_creation_enabled()? {
-                    create_database(client, &database_name, kms_key_id.as_deref(), database_tags)
-                        .await?;
-                } else {
-                    return Err(anyhow!(
-                        "Database {} does not exist and database creation is not enabled",
-                        database_name
-                    ));
-                }
+                create_database(client, &database_name, kms_key_id.as_deref(), database_tags)
+                    .await?;
             }
             Err(error) => return Err(anyhow!(error)),
         }
@@ -123,18 +214,11 @@ async fn handle_ingestion(
             let client_clone = Arc::clone(client);
             let database_name_clone = Arc::clone(&database_name);
             let table_name_clone = table_name.clone();
+            let table_tags = timestream_env_config.table_tags.clone();
 
             // Create a future for ingesting to the current table
             let future = task::spawn(async move {
-                if let Ok(true) = std::env::var("enable_table_creation").map(env_var_to_bool) {
-                    let table_tags = match std::env::var("table_tags") {
-                        Ok(table_tags_str) => match parse_tags_from_str(&table_tags_str) {
-                            Ok(tags) => Some(tags),
-                            Err(_) => None,
-                        },
-                        Err(_) => None,
-                    };
-
+                if timestream_env_config.enable_table_creation {
                     let mut created_table_names = created_table_names_clone.lock().await;
 
                     // If the table name wasn't in the created_table_names HashSet, create the table.
@@ -143,7 +227,7 @@ async fn handle_ingestion(
                             &client_clone,
                             &database_name_clone,
                             &table_name_clone,
-                            get_table_config()?,
+                            get_table_config().await?,
                             table_tags,
                         )
                         .await?;
@@ -225,6 +309,8 @@ pub async fn lambda_handler(
     client: &Arc<timestream_write::Client>,
     event: LambdaEvent<Value>,
 ) -> Result<Value, Error> {
+    let lib_env_config = LibEnvConfig::get().await?;
+
     let (event, _context) = event.into_parts();
 
     let precision = match get_precision(&event) {
@@ -258,7 +344,7 @@ pub async fn lambda_handler(
             // If this "cookies" array is present and the connector is deployed
             // with synchronous invocation in a stack, users will receive a
             // 502 error
-            if std::env::var("local_invocation").is_ok() {
+            if lib_env_config.local_invocation {
                 response["cookies"] = json!([]);
             }
             Ok(response)

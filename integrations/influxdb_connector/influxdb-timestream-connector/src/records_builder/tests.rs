@@ -5,8 +5,8 @@ use aws_sdk_timestreamwrite as timestream_write;
 use std::env;
 
 /// Tests single measure for multi-measure record.
-#[test]
-fn test_mtmm_single_record() -> Result<(), Error> {
+#[tokio::test]
+async fn test_mtmm_single_record() -> Result<(), Error> {
     setup_minimal_env_vars();
     setup_multi_table_multi_measure_env_vars();
     setup_table_mapping_env_variables(super::SchemaType::MultiTableMultiMeasure);
@@ -26,7 +26,8 @@ fn test_mtmm_single_record() -> Result<(), Error> {
         &multi_table_multi_measure_builder,
         &metrics,
         &timestream_write::types::TimeUnit::Nanoseconds,
-    )?;
+    )
+    .await?;
     assert_eq!(table_grouped_records.len(), 1);
 
     let attribute_grouped_records_vec =
@@ -73,8 +74,8 @@ fn test_mtmm_single_record() -> Result<(), Error> {
 }
 
 /// Tests dataset all going to the same table.
-#[test]
-fn test_mtmm_single_destination() -> Result<(), Error> {
+#[tokio::test]
+async fn test_mtmm_single_destination() -> Result<(), Error> {
     setup_minimal_env_vars();
     setup_multi_table_multi_measure_env_vars();
     setup_table_mapping_env_variables(super::SchemaType::MultiTableMultiMeasure);
@@ -102,7 +103,8 @@ fn test_mtmm_single_destination() -> Result<(), Error> {
         &multi_table_multi_measure_builder,
         &metrics,
         &timestream_write::types::TimeUnit::Nanoseconds,
-    )?;
+    )
+    .await?;
     assert_eq!(table_grouped_records.len(), 1);
 
     let attribute_grouped_records_vec =
@@ -164,8 +166,8 @@ fn test_mtmm_single_destination() -> Result<(), Error> {
 }
 
 /// Tests dataset going to multiple table destinations.
-#[test]
-fn test_mtmm_multi_record() -> Result<(), Error> {
+#[tokio::test]
+async fn test_mtmm_multi_record() -> Result<(), Error> {
     setup_minimal_env_vars();
     setup_multi_table_multi_measure_env_vars();
     setup_table_mapping_env_variables(super::SchemaType::MultiTableMultiMeasure);
@@ -193,7 +195,8 @@ fn test_mtmm_multi_record() -> Result<(), Error> {
         &multi_table_multi_measure_builder,
         &metrics,
         &timestream_write::types::TimeUnit::Nanoseconds,
-    )?;
+    )
+    .await?;
     assert_eq!(table_grouped_records.len(), 2);
 
     let readings_attribute_grouped_records_vec =
@@ -276,8 +279,8 @@ fn test_mtmm_multi_record() -> Result<(), Error> {
 }
 
 /// Tests dataset with empty dimensions.
-#[test]
-fn test_mtmm_empty_dimensions() -> Result<(), Error> {
+#[tokio::test]
+async fn test_mtmm_empty_dimensions() -> Result<(), Error> {
     setup_minimal_env_vars();
     setup_multi_table_multi_measure_env_vars();
     setup_table_mapping_env_variables(super::SchemaType::MultiTableMultiMeasure);
@@ -297,7 +300,8 @@ fn test_mtmm_empty_dimensions() -> Result<(), Error> {
         &multi_table_multi_measure_builder,
         &metrics,
         &timestream_write::types::TimeUnit::Nanoseconds,
-    )?;
+    )
+    .await?;
     assert_eq!(table_grouped_records.len(), 1);
 
     let attribute_grouped_records_vec =
@@ -337,8 +341,8 @@ fn test_mtmm_empty_dimensions() -> Result<(), Error> {
 }
 
 /// Tests varying timestamp parsing.
-#[test]
-fn test_mtmm_varying_timestamp_records() -> Result<(), Error> {
+#[tokio::test]
+async fn test_mtmm_varying_timestamp_records() -> Result<(), Error> {
     setup_minimal_env_vars();
     setup_multi_table_multi_measure_env_vars();
     setup_table_mapping_env_variables(super::SchemaType::MultiTableMultiMeasure);
@@ -366,7 +370,8 @@ fn test_mtmm_varying_timestamp_records() -> Result<(), Error> {
         &multi_table_multi_measure_builder,
         &metrics,
         &timestream_write::types::TimeUnit::Nanoseconds,
-    )?;
+    )
+    .await?;
     assert_eq!(table_grouped_records.len(), 2);
 
     let readings_attribute_grouped_records_vec =
@@ -451,8 +456,8 @@ fn test_mtmm_varying_timestamp_records() -> Result<(), Error> {
 }
 
 /// Tests single measure for multi-measure record.
-#[test]
-fn test_stmm_single_record() -> Result<(), Error> {
+#[tokio::test]
+async fn test_stmm_single_record() -> Result<(), Error> {
     setup_minimal_env_vars();
     setup_table_mapping_env_variables(super::SchemaType::SingleTableMultiMeasure);
     let single_table_multi_measure_builder = super::get_builder(
@@ -470,7 +475,8 @@ fn test_stmm_single_record() -> Result<(), Error> {
         &single_table_multi_measure_builder,
         &metrics,
         &timestream_write::types::TimeUnit::Nanoseconds,
-    )?;
+    )
+    .await?;
     assert_eq!(table_grouped_records.len(), 1);
 
     // Table name should align with environment variable
@@ -515,8 +521,8 @@ fn test_stmm_single_record() -> Result<(), Error> {
 }
 
 /// Tests dataset with differing metric names going to the same table.
-#[test]
-fn test_stmm_multi_record() -> Result<(), Error> {
+#[tokio::test]
+async fn test_stmm_multi_record() -> Result<(), Error> {
     setup_minimal_env_vars();
     setup_table_mapping_env_variables(super::SchemaType::SingleTableMultiMeasure);
     let single_table_multi_measure_builder = super::get_builder(
@@ -542,7 +548,8 @@ fn test_stmm_multi_record() -> Result<(), Error> {
         &single_table_multi_measure_builder,
         &metrics,
         &timestream_write::types::TimeUnit::Nanoseconds,
-    )?;
+    )
+    .await?;
     // All items should only be going to one table
     assert_eq!(table_grouped_records.len(), 1);
 

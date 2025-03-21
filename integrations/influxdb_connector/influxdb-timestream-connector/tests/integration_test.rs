@@ -3,7 +3,8 @@ use aws_credential_types::Credentials;
 use aws_sdk_timestreamwrite as timestream_write;
 use aws_types::region::Region;
 use core::time;
-use influxdb_timestream_connector::timestream_utils::retry_with_backoff;
+use influxdb_timestream_connector::timestream_utils::{retry_with_backoff, TimestreamEnvConfig};
+use influxdb_timestream_connector::LibEnvConfig;
 use influxdb_timestream_connector::{
     records_builder::SchemaType, timestream_utils::TIMESTREAM_API_BASE_WAIT_SECONDS,
 };
@@ -34,6 +35,8 @@ impl CleanupBatch {
     }
 
     async fn cleanup(&mut self, client: &timestream_write::Client) {
+        TimestreamEnvConfig::reset().await;
+        LibEnvConfig::reset().await;
         for table_name_to_delete in self.table_names_to_delete.iter() {
             // Check whether the table exists before trying to delete it.
             // retry_with_backoff can cause a long wait if the table
@@ -1532,7 +1535,7 @@ async fn test_mtmm_custom_dimension_partition_key_no_enforcement() -> Result<(),
     let mut cleanup_batch = CleanupBatch::new(DATABASE_NAME.to_string(), vec![lp_measurement_name]);
     cleanup_batch.cleanup(&client).await;
 
-    assert!(response.is_err());
+    assert!(response.is_ok());
     Ok(())
 }
 
