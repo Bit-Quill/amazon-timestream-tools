@@ -1,18 +1,18 @@
 package main
 
 import (
-  	"bytes"
-  	"context"
-  	"crypto/sha256"
-  	"encoding/hex"
+    "bytes"
+    "context"
+    "crypto/sha256"
+    "encoding/hex"
     "flag"
-  	"fmt"
-  	"io"
-  	"net/http"
-  	"time"
+    "fmt"
+    "io"
+    "net/http"
+    "time"
     "os"
     "bufio"
-    
+
     influxdbhttp "github.com/influxdata/influxdb-client-go/v2/api/http"
     "github.com/influxdata/influxdb-client-go/v2"
     "github.com/aws/aws-sdk-go-v2/config"
