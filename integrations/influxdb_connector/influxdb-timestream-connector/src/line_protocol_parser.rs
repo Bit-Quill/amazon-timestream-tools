@@ -15,7 +15,10 @@ pub fn parse_line_protocol(line_protocol: &str) -> Result<Vec<Metric>, Error> {
             }
 
             Err(error) => {
-                return Err(anyhow!("Failed to parse line: {}", error.to_string()));
+                return Err(anyhow!(
+                    "Non-retryable error: Failed to parse line: {}",
+                    error.to_string()
+                ));
             }
         }
     }
@@ -71,7 +74,7 @@ pub fn parsed_line_to_metric(parsed_line: ParsedLine) -> Result<Metric, Error> {
             new_fields,
             timestamp,
         )),
-        None => Err(anyhow!("Failed to parse timestamp")),
+        None => Err(anyhow!("Non-retryable error: Failed to parse timestamp")),
     }
 }
 

@@ -99,7 +99,7 @@ impl TimestreamEnvConfig {
         let region = match std::env::var("region") {
             Ok(val) => val,
             Err(_) => {
-                let err_message = "region environment variable is not defined";
+                let err_message = "Non-retryable error: region environment variable is not defined";
                 error!("{}", err_message);
                 return Err(anyhow!(err_message));
             }
@@ -108,7 +108,8 @@ impl TimestreamEnvConfig {
         let database_name = match std::env::var("database_name") {
             Ok(val) => val,
             Err(_) => {
-                let err_message = "database_name environment variable is not defined";
+                let err_message =
+                    "Non-retryable error: database_name environment variable is not defined";
                 error!("{}", err_message);
                 return Err(anyhow!(err_message));
             }
@@ -133,12 +134,12 @@ impl TimestreamEnvConfig {
         if enable_table_creation {
             if mag_store_retention_period.is_none() {
                 return Err(anyhow!(
-                    "mag_store_retention_period environment variable is not defined"
+                    "Non-retryable error: mag_store_retention_period environment variable is not defined"
                 ));
             }
             if mem_store_retention_period.is_none() {
                 return Err(anyhow!(
-                    "mem_store_retention_period environment variable is not defined"
+                    "Non-retryable error: mem_store_retention_period environment variable is not defined"
                 ));
             }
         }
@@ -146,7 +147,8 @@ impl TimestreamEnvConfig {
         let table_mapping = match std::env::var("table_mapping") {
             Ok(val) => val.to_lowercase(),
             Err(_) => {
-                let err_message = "table_mapping environment variable is not defined";
+                let err_message =
+                    "Non-retryable error: table_mapping environment variable is not defined";
                 error!("{}", err_message);
                 return Err(anyhow!(err_message));
             }
@@ -161,20 +163,20 @@ impl TimestreamEnvConfig {
             "single-table" => {
                 if single_table_name.is_none() {
                     return Err(anyhow!(
-                        "single_table_name environment variable is not defined"
+                        "Non-retryable error: single_table_name environment variable is not defined"
                     ));
                 }
             }
             "multi-table" => {
                 if measure_name_for_multi_measure_records.is_none() {
                     return Err(anyhow!(
-                    "measure_name_for_multi_measure_records environment variable is not defined"
+                    "Non-retryable error: measure_name_for_multi_measure_records environment variable is not defined"
                 ));
                 }
             }
             table_mapping => {
                 return Err(anyhow!(
-                    "{:?} is an invalid value for the table_mapping environment variable",
+                    "Non-retryable error: {:?} is an invalid value for the table_mapping environment variable",
                     table_mapping
                 ))
             }
@@ -193,7 +195,8 @@ impl TimestreamEnvConfig {
             let custom_partition_key_type_value = match custom_partition_key_type.clone() {
                 Some(val) => val,
                 None => {
-                    let err_message = "Failed to get custom_partition_key_type value";
+                    let err_message =
+                        "Non-retryable error: Failed to get custom_partition_key_type value";
                     error!("{}", err_message);
                     return Err(anyhow!(err_message));
                 }
@@ -203,7 +206,7 @@ impl TimestreamEnvConfig {
                 && custom_partition_key_dimension.is_none()
             {
                 return Err(anyhow!(
-                format!("If custom_partition_key_type is {DIMENSION_PARTITION_KEY_TYPE}, then custom_partition_key_dimension must be defined")
+                format!("Non-retryable error: If custom_partition_key_type is {DIMENSION_PARTITION_KEY_TYPE}, then custom_partition_key_dimension must be defined")
             ));
             }
         }
@@ -282,7 +285,9 @@ impl TimestreamEnvConfig {
         match config.take() {
             Some(Ok(env_config)) => Ok(env_config),
             Some(Err(err)) => Err(anyhow!("{}", err)),
-            None => Err(anyhow!("Library configuration has not been initialized")),
+            None => Err(anyhow!(
+                "Retryable error: TimestreamEnvConfig configuration has not been initialized"
+            )),
         }
     }
 
@@ -502,7 +507,14 @@ pub async fn table_exists(
             .map(|e| e.is_resource_not_found_exception())
         {
             Some(true) => Ok(false),
-            _ => Err(anyhow!(error)),
+            _ => {
+                let err_message = format!(
+                    "Failed to check whether table '{}' exists: {:?}",
+                    table_name, error
+                );
+                error!("{}", err_message);
+                Err(anyhow!(err_message))
+            }
         },
     }
 }
@@ -601,12 +613,15 @@ pub fn parse_tags_from_str(tags_str: &str) -> Result<Vec<timestream_write::types
         let mut parts = tag.splitn(2, '=');
         let key = parts
             .next()
-            .ok_or_else(|| anyhow!("Missing key in tag '{}'", tag))?
+            .ok_or_else(|| anyhow!("Non-retryable error: Missing key in tag '{}'", tag))?
             .trim();
 
         // ensure key is not empty
         if key.is_empty() {
-            return Err(anyhow!("Tag key must not be empty in tag '{}'", tag));
+            return Err(anyhow!(
+                "Non-retryable error: Tag key must not be empty in tag '{}'",
+                tag
+            ));
         }
         let key = key.to_string();
 
@@ -671,7 +686,7 @@ pub async fn get_table_config() -> Result<TableConfig, Error> {
     let mag_store_retention_period = match timestream_env_config.mag_store_retention_period {
         Some(val) => val,
         None => {
-            let err_message = "Failed to retrieve mag_store_retention_period i64 value";
+            let err_message = "Non-retryable error: Failed to retrieve mag_store_retention_period environment variable i64 value";
             error!("{}", err_message);
             return Err(anyhow!(err_message));
         }
@@ -680,7 +695,7 @@ pub async fn get_table_config() -> Result<TableConfig, Error> {
     let mem_store_retention_period = match timestream_env_config.mem_store_retention_period {
         Some(val) => val,
         None => {
-            let err_message = "Failed to retrieve mem_store_retention_period i64 value";
+            let err_message = "Non-retryable error: Failed to retrieve mem_store_retention_period environment variable i64 value";
             error!("{}", err_message);
             return Err(anyhow!(err_message));
         }
@@ -788,7 +803,10 @@ pub async fn ingest_record_batch(
     {
         Ok(_) => {}
         Err(error) => {
-            error!("SdkError: {:?}", error.raw_response().unwrap());
+            error!(
+                "Record batch write error: {:?}",
+                error.raw_response().unwrap()
+            );
             return Err(anyhow!(error));
         }
     };

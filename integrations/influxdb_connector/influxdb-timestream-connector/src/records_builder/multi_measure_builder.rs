@@ -45,7 +45,7 @@ impl std::fmt::Debug for MultiMeasureBuilder {
             "{}",
             self.measure_name
                 .as_deref()
-                .expect("Failed to unwrap")
+                .expect("Non-retryable error: Failed to unwrap MultiMeasureBuilder.measure_name")
                 .to_owned()
         )
     }
@@ -60,9 +60,9 @@ async fn build_single_table_multi_measure_records(
     let timestream_env_config = TimestreamEnvConfig::get().await?;
 
     let mut records_batch: TableGroupedRecords = TableGroupedRecords::new();
-    let table_name = timestream_env_config
-        .single_table_name
-        .ok_or(anyhow!("Failed to get single_table_name"))?;
+    let table_name = timestream_env_config.single_table_name.ok_or(anyhow!(
+        "Non-retryable error: Failed to get single_table_name"
+    ))?;
     for metric in metrics.iter() {
         let record_pair = metric_to_timestream_record_pair(metric.name(), metric, precision)?;
         records_batch.insert_record_pair(table_name.to_string(), record_pair);
@@ -88,7 +88,7 @@ fn build_multi_table_multi_measure_records(
 
     for metric in metrics.iter() {
         let record_pair = metric_to_timestream_record_pair(
-            measure_name.expect("Failed to unwrap"),
+            measure_name.expect("Non-retryable error: Failed to unwrap measure_name"),
             metric,
             precision,
         )?;
@@ -114,7 +114,7 @@ pub fn metric_to_timestream_record_pair(
                 .name(tag.0.to_owned())
                 .value(tag.1.to_owned())
                 .build()
-                .expect("Failed to build dimension"),
+                .expect("Non-retryable error: Failed to build dimension"),
         )
     }
 
@@ -127,7 +127,7 @@ pub fn metric_to_timestream_record_pair(
                 .value(field.1.to_string())
                 .r#type(measure_type)
                 .build()
-                .expect("Failed to build measure"),
+                .expect("Non-retryable error: Failed to build measure"),
         );
     }
 

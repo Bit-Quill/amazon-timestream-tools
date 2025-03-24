@@ -68,7 +68,9 @@ impl LibEnvConfig {
         match config.take() {
             Some(Ok(env_config)) => Ok(env_config),
             Some(Err(err)) => Err(anyhow!("{}", err)),
-            None => Err(anyhow!("Library configuration has not been initialized")),
+            None => Err(anyhow!(
+                "Retryable error: LibEnvConfig configuration has not been initialized"
+            )),
         }
     }
 
@@ -132,15 +134,16 @@ async fn handle_body(
 
     let multi_measure_builder = match timestream_env_config.table_mapping.as_str() {
         "multi-table" => {
-            let measure_name_for_multi_measure_records =
-                match &timestream_env_config.measure_name_for_multi_measure_records {
-                    Some(val) => val.clone(),
-                    None => {
-                        let err_message = "measure_name_for_multi_measure_records is not defined";
-                        error!("{}", err_message);
-                        return Err(anyhow!(err_message));
-                    }
-                };
+            let measure_name_for_multi_measure_records = match &timestream_env_config
+                .measure_name_for_multi_measure_records
+            {
+                Some(val) => val.clone(),
+                None => {
+                    let err_message = "Non-retryable error: measure_name_for_multi_measure_records is not defined";
+                    error!("{}", err_message);
+                    return Err(anyhow!(err_message));
+                }
+            };
             get_builder(
                 SchemaType::MultiTableMultiMeasure,
                 measure_name_for_multi_measure_records,
@@ -150,7 +153,7 @@ async fn handle_body(
             let single_table_name = match &timestream_env_config.single_table_name {
                 Some(val) => val.clone(),
                 None => {
-                    let err_message = "single_table_name is not defined";
+                    let err_message = "Non-retryable error: single_table_name is not defined";
                     error!("{}", err_message);
                     return Err(anyhow!(err_message));
                 }
@@ -208,7 +211,7 @@ async fn handle_ingestion(
                 .clone()
                 .acquire_owned()
                 .await
-                .expect("Failed to get semaphore permit");
+                .expect("Retryable error: Failed to get semaphore permit");
 
             // Use Arc::clone to create a shallow clone of the client
             let client_clone = Arc::clone(client);
@@ -322,9 +325,9 @@ pub async fn lambda_handler(
 
     let data = event
         .get("body")
-        .expect("No body was included in the request")
+        .expect("Non-retryable error: No body was included in the request")
         .as_str()
-        .expect("Failed to convert body to &str")
+        .expect("Non-retryable error: Failed to convert body to &str")
         .as_bytes();
 
     match handle_body(client, data, &precision).await {
