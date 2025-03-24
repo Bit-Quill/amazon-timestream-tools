@@ -1,5 +1,8 @@
 use anyhow::{anyhow, Error, Result};
+use aws_sdk_s3::error::SdkError;
 use aws_sdk_timestreamwrite as timestream_write;
+use aws_sdk_timestreamwrite::operation::create_database::CreateDatabaseError;
+use aws_sdk_timestreamwrite::operation::create_table::CreateTableError;
 use aws_types::region::Region;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
@@ -570,7 +573,7 @@ pub async fn retry_with_backoff<F, Fut, T, E>(mut operation: F) -> Result<(), Er
 where
     F: FnMut() -> Fut,
     Fut: std::future::Future<Output = Result<T, E>>,
-    E: Into<Error>,
+    E: Into<Error> + std::fmt::Debug,
 {
     for attempt in 0..MAX_RETRIES {
         match operation().await {
@@ -578,8 +581,28 @@ where
                 return Ok(());
             }
             Err(err) => {
+                let anyhow_err = err.into();
+
+                if let Some(sdk_err) = anyhow_err.downcast_ref::<SdkError<CreateDatabaseError>>() {
+                    if let Some(service_error) = sdk_err.as_service_error() {
+                        if matches!(service_error, CreateDatabaseError::ConflictException(_)) {
+                            info!("Database already exists");
+                            return Ok(());
+                        }
+                    }
+                }
+
+                if let Some(sdk_err) = anyhow_err.downcast_ref::<SdkError<CreateTableError>>() {
+                    if let Some(service_error) = sdk_err.as_service_error() {
+                        if matches!(service_error, CreateTableError::ConflictException(_)) {
+                            info!("Table already exists");
+                            return Ok(());
+                        }
+                    }
+                }
+
                 if attempt == MAX_RETRIES - 1 {
-                    return Err(anyhow!(err));
+                    return Err(anyhow_err);
                 }
 
                 let exp_backoff =
