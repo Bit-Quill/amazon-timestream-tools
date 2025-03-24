@@ -30,6 +30,7 @@ var(
     endpoint string
     dataset string
     precision string
+    timeout uint
     useGzip bool
 )
 
@@ -39,10 +40,12 @@ func main() {
     flag.StringVar(&endpoint, "endpoint", "http://localhost:9000", "Endpoint for InfluxDB Timestream Connector")
     flag.StringVar(&dataset, "dataset", "../data/bird-migration.line", "Line protocol dataset being ingested")
     flag.StringVar(&precision, "precision", "ns", "Precision for line protocol: nanoseconds=ns, milliseconds=ms, microseconds=us, seconds=s")
+    flag.UintVar(&timeout, "timeout", 30, "The maximum number of seconds to wait with synchronous invocation")
     flag.BoolVar(&useGzip, "gzip", false, "Whether to compress requests with gzip")
     flag.Parse()
 
     opts := influxdb2.DefaultOptions()
+    opts.SetHTTPRequestTimeout(timeout)
     opts.HTTPOptions().SetHTTPDoer(&SigV4HeaderSetter{RequestDoer: opts.HTTPClient(),})
     opts.WriteOptions().SetUseGZip(useGzip)
 
