@@ -417,7 +417,7 @@ Resources:
       AccessLogSetting:
         DestinationArn: !GetAtt RestApiGatewayLogGroup.Arn
         Format: |
-          {"requestId":"$context.requestId","ip":"$context.identity.sourceIp","caller":"$context.identity.caller","user":"$context.identity.user","requestTime":"$context.requestTime","httpMethod":"$context.httpMethod","resourcePath":"$context.resourcePath","status":"$context.status","protocol":"$context.protocol","requestLength":"$context.requestLength","responseLength":"$context.responseLength","errorMessage":"$context.error.message"}
+          {"requestId":"$context.requestId","ip":"$context.identity.sourceIp","caller":"$context.identity.caller","user":"$context.identity.user","requestTime":"$context.requestTime","httpMethod":"$context.httpMethod","resourcePath":"$context.resourcePath","status":"$context.status","protocol":"$context.protocol","responseLength":"$context.responseLength","errorMessage":"$context.error.message"}
       TracingEnabled: true
       Variables:
         lambdaAlias: !Ref RestApiGatewayStageName
