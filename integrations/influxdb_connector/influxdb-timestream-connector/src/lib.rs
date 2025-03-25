@@ -355,7 +355,7 @@ pub async fn lambda_handler(
         // An Err is required in order to send messages to the Lambda's
         // dead letter queue, when the connector is deployed as part of a stack
         // with asynchronous invocation
-        Err(error) => Err(anyhow!(error.root_cause().to_string())),
+        Err(error) => Err(anyhow!(error.to_string())),
     }
 }
 

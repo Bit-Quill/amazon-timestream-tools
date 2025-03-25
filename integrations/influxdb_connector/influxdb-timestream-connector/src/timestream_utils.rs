@@ -401,10 +401,28 @@ pub async fn create_database(
             info!("Database '{}' created successfully.", database_name);
             Ok(())
         }
-        Err(err) => {
-            let err_message = format!("Failed to create database '{}': {:?}", database_name, err);
-            error!("{}", err_message);
-            Err(anyhow!(err_message))
+        Err(error) => {
+            if let Some(sdk_error) = error.downcast_ref::<SdkError<CreateDatabaseError>>() {
+                let status_code = sdk_error.raw_response().unwrap().status().as_u16();
+                let service_error = sdk_error
+                    .as_service_error()
+                    .ok_or(anyhow!("Failed to get service error"))?;
+                let retryable_message = match is_retryable_status_code(status_code) {
+                    true => "retryable",
+                    false => "non-retryable",
+                };
+                let err_message = format!(
+                    "Failed to create database '{}': {}: {:#?}",
+                    database_name, retryable_message, service_error
+                );
+                error!("{}", err_message);
+                return Err(anyhow!(err_message));
+            } else {
+                let err_message =
+                    format!("Failed to create database '{}': {:?}", database_name, error);
+                error!("{}", err_message);
+                return Err(anyhow!(err_message));
+            }
         }
     }
 }
@@ -479,13 +497,30 @@ pub async fn create_table(
             );
             return Ok(());
         }
-        Err(err) => {
-            let err_message = format!(
-                "Failed to create table '{}' in database '{}': {:?}",
-                table_name, database_name, err
-            );
-            error!("{}", err_message);
-            return Err(anyhow!(err_message));
+        Err(error) => {
+            if let Some(sdk_error) = error.downcast_ref::<SdkError<CreateTableError>>() {
+                let status_code = sdk_error.raw_response().unwrap().status().as_u16();
+                let service_error = sdk_error
+                    .as_service_error()
+                    .ok_or(anyhow!("Failed to get service error"))?;
+                let retryable_message = match is_retryable_status_code(status_code) {
+                    true => "retryable",
+                    false => "non-retryable",
+                };
+                let err_message = format!(
+                    "Failed to create table '{}'.'{}': {}: {:#?}",
+                    database_name, table_name, retryable_message, service_error
+                );
+                error!("{}", err_message);
+                return Err(anyhow!(err_message));
+            } else {
+                let err_message = format!(
+                    "Failed to create table '{}'.'{}': {:?}",
+                    database_name, table_name, error
+                );
+                error!("{}", err_message);
+                return Err(anyhow!(err_message));
+            }
         }
     }
 }
@@ -511,12 +546,18 @@ pub async fn table_exists(
         {
             Some(true) => Ok(false),
             _ => {
+                let status_code = error.raw_response().unwrap().status().as_u16();
+                let service_error = error.into_service_error();
+                let retryable_message = match is_retryable_status_code(status_code) {
+                    true => "retryable",
+                    false => "non-retryable",
+                };
                 let err_message = format!(
-                    "Failed to check whether table '{}' exists: {:?}",
-                    table_name, error
+                    "Describe table error for table '{}'.'{}': {}: {:#?}",
+                    database_name, table_name, retryable_message, service_error
                 );
                 error!("{}", err_message);
-                Err(anyhow!(err_message))
+                return Err(anyhow!(err_message));
             }
         },
     }
@@ -540,7 +581,20 @@ pub async fn database_exists(
             .map(|e| e.is_resource_not_found_exception())
         {
             Some(true) => Ok(false),
-            _ => Err(anyhow!(error)),
+            _ => {
+                let status_code = error.raw_response().unwrap().status().as_u16();
+                let service_error = error.into_service_error();
+                let retryable_message = match is_retryable_status_code(status_code) {
+                    true => "retryable",
+                    false => "non-retryable",
+                };
+                let err_message = format!(
+                    "Describe database error: {}: {:#?}",
+                    retryable_message, service_error
+                );
+                error!("{}", err_message);
+                return Err(anyhow!(err_message));
+            }
         },
     }
 }
@@ -826,15 +880,26 @@ pub async fn ingest_record_batch(
     {
         Ok(_) => {}
         Err(error) => {
-            error!(
-                "Record batch write error: {:?}",
-                error.raw_response().unwrap()
+            let status_code = error.raw_response().unwrap().status().as_u16();
+            let service_error = error.into_service_error();
+            let retryable_message = match is_retryable_status_code(status_code) {
+                true => "retryable",
+                false => "non-retryable",
+            };
+            let err_message = format!(
+                "Record batch write error: {}: {:#?}",
+                retryable_message, service_error
             );
-            return Err(anyhow!(error));
+            error!("{}", err_message);
+            return Err(anyhow!(err_message));
         }
     };
 
     Ok(())
+}
+
+pub fn is_retryable_status_code(status_code: u16) -> bool {
+    matches!(status_code, 408 | 425 | 429 | 500 | 502 | 503 | 504 | 509)
 }
 
 #[cfg(test)]
