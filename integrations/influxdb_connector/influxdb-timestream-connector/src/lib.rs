@@ -6,11 +6,14 @@ use lambda_runtime::LambdaEvent;
 use line_protocol_parser::parse_line_protocol;
 use log::{error, trace};
 use once_cell::sync::OnceCell;
-use records_builder::{
-    build_records, get_builder, AttributeGroupedRecords, SchemaType, TableGroupedRecords,
-};
+use records_builder::{build_records, get_builder, AttributeGroupedRecords, SchemaType};
 use serde_json::{json, Value};
-use std::{collections::HashSet, str, sync::Arc, time::Instant};
+use std::{
+    collections::{HashMap, HashSet},
+    str,
+    sync::Arc,
+    time::Instant,
+};
 use timestream_utils::{
     create_database, create_table, database_exists, get_table_config, ingest_records,
     TimestreamEnvConfig,
@@ -172,7 +175,7 @@ async fn handle_body(
 #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 async fn handle_ingestion(
     client: &Arc<timestream_write::Client>,
-    records: TableGroupedRecords,
+    records: HashMap<String, Vec<AttributeGroupedRecords>>,
 ) -> Result<(), Error> {
     let timestream_env_config = TimestreamEnvConfig::get().await?;
 
@@ -199,12 +202,12 @@ async fn handle_ingestion(
     // Keep track of created tables to avoid unnecessary API calls to verify tables exist
     let created_table_names = Arc::new(Mutex::new(HashSet::<String>::new()));
 
-    // Track total time taken to check existence of tables and ingest records
+    // Track total time taken to create tables and ingest records
     let ingestion_start = Instant::now();
 
     // Ingest records for each table, in parallel
-    for (table_name, common_attributes_grouped_records_map) in records {
-        for (_, common_attributes_grouped_records) in common_attributes_grouped_records_map {
+    for (table_name, attribute_grouped_records_vec) in records {
+        for attribute_grouped_records in attribute_grouped_records_vec {
             let created_table_names_clone = Arc::clone(&created_table_names);
 
             let permit = ingestion_semaphore
@@ -242,7 +245,7 @@ async fn handle_ingestion(
                 let AttributeGroupedRecords {
                     common_attributes,
                     records,
-                } = common_attributes_grouped_records;
+                } = attribute_grouped_records;
 
                 // Ingest the data to the table
                 let result = ingest_records(

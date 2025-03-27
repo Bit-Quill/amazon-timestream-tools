@@ -30,8 +30,9 @@ async fn test_mtmm_single_record() -> Result<(), Error> {
     .await?;
     assert_eq!(table_grouped_records.len(), 1);
 
-    let attribute_grouped_records_vec =
-        &table_grouped_records.get_attribute_grouped_records_vec(Some("readings"));
+    let attribute_grouped_records_vec = table_grouped_records
+        .get("readings")
+        .expect("Failed to get readings table group");
 
     let common_attributes = &attribute_grouped_records_vec
         .first()
@@ -107,8 +108,13 @@ async fn test_mtmm_single_destination() -> Result<(), Error> {
     .await?;
     assert_eq!(table_grouped_records.len(), 1);
 
-    let attribute_grouped_records_vec =
-        &table_grouped_records.get_attribute_grouped_records_vec(Some("readings"));
+    let attribute_grouped_records_vec = table_grouped_records
+        .get("readings")
+        .expect("Failed to get readings table group");
+
+    // The records share common attributes (measure name, dimensions,
+    // measure value type, and time unit)
+    assert_eq!(attribute_grouped_records_vec.len(), 1);
 
     let common_attributes = &attribute_grouped_records_vec
         .first()
@@ -199,8 +205,9 @@ async fn test_mtmm_multi_record() -> Result<(), Error> {
     .await?;
     assert_eq!(table_grouped_records.len(), 2);
 
-    let readings_attribute_grouped_records_vec =
-        &table_grouped_records.get_attribute_grouped_records_vec(Some("readings"));
+    let readings_attribute_grouped_records_vec = table_grouped_records
+        .get("readings")
+        .expect("Failed to get readings table group");
     let readings_common_attributes = &readings_attribute_grouped_records_vec
         .first()
         .expect("Failed to get the readings common attributes")
@@ -212,8 +219,9 @@ async fn test_mtmm_multi_record() -> Result<(), Error> {
         .first()
         .expect("Failed to get the readings record");
 
-    let velocity_attribute_grouped_records_vec =
-        &table_grouped_records.get_attribute_grouped_records_vec(Some("velocity"));
+    let velocity_attribute_grouped_records_vec = table_grouped_records
+        .get("velocity")
+        .expect("Failed to get velocity table group");
     let velocity_common_attributes = &velocity_attribute_grouped_records_vec
         .first()
         .expect("Failed to get the velocity common attributes")
@@ -304,8 +312,9 @@ async fn test_mtmm_empty_dimensions() -> Result<(), Error> {
     .await?;
     assert_eq!(table_grouped_records.len(), 1);
 
-    let attribute_grouped_records_vec =
-        &table_grouped_records.get_attribute_grouped_records_vec(Some("readings"));
+    let attribute_grouped_records_vec = table_grouped_records
+        .get("readings")
+        .expect("Failed to get readings table group");
     let common_attributes = &attribute_grouped_records_vec
         .first()
         .expect("Failed to get common attributes")
@@ -374,8 +383,9 @@ async fn test_mtmm_varying_timestamp_records() -> Result<(), Error> {
     .await?;
     assert_eq!(table_grouped_records.len(), 2);
 
-    let readings_attribute_grouped_records_vec =
-        &table_grouped_records.get_attribute_grouped_records_vec(Some("readings"));
+    let readings_attribute_grouped_records_vec = table_grouped_records
+        .get("readings")
+        .expect("Failed to get readings table group");
     let readings_common_attributes = &readings_attribute_grouped_records_vec
         .first()
         .expect("Failed to get the readings common attributes")
@@ -412,8 +422,9 @@ async fn test_mtmm_varying_timestamp_records() -> Result<(), Error> {
             .expect("Failed to build dimension")
     ));
 
-    let velocity_attribute_grouped_records_vec =
-        &table_grouped_records.get_attribute_grouped_records_vec(Some("velocity"));
+    let velocity_attribute_grouped_records_vec = table_grouped_records
+        .get("velocity")
+        .expect("Failed to get velocity table group");
     let velocity_common_attributes = &velocity_attribute_grouped_records_vec
         .first()
         .expect("Failed to get the velocity common attributes")
@@ -480,8 +491,9 @@ async fn test_stmm_single_record() -> Result<(), Error> {
     assert_eq!(table_grouped_records.len(), 1);
 
     // Table name should align with environment variable
-    let attribute_grouped_records_vec =
-        &table_grouped_records.get_attribute_grouped_records_vec(Some("influxdb-measures"));
+    let attribute_grouped_records_vec = table_grouped_records
+        .get("influxdb-measures")
+        .expect("Failed to get influxdb-measures table group");
 
     let common_attributes = &attribute_grouped_records_vec
         .first()
@@ -554,8 +566,13 @@ async fn test_stmm_multi_record() -> Result<(), Error> {
     assert_eq!(table_grouped_records.len(), 1);
 
     // Table name should align with environment variable
-    let attribute_grouped_records_vec =
-        &table_grouped_records.get_attribute_grouped_records_vec(Some("influxdb-measures"));
+    let attribute_grouped_records_vec = table_grouped_records
+        .get("influxdb-measures")
+        .expect("Failed to get influxdb-measures table group");
+
+    // The records do not share common attributes (measure name, dimensions,
+    // measure value type, and time unit)
+    assert_eq!(attribute_grouped_records_vec.len(), 2);
 
     let readings_common_attributes = &attribute_grouped_records_vec
         .iter()

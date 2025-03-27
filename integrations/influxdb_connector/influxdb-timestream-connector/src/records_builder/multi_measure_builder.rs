@@ -1,4 +1,4 @@
-use super::{BuildRecords, RecordPair, TableGroupedRecords};
+use super::{AttributeGroupedRecords, BuildRecords, RecordPair};
 use crate::{
     metric::{FieldValue, Metric},
     timestream_utils::TimestreamEnvConfig,
@@ -6,7 +6,8 @@ use crate::{
 };
 use anyhow::{anyhow, Error, Result};
 use async_trait::async_trait;
-use aws_sdk_timestreamwrite as timestream_write;
+use aws_sdk_timestreamwrite::{self as timestream_write};
+use std::collections::HashMap;
 
 pub struct MultiMeasureBuilder {
     pub measure_name: Option<String>,
@@ -21,7 +22,7 @@ impl BuildRecords for MultiMeasureBuilder {
         &self,
         metrics: &[Metric],
         precision: &timestream_write::types::TimeUnit,
-    ) -> Result<TableGroupedRecords, Error> {
+    ) -> Result<HashMap<String, Vec<AttributeGroupedRecords>>, Error> {
         match self.schema_type {
             SchemaType::SingleTableMultiMeasure => {
                 let records = build_single_table_multi_measure_records(metrics, precision).await;
@@ -52,39 +53,95 @@ impl std::fmt::Debug for MultiMeasureBuilder {
 }
 
 /// Builds multi-measure records HashMap to be ingested to one table.
+/// The HashMap's key is the table name and its value is a Vec where each entry
+/// is an AttributeGroupedRecords struct, comprised of a common attribute record
+/// and another Vec containing records that share that common attribute.
 #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 async fn build_single_table_multi_measure_records(
     metrics: &[Metric],
     precision: &timestream_write::types::TimeUnit,
-) -> Result<TableGroupedRecords, Error> {
+) -> Result<HashMap<String, Vec<AttributeGroupedRecords>>, Error> {
     let timestream_env_config = TimestreamEnvConfig::get().await?;
 
-    let mut records_batch: TableGroupedRecords = TableGroupedRecords::new();
+    // Records grouped according to table name
+    let mut records_batch: HashMap<String, Vec<AttributeGroupedRecords>> = HashMap::new();
+    // Records grouped according to common attributes.
+    // Key: a common attribute Record as a String, value: index of an existing AttributeGroupedRecords in
+    // records_batch
+    let mut group_indices_map: HashMap<String, usize> = HashMap::new();
+
     let table_name = timestream_env_config.single_table_name.ok_or(anyhow!(
         "Non-retryable error: Failed to get single_table_name"
     ))?;
+
     for metric in metrics.iter() {
         let record_pair = metric_to_timestream_record_pair(metric.name(), metric, precision)?;
-        records_batch.insert_record_pair(table_name.to_string(), record_pair);
+        // Check for existing table entry
+        if let Some(table_group) = records_batch.get_mut(table_name.as_str()) {
+            // Check for existing AttributeGroupedRecords
+            if let Some(attribute_grouped_records_index) =
+                group_indices_map.get(format!("{:#?}", record_pair.common_attributes).as_str())
+            {
+                if let Some(attribute_grouped_records) =
+                    table_group.get_mut(*attribute_grouped_records_index)
+                {
+                    // Add record to group of records with the same common attributes
+                    attribute_grouped_records.records.push(record_pair.record);
+                } else {
+                    // Index was incorrect. Add a new AttributeGroupedRecords and update the incorrect index
+                    // .insert will update the value for the existing entry
+                    group_indices_map.insert(
+                        format!("{:#?}", record_pair.common_attributes),
+                        table_group.len(),
+                    );
+                    table_group.push(AttributeGroupedRecords {
+                        common_attributes: record_pair.common_attributes,
+                        records: vec![record_pair.record],
+                    });
+                }
+            } else {
+                // AttributeGroupedRecords doesn't exist, create it
+                group_indices_map.insert(
+                    format!("{:#?}", record_pair.common_attributes),
+                    table_group.len(),
+                );
+                table_group.push(AttributeGroupedRecords {
+                    common_attributes: record_pair.common_attributes,
+                    records: vec![record_pair.record],
+                });
+            }
+        } else {
+            // Table entry doesn't exist, create it
+            group_indices_map.insert(format!("{:#?}", record_pair.common_attributes), 0);
+            records_batch.insert(
+                table_name.clone(),
+                vec![AttributeGroupedRecords {
+                    common_attributes: record_pair.common_attributes,
+                    records: vec![record_pair.record],
+                }],
+            );
+        }
     }
 
     Ok(records_batch)
 }
 
 /// Builds multi-measure records HashMap to be ingested to multiple tables.
-/// The HashMap's key is the table name, the inner HashMap groups records
-/// according to a common attribute record. The key of this inner HashMap
-/// is the records' list of dimensions and measure name as a String. The
-/// value for this HashMap, the tuple, is a pair of a common attribute record
-/// made up of a list of dimensions and a measure name, and a Vec of records
-/// that share that common attribute.
+/// The HashMap's key is the table name and its value is a Vec where each entry
+/// is an AttributeGroupedRecords struct, comprised of a common attribute record
+/// and another Vec containing records that share that common attribute.
 #[tracing::instrument(skip_all, level = tracing::Level::TRACE)]
 fn build_multi_table_multi_measure_records(
     metrics: &[Metric],
     measure_name: Option<&str>,
     precision: &timestream_write::types::TimeUnit,
-) -> Result<TableGroupedRecords, Error> {
-    let mut records_batch: TableGroupedRecords = TableGroupedRecords::new();
+) -> Result<HashMap<String, Vec<AttributeGroupedRecords>>, Error> {
+    // Records grouped according to table name
+    let mut records_batch: HashMap<String, Vec<AttributeGroupedRecords>> = HashMap::new();
+    // Records grouped according to common attributes.
+    // Key: a common attribute Record as a String, value: index of an existing AttributeGroupedRecords in
+    // records_batch
+    let mut group_indices_map: HashMap<String, usize> = HashMap::new();
 
     for metric in metrics.iter() {
         let record_pair = metric_to_timestream_record_pair(
@@ -93,7 +150,52 @@ fn build_multi_table_multi_measure_records(
             precision,
         )?;
         let table_name = metric.name();
-        records_batch.insert_record_pair(table_name.to_string(), record_pair);
+
+        // Check for existing table entry
+        if let Some(table_group) = records_batch.get_mut(table_name) {
+            // Check for existing AttributeGroupedRecords
+            if let Some(attribute_grouped_records_index) =
+                group_indices_map.get(format!("{:#?}", record_pair.common_attributes).as_str())
+            {
+                if let Some(attribute_grouped_records) =
+                    table_group.get_mut(*attribute_grouped_records_index)
+                {
+                    // Add record to group of records with the same common attributes
+                    attribute_grouped_records.records.push(record_pair.record);
+                } else {
+                    // Index was incorrect. Add a new AttributeGroupedRecords and update the incorrect index
+                    // .insert will update the value for the existing entry
+                    group_indices_map.insert(
+                        format!("{:#?}", record_pair.common_attributes),
+                        table_group.len(),
+                    );
+                    table_group.push(AttributeGroupedRecords {
+                        common_attributes: record_pair.common_attributes,
+                        records: vec![record_pair.record],
+                    });
+                }
+            } else {
+                // AttributeGroupedRecords doesn't exist, create it
+                group_indices_map.insert(
+                    format!("{:#?}", record_pair.common_attributes),
+                    table_group.len(),
+                );
+                table_group.push(AttributeGroupedRecords {
+                    common_attributes: record_pair.common_attributes,
+                    records: vec![record_pair.record],
+                });
+            }
+        } else {
+            // Table entry doesn't exist, create it
+            group_indices_map.insert(format!("{:#?}", record_pair.common_attributes), 0);
+            records_batch.insert(
+                table_name.to_string(),
+                vec![AttributeGroupedRecords {
+                    common_attributes: record_pair.common_attributes,
+                    records: vec![record_pair.record],
+                }],
+            );
+        }
     }
 
     Ok(records_batch)
