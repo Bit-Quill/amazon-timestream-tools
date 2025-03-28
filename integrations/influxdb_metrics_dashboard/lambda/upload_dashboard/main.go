@@ -444,12 +444,6 @@ func lambdaHandler(ctx context.Context, event map[string]interface{}) (events.AP
 
 func main() {
 	lambda.Start(lambdaHandler)
-	//	 jsonDashboard, err := json.Marshal(generateDashboard("datasourceName", "dashboardName", "databaseName"))
-	//		if err != nil {
-	//			fmt.Printf("Error")
-	//		} else {
-	//	   fmt.Printf("Dashboard: %s", jsonDashboard)
-	//	 }
 }
 
 type panelField struct {
@@ -678,8 +672,8 @@ func generatePanelFieldConfig(panelType string, panelTitle string) map[string]in
 				"mode": "thresholds",
 			},
 			"unit": "percentage",
-      "min": 0,
-      "max": 100,
+			"min":  0,
+			"max":  100,
 		},
 			"overrides": []interface{}{},
 		}

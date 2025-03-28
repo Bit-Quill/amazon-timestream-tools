@@ -69,7 +69,6 @@ func addTelegrafEC2InstanceToStack(stack awscdk.Stack, stackProps awscdk.StackPr
 		os.Exit(1)
 	}
 	awsCredentials = awsConfig.Credentials
-	// Create a TimestreamInfluxDB client from just a session.
 	svc := timestreaminfluxdb.New(timestreaminfluxdb.Options{
 		Credentials: awsCredentials,
 		Region:      *stack.Region(),
