@@ -1,23 +1,23 @@
 package main
 
 import (
-  "context"
+	"context"
 	"fmt"
 	"log"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-  "github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/timestreaminfluxdb"
-	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsgrafana"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
 	"github.com/aws/aws-cdk-go/awscdk/v2/customresources"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/service/timestreaminfluxdb"
 	"github.com/aws/jsii-runtime-go"
 )
 
@@ -49,84 +49,68 @@ func addTelegrafEC2InstanceToStack(stack awscdk.Stack, stackProps awscdk.StackPr
 			awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
 				Actions: &[]*string{
 					jsii.String("timestream:DescribeEndpoints"),
-				},
-				Resources: &[]*string{
-					jsii.String("*"),
-				},
-			}),
-			awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
-				Actions: &[]*string{
 					jsii.String("cloudwatch:ListMetrics"),
-				},
-				Resources: &[]*string{
-					jsii.String("*"),
-				},
-			}),
-			awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
-				Actions: &[]*string{
 					jsii.String("cloudwatch:GetMetricData"),
 				},
 				Resources: &[]*string{
-          jsii.String("*"), //TODO:
+					jsii.String("*"),
 				},
 			}),
-
-
 		},
 	})
 
 	timestreamPolicy.AttachToRole(instanceRole)
 
-  ctx := context.Background()
-  var awsCredentials aws.CredentialsProvider
+	ctx := context.Background()
+	var awsCredentials aws.CredentialsProvider
 	awsConfig, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
-		fmt.Printf("Error loading AWS config: " + err.Error())
-    os.Exit(1)
+		log.Printf("Error loading AWS config: " + err.Error())
+		os.Exit(1)
 	}
 	awsCredentials = awsConfig.Credentials
-  // Create a TimestreamInfluxDB client from just a session.
-  svc := timestreaminfluxdb.New(timestreaminfluxdb.Options{
-    Credentials: awsCredentials,
-    Region: "us-west-2",
-  })
-  ec2svc := ec2.New(ec2.Options{
-    Credentials: awsCredentials,
-    Region: "us-west-2",
-  })
+	// Create a TimestreamInfluxDB client from just a session.
+	svc := timestreaminfluxdb.New(timestreaminfluxdb.Options{
+		Credentials: awsCredentials,
+		Region:      *stack.Region(),
+	})
+	ec2svc := ec2.New(ec2.Options{
+		Credentials: awsCredentials,
+		Region:      *stack.Region(),
+	})
 
-  // TODO:
-
-
-  vpcId := ""
+	vpcId := ""
 	telegrafInputOutputConfig := ""
-  instanceEndpoint := ""
+	instanceEndpoint := ""
 
-  // Split the comma separated list of Ids
+	// Split the comma separated list of Ids
 	influxDBIdArr := strings.Split(influxDBIds, ",")
 	for _, instanceId := range influxDBIdArr {
 
-    influxDBInstance, err := svc.GetDbInstance(ctx, &timestreaminfluxdb.GetDbInstanceInput{
-      Identifier: &instanceId,
-    })
-  
-    if err != nil {
-      fmt.Printf("Error: %s", err)
-      os.Exit(1)
-    }
-    instanceEndpoint = fmt.Sprintf("https://%s:%d", *influxDBInstance.Endpoint, *influxDBInstance.Port)
+		influxDBInstance, err := svc.GetDbInstance(ctx, &timestreaminfluxdb.GetDbInstanceInput{
+			Identifier: &instanceId,
+		})
+		if err != nil {
+			log.Printf("Error describing InfluxDB instance: %s", err)
+			os.Exit(1)
+		}
+		instanceEndpoint = fmt.Sprintf("https://%s:%d", *influxDBInstance.Endpoint, *influxDBInstance.Port)
 
-    vpc, err := ec2svc.DescribeSubnets(ctx, &ec2.DescribeSubnetsInput{
-      SubnetIds: influxDBInstance.VpcSubnetIds,
-    })
+		vpc, err := ec2svc.DescribeSubnets(ctx, &ec2.DescribeSubnetsInput{
+			SubnetIds: influxDBInstance.VpcSubnetIds,
+		})
+		if err != nil {
+			log.Printf("Failed to describe subnets for InfluxDB instance: %s", err)
+			os.Exit(1)
+		}
 
-    if vpcId == "" {
-      vpcId = *vpc.Subnets[0].VpcId
-    } else if vpcId != *vpc.Subnets[0].VpcId {
-      fmt.Printf("Error, all InfluxDB instances must be in the same VPC.")
-      os.Exit(1)
-    }
-  
+		if vpcId == "" {
+			vpcId = *vpc.Subnets[0].VpcId
+		} else if vpcId != *vpc.Subnets[0].VpcId {
+			log.Printf("Error: all InfluxDB instances must be in the same VPC.")
+			os.Exit(1)
+		}
+
 		telegrafInputOutputConfig += fmt.Sprintf(`
 [[outputs.timestream]]
   region = "%s"
@@ -300,7 +284,7 @@ service telegraf start
 		SecurityGroup: ec2SecurityGroup,
 	})
 
-	awscdk.NewCfnOutput(stack, jsii.String("EC2InstanceID"), &awscdk.CfnOutputProps{
+	awscdk.NewCfnOutput(stack, jsii.String("EC2 Instance ID"), &awscdk.CfnOutputProps{
 		Value:       ec2Instance.InstanceId(),
 		Description: jsii.String("The instance ID of the EC2 instance running Telegraf"),
 	})
@@ -346,7 +330,7 @@ func addGrafanaWorkspaceToStack(stack awscdk.Stack, stackProps awscdk.StackProps
 	})
 
 	workspaceUri := "https://" + *grafanaWorkspace.AttrEndpoint()
-	awscdk.NewCfnOutput(stack, jsii.String("GrafanaWorkspaceID"), &awscdk.CfnOutputProps{
+	awscdk.NewCfnOutput(stack, jsii.String("Grafana Workspace URL"), &awscdk.CfnOutputProps{
 		Value:       &workspaceUri,
 		Description: jsii.String("The URI of the Grafana workspace"),
 	})
@@ -433,7 +417,7 @@ func main() {
 		os.Exit(1)
 	}
 
-  // Optional context
+	// Optional context
 	grafanaWorkspaceNameContext := stack.Node().TryGetContext(jsii.String("GrafanaWorkspaceName"))
 	grafanaWorkspaceName := "InfluxDBMetricDashboardWorkspace"
 	if grafanaWorkspaceNameContext != nil {

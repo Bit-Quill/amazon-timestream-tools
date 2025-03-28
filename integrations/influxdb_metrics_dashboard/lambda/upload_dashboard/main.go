@@ -444,6 +444,12 @@ func lambdaHandler(ctx context.Context, event map[string]interface{}) (events.AP
 
 func main() {
 	lambda.Start(lambdaHandler)
+	//	 jsonDashboard, err := json.Marshal(generateDashboard("datasourceName", "dashboardName", "databaseName"))
+	//		if err != nil {
+	//			fmt.Printf("Error")
+	//		} else {
+	//	   fmt.Printf("Dashboard: %s", jsonDashboard)
+	//	 }
 }
 
 type panelField struct {
@@ -473,6 +479,16 @@ func generateGaugePanelQuery(instanceName string, databaseName string, tableName
   	  WHERE subquery.%s = "%s".%s
 )
 ORDER BY %s LIMIT 25`, instanceName, databaseName, tableName, databaseName, tableName, instanceName, tableName, instanceName, instanceName)
+}
+
+func generateCloudWatchGaugePanelQuery(instanceName string, databaseName string, tableName string, metricName string) string {
+	return fmt.Sprintf(`SELECT CONCAT('ID: ', %s), %s FROM "%s"."%s"
+  WHERE time = (
+    SELECT MAX(time)
+      FROM "%s"."%s" as subquery
+  	  WHERE subquery.%s = "%s".%s
+)
+ORDER BY %s LIMIT 25`, instanceName, metricName, databaseName, tableName, databaseName, tableName, instanceName, tableName, instanceName, instanceName)
 }
 
 func generateCounterStatPanelQuery(instanceName string, databaseName string, tableName string) string {
@@ -519,6 +535,22 @@ func generatePanelOptions(panelType string) map[string]interface{} {
 				"values": false,
 			},
 			"showUnfilled":         true,
+			"showThresholdLabels":  false,
+			"showThresholdMarkers": true,
+			"sizing":               "auto",
+		}
+	case "gauge":
+		return map[string]interface{}{
+			"minVizHeight": 75,
+			"minVizWidth":  75,
+			"orientation":  "auto",
+			"reduceOptions": map[string]interface{}{
+				"calcs": []string{
+					"lastNotNull",
+				},
+				"fields": "",
+				"values": true,
+			},
 			"showThresholdLabels":  false,
 			"showThresholdMarkers": true,
 			"sizing":               "auto",
@@ -622,6 +654,35 @@ func generatePanelFieldConfig(panelType string, panelTitle string) map[string]in
 				},
 			},
 		}
+	case "gauge":
+		return map[string]interface{}{"defaults": map[string]interface{}{
+			"mappings": []string{},
+			"thresholds": map[string]interface{}{
+				"mode": "percentage",
+				"steps": []interface{}{
+					map[string]interface{}{
+						"color": "green",
+						"value": nil,
+					},
+					map[string]interface{}{
+						"color": "yellow",
+						"value": 60,
+					},
+					map[string]interface{}{
+						"color": "red",
+						"value": 80,
+					},
+				},
+			},
+			"color": map[string]interface{}{
+				"mode": "thresholds",
+			},
+			"unit": "percentage",
+      "min": 0,
+      "max": 100,
+		},
+			"overrides": []interface{}{},
+		}
 	default:
 		return map[string]interface{}{}
 	}
@@ -630,14 +691,17 @@ func generatePanelFieldConfig(panelType string, panelTitle string) map[string]in
 func generatePanels(datasourceName string, databaseName string) []interface{} {
 
 	panelFields := []panelField{
-		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 0}, "Query Execution Duration in Seconds", "bargauge", "M", fmt.Sprintf("SELECT * FROM \"%s\".\"qc_executing_duration_seconds\" ORDER BY time desc", databaseName)},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 0}, "Total Available Memory from System", "stat", "L", generateGaugePanelQuery("influxDBInstance", databaseName, "go_memstats_sys_bytes")},
-		{map[string]interface{}{"h": 6, "w": 7, "x": 0, "y": 22}, "Bucket Cardinality", "stat", "A", generateBucketedGaugePanelQuery("influxDBInstance", databaseName, "storage_bucket_series_num")},
-		{map[string]interface{}{"h": 6, "w": 6, "x": 7, "y": 22}, "Memory Cache Usage", "stat", "B", generateGaugePanelQuery("influxDBInstance", databaseName, "go_memstats_mcache_inuse_bytes")},
-		{map[string]interface{}{"h": 6, "w": 6, "x": 13, "y": 22}, "BoltDb Writes", "stat", "C", generateCounterStatPanelQuery("influxDBInstance", databaseName, "boltdb_writes_total")},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 30}, "Allocated Memory", "stat", "G", generateGaugePanelQuery("influxDBInstance", databaseName, "go_memstats_alloc_bytes")},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 30}, "HTTP Write Requests Count", "stat", "I", generateEndpointCounterStatPanelQuery("influxDBInstance", databaseName, "http_write_request_count", "%write%")},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 30}, "HTTP Query Requests Count", "stat", "N", generateEndpointCounterStatPanelQuery("influxDBInstance", databaseName, "http_query_request_count", "%query%")},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 0}, "Query execution duration in seconds", "bargauge", "A", fmt.Sprintf("SELECT * FROM \"%s\".\"qc_executing_duration_seconds\" ORDER BY time desc", databaseName)},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 0}, "Memory utilization", "gauge", "B", generateCloudWatchGaugePanelQuery("influxDBInstance", databaseName, "cloudwatch_aws_timestream_influx_db", "memory_utilization_average")},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 8}, "CPU utilization", "gauge", "C", generateCloudWatchGaugePanelQuery("influxDBInstance", databaseName, "cloudwatch_aws_timestream_influx_db", "cpu_utilization_average")},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 8}, "Disk utilization", "gauge", "D", generateCloudWatchGaugePanelQuery("influxDBInstance", databaseName, "cloudwatch_aws_timestream_influx_db", "disk_utilization_average")},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 16}, "Total available memory from system", "stat", "E", generateGaugePanelQuery("influxDBInstance", databaseName, "go_memstats_sys_bytes")},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 16}, "Bucket cardinality", "stat", "F", generateBucketedGaugePanelQuery("influxDBInstance", databaseName, "storage_bucket_series_num")},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 24}, "Memory cache usage", "stat", "G", generateGaugePanelQuery("influxDBInstance", databaseName, "go_memstats_mcache_inuse_bytes")},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 24}, "BoltDb writes", "stat", "H", generateCounterStatPanelQuery("influxDBInstance", databaseName, "boltdb_writes_total")},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 32}, "Allocated memory", "stat", "I", generateGaugePanelQuery("influxDBInstance", databaseName, "go_memstats_alloc_bytes")},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 32}, "HTTP write requests count", "stat", "J", generateEndpointCounterStatPanelQuery("influxDBInstance", databaseName, "http_write_request_count", "%write%")},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 40}, "HTTP query requests count", "stat", "K", generateEndpointCounterStatPanelQuery("influxDBInstance", databaseName, "http_query_request_count", "%query%")},
 	}
 
 	var panelConfig []interface{}
