@@ -65,12 +65,12 @@ if ! command -v aws &> /dev/null; then
     exit 1
 fi
 
-if [ ! -z "$UNIQUE_RESTORE_NAME" ] && [ ! -z "$FORCE_REPLACE" ]; then
+if [ $OPERATION = "restore" ] && [ ! -z "$UNIQUE_RESTORE_NAME" ] && [ ! -z "$FORCE_REPLACE" ]; then
     echo "Use either --force-replace or --unique-restore-name, not both"
     exit 1
 fi
 
-if [ -z "$UNIQUE_RESTORE_NAME" ] && [ -z "$FORCE_REPLACE" ]; then
+if [ $OPERATION = "restore" ] && [ -z "$UNIQUE_RESTORE_NAME" ] && [ -z "$FORCE_REPLACE" ]; then
     echo "--force-replace or --unique-restore-name must be set"
     exit 1
 fi

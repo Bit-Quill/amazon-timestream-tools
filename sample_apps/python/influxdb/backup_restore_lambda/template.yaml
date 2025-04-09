@@ -241,11 +241,6 @@ Resources:
             Principal:
               Service: ecs-tasks.amazonaws.com
             Action: sts:AssumeRole
-            Condition:
-              ArnLike:
-                aws:SourceArn: !Sub "arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:*"
-              StringEquals:
-                aws:SourceAccount: !Ref AWS::AccountId
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
 
@@ -260,11 +255,6 @@ Resources:
             Principal:
               Service: ecs-tasks.amazonaws.com
             Action: sts:AssumeRole
-            Condition:
-              ArnLike:
-                aws:SourceArn: !Sub "arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:*"
-              StringEquals:
-                aws:SourceAccount: !Ref AWS::AccountId
       Policies:
         - PolicyName: S3Access
           PolicyDocument:
@@ -320,7 +310,7 @@ Resources:
       TaskRoleArn: !GetAtt TaskRole.Arn
       ContainerDefinitions:
         - Name: !Sub "${AWS::StackName}-container"
-          Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AWS::StackName}:latest"
+          Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECRRepositoryName}:latest"
           Essential: true
           User: "1000:1000"
           LogConfiguration:
@@ -421,9 +411,6 @@ Resources:
             Principal:
               Service: events.amazonaws.com
             Action: sts:AssumeRole
-            Condition:
-              StringEquals:
-                aws:SourceAccount: !Ref AWS::AccountId
       Policies:
         - PolicyName: RunECSTaskPolicy
           PolicyDocument:
@@ -433,48 +420,19 @@ Resources:
                 Action:
                   - ecs:RunTask
                 Resource: !Ref TaskDefinition
-                Condition:
-                  ArnLike:
-                    aws:SourceArn: !Sub "arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/${AWS::StackName}-*"
               - Effect: Allow
                 Action:
                   - iam:PassRole
                 Resource:
                   - !GetAtt ECSTaskExecutionRole.Arn
                   - !GetAtt TaskRole.Arn
+              - Effect: Allow
+                Action:
+                  - ec2:DescribeSubnets
+                  - ec2:DescribeSecurityGroups
+                  - ec2:DescribeVpcs
+                Resource: "*"
 
-Outputs:
-  ECSCluster:
-    Description: ECS Cluster for InfluxDB backup/restore
-    Value: !Ref ECSCluster
-  
-  TaskDefinition:
-    Description: ECS Task Definition for InfluxDB backup/restore
-    Value: !Ref TaskDefinition
-  
-  ECRRepository:
-    Description: ECR Repository for container image
-    Value: !Ref ECRRepository
-  
-  S3Bucket:
-    Description: S3 Bucket for backup data
-    Value: !Ref BackupS3Bucket
-  
-  EFSFileSystem:
-    Description: EFS File System ID
-    Value: !Ref EFSFileSystem
-    
-  ClusterArn:
-    Description: ARN of the ECS Cluster
-    Value: !GetAtt ECSCluster.Arn
-
-  PublicSubnet1Id:
-    Description: The ID of the first public subnet
-    Value: !Ref PublicSubnet1
-
-  PublicSubnet2Id:
-    Description: The ID of the seconds public subnet
-    Value: !Ref PublicSubnet2
 Outputs:
   ClusterName:
     Description: "ECS Cluster Name"

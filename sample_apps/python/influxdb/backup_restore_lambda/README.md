@@ -57,7 +57,7 @@ Use the following command to deploy the stack. Replace the following:
 - `<restore org>` with the name of the organization you want to restore your bucket to in the destination instance.
 - `<bucket name>` with the name of the bucket you want to backup in source instance.
 - `<s3 bucket name>` with the name that you want to use for a newly-created S3 bucket that will be used to hold bucket data.
-- `<backup schedule>` with a [cron expression](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-scheduled-rule-pattern.html) describing how often you want backups to occur. For example, `cron(0 12 ? * FRI *)` does a backup every Friday at noon.
+- `<backup schedule>` with a [cron expression](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-scheduled-rule-pattern.html) describing how often you want backups to occur. For example, `cron(0 12 ? * FRI *)` does a backup every Friday at noon, UTC.
 - `<restore schedule>` with a [cron expression](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-scheduled-rule-pattern.html) describing how often you want restores to occur.
 - `<ECR repository name>` with the name that you want to use for a newly-created ECR repository.
 
