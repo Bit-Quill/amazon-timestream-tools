@@ -22,7 +22,5 @@ WORKDIR /app
 
 COPY backup_restore.py /app/
 
-RUN chmod +x /app/backup_restore.py
-
 # Set the entrypoint
 ENTRYPOINT ["python", "/app/backup_restore.py"]
