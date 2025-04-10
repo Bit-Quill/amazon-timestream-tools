@@ -13,14 +13,15 @@ RUN wget https://dl.influxdata.com/influxdb/releases/influxdb2-client-2.7.5-linu
     chmod +x /usr/local/bin/influx && \
     rm influxdb2-client-2.7.5-linux-arm64.tar.gz
 
-RUN pip install --no-cache-dir awscli boto3 botocore
-
 # Create data directory for backups/restores
 RUN mkdir -p /data && chmod 777 /data
 
 WORKDIR /app
 
 COPY backup_restore.py /app/
+COPY requirements.txt /app/
+
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Set the entrypoint
 ENTRYPOINT ["python", "/app/backup_restore.py"]
