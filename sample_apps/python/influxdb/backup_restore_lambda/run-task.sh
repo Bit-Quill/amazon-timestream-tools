@@ -18,7 +18,7 @@ usage() {
 }
 
 # Check if operation is provided
-if [ $# -lt 1 ]; then
+if [[ $# -lt 1 ]]; then
     usage
 fi
 
@@ -65,12 +65,12 @@ if ! command -v aws &> /dev/null; then
     exit 1
 fi
 
-if [ $OPERATION = "restore" ] && [ ! -z "$UNIQUE_RESTORE_NAME" ] && [ ! -z "$FORCE_REPLACE" ]; then
+if [[ $OPERATION = "restore" && ! -z "$UNIQUE_RESTORE_NAME" && ! -z "$FORCE_REPLACE" ]]; then
     echo "Use either --force-replace or --unique-restore-name, not both"
     exit 1
 fi
 
-if [ $OPERATION = "restore" ] && [ -z "$UNIQUE_RESTORE_NAME" ] && [ -z "$FORCE_REPLACE" ]; then
+if [[ $OPERATION = "restore" && -z "$UNIQUE_RESTORE_NAME" && -z "$FORCE_REPLACE" ]]; then
     echo "--force-replace or --unique-restore-name must be set"
     exit 1
 fi
@@ -79,11 +79,11 @@ fi
 COMMAND_ARRAY="[\"--operation\",\"$OPERATION\""
 
 # Add optional parameters if set
-if [ ! -z "$UNIQUE_RESTORE_NAME" ]; then
+if [[ ! -z "$UNIQUE_RESTORE_NAME" ]]; then
     COMMAND_ARRAY+=",\"--unique-restore-name\""
 fi
 
-if [ ! -z "$FORCE_REPLACE" ]; then
+if [[ ! -z "$FORCE_REPLACE" ]]; then
     COMMAND_ARRAY+=",\"--force-replace\""
 fi
 

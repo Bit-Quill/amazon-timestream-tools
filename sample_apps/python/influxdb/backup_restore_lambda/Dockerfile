@@ -1,5 +1,7 @@
 FROM python:3.13-slim
 
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
 # Install required packages
 RUN apt-get update && \
     apt-get install -y wget tar curl && \
@@ -22,6 +24,8 @@ COPY backup_restore.py /app/
 COPY requirements.txt /app/
 
 RUN pip install --no-cache-dir -r requirements.txt
+
+USER appuser
 
 # Set the entrypoint
 ENTRYPOINT ["python", "/app/backup_restore.py"]
