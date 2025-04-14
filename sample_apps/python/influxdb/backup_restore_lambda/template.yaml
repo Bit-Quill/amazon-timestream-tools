@@ -28,7 +28,7 @@ Parameters:
     Type: String
     Description: Name of the Timestream for InfluxDB bucket to backup and restore
 
-  S3BucketName:
+  S3BackupBucketName:
     Type: String
     Description: Name of the S3 bucket to store backup data in
     Default: influxdb-backup-data
@@ -125,7 +125,7 @@ Resources:
   BackupS3Bucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Ref S3BucketName
+      BucketName: !Ref S3BackupBucketName
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         IgnorePublicAcls: true
@@ -267,8 +267,8 @@ Resources:
                   - s3:ListBucket
                   - s3:DeleteObject
                 Resource:
-                  - !Sub "arn:aws:s3:::${S3BucketName}"
-                  - !Sub "arn:aws:s3:::${S3BucketName}/*"
+                  - !Sub "arn:aws:s3:::${S3BackupBucketName}"
+                  - !Sub "arn:aws:s3:::${S3BackupBucketName}/*"
         - PolicyName: SecretsManagerAccess
           PolicyDocument:
             Version: '2012-10-17'
@@ -332,8 +332,8 @@ Resources:
               Value: !Ref RestoreOrg
             - Name: BUCKET_NAME
               Value: !Ref BucketName
-            - Name: S3_BUCKET_NAME
-              Value: !Ref S3BucketName
+            - Name: S3_BACKUP_BUCKET_NAME
+              Value: !Ref S3BackupBucketName
             - Name: EFS_MOUNT_RETRY
               Value: "true"
           MountPoints:
@@ -452,6 +452,6 @@ Outputs:
   ContainerName:
     Description: "Container Name"
     Value: !Sub "${AWS::StackName}-container"
-  S3Bucket:
+  S3BackupBucket:
     Description: "S3 Bucket for backups"
-    Value: !Ref S3BucketName
+    Value: !Ref S3BackupBucketName

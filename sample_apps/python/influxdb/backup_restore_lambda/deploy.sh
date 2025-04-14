@@ -85,8 +85,8 @@ if [[ -z "$BUCKET_NAME" ]]; then
     read -p "Enter bucket name to backup and restore: " BUCKET_NAME
 fi
 
-if [[ -z "$S3_BUCKET_NAME" ]]; then
-    read -p "Enter S3 bucket name for storing backups (will be created if it doesn't exist): " S3_BUCKET_NAME
+if [[ -z "$S3_BACKUP_BUCKET_NAME" ]]; then
+    read -p "Enter S3 bucket name for storing backups (will be created if it doesn't exist): " S3_BACKUP_BUCKET_NAME
 fi
 
 if [[ -z "$BACKUP_SCHEDULE" ]]; then
@@ -141,7 +141,7 @@ sam deploy \
     RestoreUrl=$RESTORE_URL \
     RestoreOrg=$RESTORE_ORG \
     BucketName=$BUCKET_NAME \
-    S3BucketName=$S3_BUCKET_NAME \
+    S3BackupBucketName=$S3_BACKUP_BUCKET_NAME \
     BackupSchedule="\"$BACKUP_SCHEDULE\"" \
     RestoreSchedule="\"$RESTORE_SCHEDULE\"" \
     ECRRepositoryName=$ECR_REPO_NAME

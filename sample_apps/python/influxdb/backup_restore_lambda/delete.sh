@@ -36,20 +36,20 @@ if ! command -v aws &> /dev/null; then
     exit 1
 fi
 
-# Get the S3 bucket name from the stack outputs
-S3_BUCKET_NAME=$(aws cloudformation describe-stacks --stack-name $STACK_NAME \
-    --query "Stacks[0].Outputs[?OutputKey=='S3Bucket'].OutputValue" --output text)
+# Get the S3 backup bucket name from the stack outputs
+S3_BACKUP_BUCKET_NAME=$(aws cloudformation describe-stacks --stack-name $STACK_NAME \
+    --query "Stacks[0].Outputs[?OutputKey=='S3BackupBucket'].OutputValue" --output text)
 
-if [[ ! -z "$S3_BUCKET_NAME" && "$S3_BUCKET_NAME" != "None" ]]; then
+if [[ ! -z "$S3_BACKUP_BUCKET_NAME" && "$S3_BACKUP_BUCKET_NAME" != "None" ]]; then
     if [ "$FORCE" = true ]; then
-        echo "Emptying S3 bucket $S3_BUCKET_NAME before deletion..."
-        aws s3 rm s3://$S3_BUCKET_NAME --recursive
+        echo "Emptying S3 bucket $S3_BACKUP_BUCKET_NAME before deletion..."
+        aws s3 rm s3://$S3_BACKUP_BUCKET_NAME --recursive
     else
-        read -p "Do you want to empty the S3 bucket $S3_BUCKET_NAME? This will delete all backup data. (y/n) " -n 1 -r
+        read -p "Do you want to empty the S3 bucket $S3_BACKUP_BUCKET_NAME? This will delete all backup data. (y/n) " -n 1 -r
         echo
         if [[ $REPLY =~ ^[Yy]$ ]]; then
-            echo "Emptying S3 bucket $S3_BUCKET_NAME before deletion..."
-            aws s3 rm s3://$S3_BUCKET_NAME --recursive
+            echo "Emptying S3 bucket $S3_BACKUP_BUCKET_NAME before deletion..."
+            aws s3 rm s3://$S3_BACKUP_BUCKET_NAME --recursive
         else
             echo "Bucket will not be emptied. Stack deletion may fail."
         fi

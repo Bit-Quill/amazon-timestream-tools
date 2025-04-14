@@ -57,7 +57,7 @@ def main():
     restore_endpoint = os.environ.get('RESTORE_URL')
     restore_org = os.environ.get('RESTORE_ORG')
     bucket_name = os.environ.get('BUCKET_NAME')
-    s3_bucket_name = os.environ.get('S3_BUCKET_NAME')
+    s3_backup_bucket_name = os.environ.get('S3_BACKUP_BUCKET_NAME')
 
     # Get secret name from environment variable
     tokens_secret_name = os.environ.get('TOKENS_SECRET_NAME')
@@ -70,7 +70,7 @@ def main():
         'RESTORE_URL': restore_endpoint,
         'RESTORE_ORG': restore_org,
         'BUCKET_NAME': bucket_name,
-        'S3_BUCKET_NAME': s3_bucket_name
+        'S3_BACKUP_BUCKET_NAME': s3_backup_bucket_name
     }
 
     missing_vars = [var for var, value in required_vars.items() if not value]
@@ -108,7 +108,7 @@ def main():
 
     if args.operation == 'backup':
         logger.info("Starting backup operation")
-        result = backup(session, backup_endpoint, backup_token, s3_bucket_name, bucket_name, backup_org)
+        result = backup(session, backup_endpoint, backup_token, s3_backup_bucket_name, bucket_name, backup_org)
         logger.info(result)
     elif args.operation == 'restore':
         if not args.force_replace and not args.unique_restore_name:
@@ -117,11 +117,11 @@ def main():
             raise RuntimeError("Either --force-replace or --unique-restore-name must be set, not both")
 
         logger.info("Starting restore operation")
-        result = restore(session, restore_endpoint, restore_token, s3_bucket_name, bucket_name, restore_org,
+        result = restore(session, restore_endpoint, restore_token, s3_backup_bucket_name, bucket_name, restore_org,
                         unique_restore_name=args.unique_restore_name, force_replace=args.force_replace)
         logger.info(result)
 
-def backup(session, backup_endpoint, backup_token, s3_bucket_name, bucket_name, org_name):
+def backup(session, backup_endpoint, backup_token, s3_backup_bucket_name, bucket_name, org_name):
     """Backup InfluxDB data to S3."""
     s3_client = session.client('s3')
 
@@ -166,7 +166,7 @@ def backup(session, backup_endpoint, backup_token, s3_bucket_name, bucket_name, 
     timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
     backup_prefix = f"{bucket_name}/{timestamp}/"
 
-    logger.info(f"Uploading backup data to S3 bucket {s3_bucket_name} with prefix {backup_prefix}")
+    logger.info(f"Uploading backup data to S3 bucket {s3_backup_bucket_name} with prefix {backup_prefix}")
     file_count = 0
     total_size = 0
 
@@ -180,7 +180,7 @@ def backup(session, backup_endpoint, backup_token, s3_bucket_name, bucket_name, 
             s3_key = f"{backup_prefix}{relative_path}"
 
             try:
-                s3_client.upload_file(local_file_path, s3_bucket_name, s3_key)
+                s3_client.upload_file(local_file_path, s3_backup_bucket_name, s3_key)
                 file_count += 1
                 if file_count % 100 == 0:
                     logger.info(f"Uploaded {file_count} files so far...")
@@ -200,9 +200,9 @@ def backup(session, backup_endpoint, backup_token, s3_bucket_name, bucket_name, 
         except Exception as e:
             logger.warning(f"Failed to remove {backup_path} directory: {str(e)}")
 
-    return f"Successfully backed up {bucket_name} to {s3_bucket_name}/{backup_prefix}"
+    return f"Successfully backed up {bucket_name} to {s3_backup_bucket_name}/{backup_prefix}"
 
-def restore(session, restore_endpoint, restore_token, s3_bucket_name, bucket_name, org_name,
+def restore(session, restore_endpoint, restore_token, s3_backup_bucket_name, bucket_name, org_name,
            unique_restore_name=False, force_replace=False):
     """Restore InfluxDB data from S3.
 
@@ -210,7 +210,7 @@ def restore(session, restore_endpoint, restore_token, s3_bucket_name, bucket_nam
         session: boto3 session
         restore_endpoint: Timestream for InfluxDB endpoint URL
         restore_token: Timestream for InfluxDB operator token
-        s3_bucket_name: S3 bucket containing backups
+        s3_backup_bucket_name: S3 bucket containing backups
         bucket_name: Original bucket name to restore
         org_name: Organization name
         unique_restore_name: If True, create a unique bucket name for restore
@@ -219,7 +219,7 @@ def restore(session, restore_endpoint, restore_token, s3_bucket_name, bucket_nam
     """
     s3_client = session.client('s3')
     s3_resource = session.resource('s3')
-    s3_bucket = s3_resource.Bucket(s3_bucket_name)
+    s3_backup_bucket = s3_resource.Bucket(s3_backup_bucket_name)
 
     restore_path = "/data/restore_directory"
 
@@ -232,10 +232,10 @@ def restore(session, restore_endpoint, restore_token, s3_bucket_name, bucket_nam
 
     # Find the latest backup for this bucket
     prefix = f"{bucket_name}/"
-    response = s3_client.list_objects_v2(Bucket=s3_bucket_name, Prefix=prefix, Delimiter='/')
+    response = s3_client.list_objects_v2(Bucket=s3_backup_bucket_name, Prefix=prefix, Delimiter='/')
 
     if 'CommonPrefixes' not in response or not response['CommonPrefixes']:
-        logger.error(f"No backups found for bucket {bucket_name} in S3 bucket {s3_bucket_name}")
+        logger.error(f"No backups found for bucket {bucket_name} in S3 bucket {s3_backup_bucket_name}")
         return f"No backups found for {bucket_name}"
 
     # Sort prefixes by name (which includes timestamp) to get the latest
@@ -243,11 +243,11 @@ def restore(session, restore_endpoint, restore_token, s3_bucket_name, bucket_nam
     logger.info(f"Found latest backup at {latest_prefix}")
 
     # Download the backup files
-    logger.info(f"Downloading backup data from S3 bucket {s3_bucket_name}/{latest_prefix}")
+    logger.info(f"Downloading backup data from S3 bucket {s3_backup_bucket_name}/{latest_prefix}")
     file_count = 0
 
     paginator = s3_client.get_paginator('list_objects_v2')
-    for page in paginator.paginate(Bucket=s3_bucket_name, Prefix=latest_prefix):
+    for page in paginator.paginate(Bucket=s3_backup_bucket_name, Prefix=latest_prefix):
         if 'Contents' not in page:
             continue
 
@@ -261,7 +261,7 @@ def restore(session, restore_endpoint, restore_token, s3_bucket_name, bucket_nam
             os.makedirs(os.path.dirname(local_file_path), exist_ok=True)
 
             # Download the file
-            s3_bucket.download_file(s3_key, local_file_path)
+            s3_backup_bucket.download_file(s3_key, local_file_path)
             file_count += 1
 
             if file_count % 100 == 0:
