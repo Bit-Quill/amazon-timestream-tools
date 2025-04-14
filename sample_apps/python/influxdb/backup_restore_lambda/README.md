@@ -101,7 +101,7 @@ On macOS and Linux, you can always manually trigger backup or restore operations
 
 ```bash
 ./run-task.sh backup
-./run-task.sh restore --force-replace
+./run-task.sh restore --force-replace --stack-name <stack name>
 ```
 
 ## Flexible Bucket Restore Options
