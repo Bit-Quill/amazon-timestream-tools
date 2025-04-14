@@ -100,7 +100,7 @@ docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/<ECR repository na
 On macOS and Linux, you can always manually trigger backup or restore operations regardless of the schedule using `run-task.sh`:
 
 ```bash
-./run-task.sh backup
+./run-task.sh backup --stack-name <stack name>
 ./run-task.sh restore --force-replace --stack-name <stack name>
 ```
 
