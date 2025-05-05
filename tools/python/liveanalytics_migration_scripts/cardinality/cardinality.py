@@ -178,11 +178,11 @@ if __name__ == "__main__":
         "--exclude-dimensions",
         help="Optional. A list of "
         "dimension names to exclude from the cardinality "
-        "calculation seprated by commas. In a real-world "
+        "calculation separated by commas. In a real-world "
         "scenario, changing Timestream for LiveAnalytics "
-        "dimensions to InfluxDB fields when translating "
-        "Timestream for LiveAnalytics records to line protocol "
-        "can lower cardinality.",
+        "dimensions to InfluxDB fields rather than InfluxDB "
+        "tags when translating Timestream for LiveAnalytics "
+        "records to line protocol lowers the cardinality.",
         required=False,
         type=TimestreamUtility.comma_separated_list,
     )
@@ -231,7 +231,7 @@ if __name__ == "__main__":
             excluded_dimension_names_string = ", ".join(excluded_dimension_names[:-1])
             print(
                 f'Hypothetical cardinality of "{database_name}"."{table_name}" '
-                f" if the dimensions {excluded_dimension_names_string}, and "
+                f"if the dimensions {excluded_dimension_names_string}, and "
                 f"{excluded_dimension_names[-1]} became fields: {hypothetical_cardinality}"
             )
         print(
