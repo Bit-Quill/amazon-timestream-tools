@@ -1,6 +1,6 @@
 
 import boto3
-from utils.logger_utils import create_logger
+from logger_utils import create_logger
 import botocore
 import json
 
