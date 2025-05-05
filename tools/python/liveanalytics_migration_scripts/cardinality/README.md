@@ -40,7 +40,7 @@ The following prerequisites must be met before running the script:
 - `-h`, `--help`: Show this help message and exit.
 - `--table-name TABLE_NAME`: The Timestream for LiveAnalytics table to determine the cardinality of.
 - `--database-name DATABASE_NAME`: The Timestream for LiveAnalytics database that your table resides in.
-- `--exclude-dimensions EXCLUDE_DIMENSIONS`: Optional. A list of dimension names to exclude from the cardinality calculation seprated by commas. In a real-world scenario, changing Timestream for LiveAnalytics dimensions to InfluxDB fields when translating Timestream for LiveAnalytics records to line protocol can lower cardinality.
+- `--exclude-dimensions EXCLUDE_DIMENSIONS`: Optional. A list of dimension names to exclude from the cardinality calculation separated by commas. In a real-world scenario, changing Timestream for LiveAnalytics dimensions to InfluxDB fields rather than InfluxDB tags when translating Timestream for LiveAnalytics records to line protocol lowers the cardinality.
 
 ### Basic Usage
 
