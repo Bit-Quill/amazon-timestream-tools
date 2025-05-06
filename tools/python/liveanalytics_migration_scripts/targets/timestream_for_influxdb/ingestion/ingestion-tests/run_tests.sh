@@ -13,7 +13,7 @@ fi
 # Install test dependencies
 if [ ! -f ".venv/bin/activate" ]; then
   echo "Creating virtual environment and installing dependencies..."
-  python -m venv .venv
+  python3 -m venv .venv
   source .venv/bin/activate
   pip install -r requirements.txt
 else
