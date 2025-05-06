@@ -8,7 +8,7 @@ Refer to [Timestream for InfluxDB's documentation on cardinality management](htt
 
 ## Calculating Cardinality
 
-This script calculates the cardinality of a Timestream for LiveAnalytics table when mapped to Timestream for InfluxDB using the LiveAnalytics migration script. If the cardinality is under **ten million**, you can determine which Timestream for InfluxDB instance type to migrate to, otherwise how to adjust the schema for reducing cardinality. Using the default schema mapping, cardinality is calculated by computing the total unique combinations of dimensions and measure name. The script executes the following query to do this:
+This script calculates the cardinality of a Timestream for LiveAnalytics table when mapped to Timestream for InfluxDB using the [Timestream for InfluxDB ingestion script](../targets/timestream_for_influxdb/ingestion/). If the cardinality is under **ten million**, you can determine which Timestream for InfluxDB instance type to migrate to, otherwise how to adjust the schema to reduce cardinality, for example, by using the [Timestream for LiveAnalytics to Line Protocol Translation Script](../targets/timestream_for_influxdb/transform/) with the `--dimensions-to-fields` argument to change particular dimensions to fields. Using the default schema mapping, cardinality is calculated by computing the total unique combinations of dimensions and measure name. The script executes the following query to do this:
 
 ```sql
 SELECT 
@@ -71,7 +71,7 @@ This table is similar to the table above, except it has $`20,000,000`$ records f
 1 \cdot 1 \cdot 20,000,000 \cdot 1 = 20,000,000
 ```
 
-In this case, `request_id` should be changed to a field when migrating to Timestream for InfluxDB.
+In this case, `request_id` should be changed to a field when migrating to Timestream for InfluxDB, after which the cardinality would be $`1`$.
 
 If you decide to migrate to Timestream for InfluxDB and decide to translate any dimensions to InfluxDB fields, see [InfluxData's documentation for schema design best practices](https://docs.influxdata.com/influxdb/v2/write-data/best-practices/schema-design).
 
@@ -83,7 +83,10 @@ The following prerequisites must be met before running the script:
 1. [AWS credentials configured for use with boto3](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#using-a-configuration-file).
 2. A Timestream for LiveAnalytics table [created](https://docs.aws.amazon.com/timestream/latest/developerguide/console_timestream.html#console_timestream.table.using-console) and loaded with data.
 3. [Python 3.13 installed](https://www.python.org/downloads/).
-4. Optionally, a [Python virtual environment](https://docs.python.org/3/library/venv.html), with all packages in `requirements.txt` installed. The following command can be used to create a virtual environment, activate it, and install all necessary packages:
+
+## Installation
+
+Optionally, a [Python virtual environment](https://docs.python.org/3/library/venv.html), with all packages in `requirements.txt` installed. The following command can be used to create a virtual environment, activate it, and install all necessary packages:
    ```shell
    python3 -m venv env && \
    source env/bin/activate && \
