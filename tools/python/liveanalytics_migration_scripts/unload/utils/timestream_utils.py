@@ -515,7 +515,7 @@ class TimestreamUtility:
 
     def query(self, query_string, next_token=None):
         if next_token is not None:
-            self.timestream_read_client.query(
+            return self.timestream_read_client.query(
                 QueryString=query_string, NextToken=next_token
             )
         else:
