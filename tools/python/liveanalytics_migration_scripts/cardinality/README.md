@@ -46,7 +46,7 @@ This gives us a total possible number of combinations of dimensions and the meas
 4 \cdot 4 \cdot 4 \cdot 1 = 64
 ```
 
-However, this is not the cardinality since this is not the number **actual** existing combinations. For the actual combinations in the table, each value of `host` is mapped to one region, since a server can only exist in one region, and each record has exactly $`1`$ unique `request_id`, meaning the actual number of combinations is
+However, this is not the cardinality since this is not the number of **actual** existing combinations. For the actual combinations in the table, each value of `host` is mapped to one region, since a server can only exist in one region, and each record has exactly $`1`$ unique `request_id`, meaning the actual number of combinations is
 
 ```math
 4 \cdot 1 \cdot 1 \cdot 1 = 4
