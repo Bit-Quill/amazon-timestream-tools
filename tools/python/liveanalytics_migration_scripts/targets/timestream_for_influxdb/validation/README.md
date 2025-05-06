@@ -83,6 +83,22 @@ All settings can be supplied as CLI flags **or** environment variables. See [exa
 - `--skip-wal-check` / `SKIP_WAL_CHECK` – Skip WAL‑flush wait *(default: false)*  
 - `--influx-only` / `INFLUX_ONLY` – Skip source query; return Influx count only *(default: false)*  
 
+#### With Docker
+
+For full validation:
+```bash
+make validate
+```
+
+To query only InfluxDB:
+```bash
+make influx_only
+```
+
+To track ingestion (skips WAL check & queries only InfluxDB)
+```bash
+make track_influx
+```
 
 ## Use Cases
 
@@ -99,16 +115,24 @@ All settings can be supplied as CLI flags **or** environment variables. See [exa
 
 ### Success Output
 ```
-Starting validation ... (engine = athena)
+--------------------
+Starting validation
+--------------------
+
+Polling https://xxx-yyy.timestream-influxdb.us-west-2.on.aws:8086/metrics to wait for WAL to complete flushing ... 
+
+2025-05-06 20:45:59  WAL empty on all shards — ready for validation.
+
+Starting validation ...
 
 --- InfluxDB ---
-Total LP points in bucket.cpu (begin – now): 124761600
+Total LP points in bucket-big.cpu (2024-01-01T00:00:00Z – 2025-02-01T00:00:00Z): 975661
 
 --- Athena ---
-Total records in default.cpu_usage_smol (begin – now): 124761600
+Total records in default.cpu_usage (2024-01-01T00:00:00Z – 2025-02-01T00:00:00Z): 975661
 
-⏱ Athena query time: 23.31 s
-⏱ InfluxDB query time:   1.01 s
+⏱ Athena query time: 8.62 s
+⏱ InfluxDB query time:   0.18 s
 
 --------- Migration Results ---------
 
@@ -117,7 +141,15 @@ Total records in default.cpu_usage_smol (begin – now): 124761600
 
 ### Mismatch Output
 ```
-Starting validation ... (engine = athena)
+--------------------
+Starting validation
+--------------------
+
+Polling https://zzz-yyy.timestream-influxdb.us-west-2.on.aws:8086/metrics to wait for WAL to complete flushing ... 
+
+2025-05-06 20:45:59  WAL empty on all shards — ready for validation.
+
+Starting validation ...
 
 --- InfluxDB ---
 Total LP points in bucket3.cpu (2025-03-01T00:00:00Z – 2025-03-02T00:00:00Z): 10634255
