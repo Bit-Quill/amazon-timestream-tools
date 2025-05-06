@@ -37,14 +37,8 @@ pytest -v
 
 ```bash
 # Run a specific test
-pytest -v ingestion_test.py::TestInfluxDBIngestion::test_single_file_ingestion
 
-# Run the full valid dataset test with 11 workers
-pytest -v ingestion_test.py::TestInfluxDBIngestion::test_full_valid_dataset_ingestion
-
-# Run performance tests
-pytest -v ingestion_test.py::test_performance
-```
+pytest -v ingestion_test.py::TestInfluxDBIngestion::test_valid_dataset_ingestion
 
 ## Test Environment
 
