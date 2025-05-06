@@ -2,7 +2,7 @@
 
 ## Overview
 
-[Cardinality](https://docs.influxdata.com/influxdb/v2/reference/glossary/#series-cardinality) in InfluxDB is the "number of unique measurement, tag set, and field key combinations in an InfluxDB bucket." When migrating from Timestream, carefully select your InfluxDB instance specifications based on your dataset's cardinality as this directly impacts performance and resource requirements and consider migrating to a destination other than InfluxDB if your cardinality is more than ten million.
+[Cardinality](https://docs.influxdata.com/influxdb/v2/reference/glossary/#series-cardinality) in InfluxDB is the "number of unique measurement, tag set, and field key combinations in an InfluxDB bucket." When migrating from Timestream for LiveAnalytics, carefully select your InfluxDB instance specifications based on your dataset's cardinality as this directly impacts performance and resource requirements and consider migrating to a destination other than InfluxDB if your cardinality **exceeds ten million**.
 
 Refer to [Timestream for InfluxDB's documentation on cardinality management](https://docs.aws.amazon.com/timestream/latest/developerguide/timestream-for-influxdb.html#timestream-for-influx-getting-started-security-best-practices) to understand how exceeding recommended limits can degrade query performance and increase memory consumption. Benchmark your anticipated query patterns against representative data samples before finalizing your instance selection to ensure your analytics remain performant post-migration, paying particular attention to memory-intensive aggregation queries that might behave differently than in Timestream.
 
