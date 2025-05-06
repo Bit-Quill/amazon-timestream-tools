@@ -8,7 +8,7 @@ Refer to [Timestream for InfluxDB's documentation on cardinality management](htt
 
 ## Calculating Cardinality
 
-This script calculates the cardinality of a Timestream for LiveAnalytics table when mapped to Timestream for InfluxDB using the [Timestream for InfluxDB ingestion script](../targets/timestream_for_influxdb/ingestion/). If the cardinality is under **ten million**, you can determine which Timestream for InfluxDB instance type to migrate to, otherwise how to adjust the schema to reduce cardinality, for example, by using the [Timestream for LiveAnalytics to Line Protocol Translation Script](../targets/timestream_for_influxdb/transform/) with the `--dimensions-to-fields` argument to change particular dimensions to fields. Using the default schema mapping, cardinality is calculated by computing the total unique combinations of dimensions and measure name. The script executes the following query to do this:
+This script calculates the cardinality of a Timestream for LiveAnalytics table when mapped to Timestream for InfluxDB using the [Timestream for InfluxDB ingestion script](../targets/timestream_for_influxdb/ingestion/README.md). If the cardinality is under **ten million**, you can determine which Timestream for InfluxDB instance type to migrate to, otherwise how to adjust the schema to reduce cardinality, for example, by using the [Timestream for LiveAnalytics to line protocol translation script](../targets/timestream_for_influxdb/transform/README.md) with the `--dimensions-to-fields` argument to change particular dimensions to fields. Using the default schema mapping, cardinality is calculated by computing the total unique combinations of dimensions and measure name. The script executes the following query to do this:
 
 ```sql
 SELECT 
