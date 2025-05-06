@@ -1,6 +1,6 @@
 # InfluxDB Ingestion Tests
 
-Test suite for the `unload_influxdb_ingestion.py` script, which ingests `.gz` line protocol files to InfluxDB.
+Test suite for the `influxdb_ingestion.py` script, which ingests `.gz` line protocol files to InfluxDB.
 
 ## Test Structure
 

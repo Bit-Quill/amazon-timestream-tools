@@ -36,5 +36,6 @@ tools/python/influx-migration/**/scripts/temp/*
 **/influxdb-ingestion-logs/**
 
 # LiveAnalytics migration to InfluxDB generated test data
-tools/python/liveanalytics_migration_scripts/targets/timestream_for_influxdb/ingestion/ingestion-tests/test-data/valid/*.line
-tools/python/liveanalytics_migration_scripts/targets/timestream_for_influxdb/ingestion/ingestion-tests/test-data/invalid/*.line
+tools/python/liveanalytics_migration_scripts/targets/timestream_for_influxdb/ingestion/ingestion-tests/test-data/*
+!tools/python/liveanalytics_migration_scripts/targets/timestream_for_influxdb/ingestion/ingestion-tests/test-data/valid/*.gz
+!tools/python/liveanalytics_migration_scripts/targets/timestream_for_influxdb/ingestion/ingestion-tests/test-data/invalid/*.gz

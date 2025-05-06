@@ -1,7 +1,7 @@
 """
-Tests for the unload_influxdb_ingestion.py script.
+Tests for the influxdb_ingestion.py script.
 
-This test suite verifies ingesting gz files into InfluxDB buckets with the unload_influxdb_ingestion.py script.
+This test suite verifies ingesting gz files into InfluxDB buckets with the influxdb_ingestion.py script.
 """
 
 import os
@@ -13,7 +13,7 @@ import subprocess
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import the script to test
-import unload_influxdb_ingestion
+import influxdb_ingestion
 
 
 class TestInfluxDBIngestion:
@@ -45,7 +45,7 @@ class TestInfluxDBIngestion:
 
         script_path = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "unload_influxdb_ingestion.py",
+            "influxdb_ingestion.py",
         )
 
         print(f"Starting ingestion of valid dataset to {bucket_name}")
@@ -136,7 +136,7 @@ class TestInfluxDBIngestion:
 
         script_path = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "unload_influxdb_ingestion.py",
+            "influxdb_ingestion.py",
         )
         result = subprocess.run(
             [
@@ -191,11 +191,11 @@ class TestInfluxDBIngestion:
 
         script_path = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "unload_influxdb_ingestion.py",
+            "influxdb_ingestion.py",
         )
 
         print(
-            f"Starting ingestion with invalid directory to {bucket_name} using 5 workers"
+            f"Starting ingestion with invalid dataset to {bucket_name} using 5 workers"
         )
         start_time = time.time()
 
@@ -268,11 +268,11 @@ class TestInfluxDBIngestion:
     def test_check_bucket_exists(self, influxdb_setup):
         """Test that the bucket existence check works correctly."""
         # Should return True for existing buckets
-        assert unload_influxdb_ingestion.check_bucket_exists("testbucket") is True
+        assert influxdb_ingestion.check_bucket_exists("testbucket") is True
 
         # Should return False for non-existent buckets
         assert (
-            unload_influxdb_ingestion.check_bucket_exists("nonexistent_bucket") is False
+            influxdb_ingestion.check_bucket_exists("nonexistent_bucket") is False
         )
 
     def test_decompress_gzip_file(self, valid_data_dir, tmp_path):
@@ -285,7 +285,7 @@ class TestInfluxDBIngestion:
 
         with open(test_file, "rb") as src, open(test_file_copy, "wb") as dst:
             dst.write(src.read())
-        extracted_path = unload_influxdb_ingestion.decompress_gzip_file(test_file_copy)
+        extracted_path = influxdb_ingestion.decompress_gzip_file(test_file_copy)
 
         assert os.path.exists(extracted_path)
 
