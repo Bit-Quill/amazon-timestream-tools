@@ -2,7 +2,11 @@
 
 ## Overview
 
-[Cardinality](https://docs.influxdata.com/influxdb/v2/reference/glossary/#series-cardinality) in InfluxDB is the "number of unique measurement, tag set, and field key combinations in an InfluxDB bucket." When migrating from Timestream, carefully select your InfluxDB instance specifications based on your dataset's cardinality as this directly impacts performance and resource requirements and consider migrating to a destination other than InfluxDB if your cardinality is more than ten million. Refer to [Timestream for InfluxDB's documentation on cardinality management](https://docs.aws.amazon.com/timestream/latest/developerguide/timestream-for-influxdb.html#timestream-for-influx-getting-started-security-best-practices) to understand how exceeding recommended limits can degrade query performance and increase memory consumption. Benchmark your anticipated query patterns against representative data samples before finalizing your instance selection to ensure your analytics remain performant post-migration, paying particular attention to memory-intensive aggregation queries that might behave differently than in Timestream.
+[Cardinality](https://docs.influxdata.com/influxdb/v2/reference/glossary/#series-cardinality) in InfluxDB is the "number of unique measurement, tag set, and field key combinations in an InfluxDB bucket." When migrating from Timestream, carefully select your InfluxDB instance specifications based on your dataset's cardinality as this directly impacts performance and resource requirements and consider migrating to a destination other than InfluxDB if your cardinality is more than ten million.
+
+Refer to [Timestream for InfluxDB's documentation on cardinality management](https://docs.aws.amazon.com/timestream/latest/developerguide/timestream-for-influxdb.html#timestream-for-influx-getting-started-security-best-practices) to understand how exceeding recommended limits can degrade query performance and increase memory consumption. Benchmark your anticipated query patterns against representative data samples before finalizing your instance selection to ensure your analytics remain performant post-migration, paying particular attention to memory-intensive aggregation queries that might behave differently than in Timestream.
+
+## Calculating Cardinality
 
 This script calculates the cardinality of a Timestream for LiveAnalytics table when mapped to Timestream for InfluxDB using the LiveAnalytics migration script. If the cardinality is under **ten million**, you can determine which Timestream for InfluxDB instance type to migrate to, otherwise how to adjust the schema for reducing cardinality. Using the default schema mapping, cardinality is calculated by computing the total unique combinations of dimensions and measure name. The script executes the following query to do this:
 
@@ -17,6 +21,61 @@ SELECT
 FROM 
     "database_name"."table_name"
 ```
+
+### Low Cardinality Example
+
+As an example of cardinality, consider the following Timestream for LiveAnalytics table, which has a cardinality of $`4`$.
+
+| host  | region     | request_id       | measure_name | time                          | measure_value::double |
+|-------|------------|------------------|--------------|-------------------------------|-----------------------|
+| host1 | us-west-2  | saio3242ovnfk    | cpu_usage    | 2025-04-17 16:42:54.702394001 | 0.66                  |
+| host2 | us-west-3  | 9213oijfnkalf    | cpu_usage    | 2025-04-17 16:42:54.702394002 | 0.70                  |
+| host3 | us-west-4  | saklj213mhl33    | cpu_usage    | 2025-04-17 16:42:54.702394003 | 0.73                  |
+| host4 | us-west-5  | 12b129flnbalf    | cpu_usage    | 2025-04-17 16:42:54.702394004 | 0.68                  |
+
+The following is the number of possible values for each dimension, considering the data that exists in the table:
+- `host`: $`4`$.
+- `region`: $`4`$.
+- `request_id`: $`4`$.
+
+And for `measure_value`, there is only $`1`$ possible value, `cpu_usage`.
+
+This gives us a total possible number of combinations of dimensions and the measure name as
+
+```math
+4 \cdot 4 \cdot 4 \cdot 1 = 64
+```
+
+However, this is not the cardinality since this is not the number **actual** existing combinations. For the actual combinations in the table, each value of `host` is mapped to one region, since a server can only exist in one region, and each record has exactly $`1`$ unique `request_id`, meaning the actual number of combinations is
+
+```math
+4 \cdot 1 \cdot 1 \cdot 1 = 4
+```
+
+### Runaway Cardinality Example
+
+As an example of runaway cardinality, where cardinality grows to a performance-impacting amount (over 7 million), consider the following partial Timestream for LiveAnalytics table, which has a cardinality of 20,000,000:
+
+| host  | region    | request_id    | measure_name | time                          | measure_value::double |
+|-------|-----------|---------------|--------------|-------------------------------|-----------------------|
+| host1 | us-west-2 | saio3242ovnfk | cpu_usage    | 2025-04-17 16:42:54.702394001 | 0.66                  |
+| host1 | us-west-2 | 9213oijfnkalf | cpu_usage    | 2025-04-17 16:42:54.702394002 | 0.70                  |
+| host1 | us-west-2 | saklj213mhl33 | cpu_usage    | 2025-04-17 16:42:54.702394003 | 0.73                  |
+| host1 | us-west-2 | 12b129flnbalf | cpu_usage    | 2025-04-17 16:42:54.702394004 | 0.68                  |
+| . . .                                                                                                    |
+| host1 | us-west-2 | 213oiasjfaosc | cpu_usage    | 2025-04-17 20:05:32.003108710 | 0.41                  |
+
+This table is similar to the table above, except it has $`20,000,000`$ records from the same server (`host1`). In this case, each record has a unique `request_id` value. This unique value means that the total unique combinations of `host`, `region`, `request_id`, and `measure_name` is:
+
+```math
+1 \cdot 1 \cdot 20,000,000 \cdot 1 = 20,000,000
+```
+
+In this case, `request_id` should be changed to a field when migrating to Timestream for InfluxDB.
+
+If you decide to migrate to Timestream for InfluxDB and decide to translate any dimensions to InfluxDB fields, see [InfluxData's documentation for schema design best practices](https://docs.influxdata.com/influxdb/v2/write-data/best-practices/schema-design).
+
+**NOTE:** in InfluxDB, fields are not indexed. Consider this before choosing to translate a dimension to a field during the migration process. If a dimension is often queried on, consider changing a different dimension to a field.
 
 ## Prerequisites
 
