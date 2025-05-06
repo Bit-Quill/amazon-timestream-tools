@@ -4,7 +4,7 @@ from botocore.exceptions import ClientError
 import botocore
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
-from s3_utils import s3Utility
+from s3_utils import S3Utility
 import time
 import re
 
@@ -35,7 +35,7 @@ class TimestreamUtility:
         self.dynamodb = boto3.resource("dynamodb")
         self.logger = create_logger("timestream_logger")
         self.sns_topic_arn = sns_topic_arn
-        self.s3_utility = s3Utility(region)
+        self.s3_utility = S3Utility(region)
         self.enable_dynamodb_logger = enable_dynamodb_logger
 
     @staticmethod
