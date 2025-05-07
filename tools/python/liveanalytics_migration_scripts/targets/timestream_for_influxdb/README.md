@@ -10,7 +10,7 @@ direction LR
     unload --> dataTranslation: Success
     dataTranslation --> dataIngestion: Success
     dataIngestion --> validation: Success
-    state "Step: Unload Data" as unload
+    state "Step: Unload data" as unload
     state unload {
         InfluxDB: Source Database
         SingleTable: Single Table
@@ -20,17 +20,17 @@ direction LR
         InfluxDB --> AllTables: Option 2
         InfluxDB --> AllDatabases: Option 3
     }
-    state "Step: Data Translation" as dataTranslation
+    state "Step: Data transformation" as dataTranslation
     state dataTranslation {
         SourceData: Source Data
         SchemaMapping: Apply Schema Mapping
         AddMetadata: Add la_unload=1
         StoreInS3: Store in S3
-        SourceData --> SchemaMapping: Process
-        SchemaMapping --> AddMetadata: Apply Schema
-        AddMetadata --> StoreInS3: Add Field
+        SourceData --> SchemaMapping: Transform
+        SchemaMapping --> AddMetadata: Add metadata field
+        AddMetadata --> StoreInS3
     }
-    state "Step: Data Ingestion" as dataIngestion
+    state "Step: Data ingestion" as dataIngestion
     state dataIngestion {
         UploadScript: Upload Ingestion Script to EC2
         DataTranslationS3Sync: S3 Sync Line Protocol Dataset
@@ -76,7 +76,7 @@ python transorm/main.py --database-name benchmark12 --athena-database-name mig3 
 The output LP dataset can be found in `s3://<bucket_name>/<database_name>/<table_name>/line_protocol_output`
 
 
-#### 2. Ingest LP to InfluxDB
+#### 2. Ingest line protocol to Timestream for InfluxDB
 
 Define the following environment variables:
 ```
