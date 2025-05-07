@@ -108,6 +108,15 @@ timestream_attribute_types = [
 ]
 
 
+def parse_bool_cli_argument(arg: str) -> bool:
+    if arg.lower() == "true" or arg == "1":
+        return True
+    elif arg.lower() == "false" or arg == "0":
+        return False
+    else:
+        raise ValueError(f"Unknown argument: {arg}")
+
+
 def get_athena_ddl_type_mapping(timestream_type: str) -> str:
     athena_type = timestream_to_athena_ddl_type_mappings.get(
         timestream_type.lower(), ""
@@ -578,10 +587,9 @@ if __name__ == "__main__":
         help="Whether to add an additional "
         "field to all translated line protocol points "
         "to help with post-migration validation. "
-        "The field will be 'la_unload=1'. This argument "
-        "can be negated with --no-add-validation-field.",
+        "The field will be 'la_unload=1'.",
         required=True,
-        action=argparse.BooleanOptionalAction,
+        type=parse_bool_cli_argument
     )
 
     args = parser.parse_args()

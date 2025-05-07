@@ -56,7 +56,7 @@ Optionally, a [Python virtual environment](https://docs.python.org/3/library/ven
 - `--athena-database-name ATHENA_DATABASE_NAME`: Optional. The name of the Athena database to use when creating any new Athena tables. Defaults to "`default`".
 - `--athena-table-name ATHENA_TABLE_NAME`: Optional. The name to use for a new Athena table, used for the translation of LiveAnalytics records to line protocol. Defaults to the Timestream for LiveAnalytics database and table name connected with an underscore, without dashes.
 - `--dimensions-to-fields DIMENSIONS_TO_FIELDS`: Optional. The tables and names of dimensions within to change to fields in resulting line protocol. Dimensions are usually mapped to tags. Mapping dimensions to fields can lower cardinality. The required format is `--dimensions-to-fields table1=dimension1,dimension2 --dimensions-to-fields table2=dimension3,dimension4`.
-- `--add-validation-field`: Whether to add an additional field to all translated line protocol points to help with post-migration validation. The field will be `la_unload=1`. This argument can be negated with `--no-add-validation-field`.
+- `--add-validation-field`: Whether to add an additional field to all translated line protocol points to help with post-migration validation. The field will be `la_unload=1`.
 
 ### Basic Usage
 
@@ -66,7 +66,7 @@ python3 transform.py \
     --database-name example_database \
     --tables example_table \
     --s3-bucket-name example_s3_bucket \
-    --no-add-validation-field
+    --add-validation-field false
 ```
 
 After the script has finished running:
@@ -83,7 +83,7 @@ python3 transform.py \
     --database-name example_database \
     --tables example_table_1,example_table_2,example_table_3 \
     --s3-bucket-name example_s3_bucket \
-    --no-add-validation-field
+    --add-validation-field false
 ```
 
 ### Using Dimensions as Fields
@@ -98,7 +98,7 @@ python3 transform.py \
     --s3-bucket-name example_s3_bucket \
     --dimensions-to-fields example_table1=dimension_1,dimension_2 \
     --dimensions-to-fields example_table2=dimension_3,dimension_4 \
-    --no-add-validation-field
+    --add-validation-field false
 ```
 
 ### Adding a Field for Validation
@@ -124,7 +124,7 @@ python3 transform.py \
     --database-name example_database \
     --tables example_table \
     --s3-bucket-name example_s3_bucket \
-    --add-validation-field
+    --add-validation-field true
 ```
 
 ## Cleanup
