@@ -62,7 +62,7 @@ Optionally, a [Python virtual environment](https://docs.python.org/3/library/ven
 
 To translate data stored in the bucket, `example_s3_bucket` from the Timestream for LiveAnalytics table `example_table` in `example_database`, run the following command:
 ```shell
-python3 main.py \
+python3 transform.py \
     --database-name example_database \
     --tables example_table \
     --s3-bucket-name example_s3_bucket
@@ -78,7 +78,7 @@ After the script has finished running:
 The `--tables` argument accepts any number of table names, where each named table belongs to the same database:
 
 ```shell
-python3 main.py \
+python3 transform.py \
     --database-name example_database \
     --tables example_table_1,example_table_2,example_table_3 \
     --s3-bucket-name example_s3_bucket
@@ -90,7 +90,7 @@ In Timestream for InfluxDB, [cardinality](https://docs.influxdata.com/influxdb/v
 
 Dimensions belonging to a specific table can be changed to fields in the following way:
 ```shell
-python3 main.py \
+python3 transform.py \
     --database-name example_database \
     --tables example_table_1,example_table_2,example_table_3 \
     --s3-bucket-name example_s3_bucket \
@@ -117,7 +117,7 @@ Flux queries can be executed using the [Influx CLI](https://docs.influxdata.com/
 The `la_unload` field can be added in the following way:
 
 ```shell
-python3 main.py \
+python3 transform.py \
     --database-name example_database \
     --tables example_table \
     --s3-bucket-name example_s3_bucket \
