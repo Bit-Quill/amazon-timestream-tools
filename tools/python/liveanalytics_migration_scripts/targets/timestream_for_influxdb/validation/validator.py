@@ -491,7 +491,7 @@ def main() -> None:
             args.influx_org,
             args.influx_bucket,
             args.influx_measurement,
-            "migration_label",
+            "la_unload",
             args.start_time,
             args.end_time,
         )
