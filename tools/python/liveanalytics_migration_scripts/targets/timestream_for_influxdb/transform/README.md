@@ -100,7 +100,7 @@ python3 main.py \
 
 ### Adding a Field for Validation
 
-To help validate that all data from a Timestream for LiveAnalytics table has been migrated to Timestream for InfluxDB, an additional field can be added to all line protocol points. This field is `la_unload=1`.
+To help validate that all data from a Timestream for LiveAnalytics table has been migrated to Timestream for InfluxDB, an additional field can be added to all line protocol points. Adding an additional field ensures each data point has a unique identifier, preventing InfluxDB's deduplication logic from merging or omitting migrated records during validation. This field is `la_unload=1`.
 
 To verify data in Timestream for InfluxDB, the following Flux query can be used, replacing `<Timestream table name>` with the name of your Timestream for LiveAnalytics table:
 ```
