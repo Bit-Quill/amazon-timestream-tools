@@ -6,11 +6,9 @@ The script in this directory converts [Amazon Timestream](https://aws.amazon.com
 
 Specifically, the script does the following:
 - Loads exported Timestream for LiveAnalytics [data](https://docs.aws.amazon.com/timestream/latest/developerguide/API_Record.html) from an [Amazon S3](https://aws.amazon.com/s3/) bucket into an [Amazon Athena](https://aws.amazon.com/athena/) table.
-- Translates the data stored in the Athena table into [line protocol]() and stores it in the S3 bucket.
+- Translates the data stored in the Athena table into line protocol and stores it in the S3 bucket.
 
-Two Python files are provided:
-- `main.py`: Provides command-line arguments for translating to line protocol. This script will wait for all Athena queries to finish.
-- `athena.py`: Contains functions that can be imported and used to translate line protocol.
+This script assumes that the path `<Timestream database name>/<Timestream table name>/unload-<%Y-%m-%d %H:%M:%S>/results` exists in your S3 bucket and contains data unloaded by the [unload script](../../../unload/README.md). Line protocol data will be exported to `<Timestream database name>/<Timestream table name>/unload-<%Y-%m-%d %H:%M:%S>/line-protocol-output` in your S3 bucket.
 
 ## Data Mapping
 
@@ -48,7 +46,7 @@ Optionally, a [Python virtual environment](https://docs.python.org/3/library/ven
 
 ### Options
 
-`main.py` provides the following options:
+`transform.py` provides the following options:
 
 - `-h`, `--help`: Show this help message and exit.
 - `--tables TABLES`: Optional. A comma-separated list of Timestream for LiveAnalytics tables to translate.
@@ -73,7 +71,7 @@ python3 main.py \
 After the script has finished running:
 - In Athena, the table `example_database_example_table` will be created, containing Timestream for LiveAnalytics data.
 - In Athena, the table `lp_example_database_example_table` will be created, containing Timestream for LiveAnalytics data translated to line protocol points.
-- In the S3 bucket `example_s3_bucket`, within the path `example_database/example_table/line-protocol-output`, line protocol data will be stored.
+- In the S3 bucket `example_s3_bucket`, within the path `example_database/example_table/unload-<%Y-%m-%d %H:%M:%S>/line-protocol-output`, line protocol data will be stored.
 
 ### Multiple Tables
 
@@ -141,8 +139,8 @@ aws glue delete-table \
     --name <Athena table name>
 ```
 
-To delete line protocol data within your S3 bucket, run the following AWS CLI command, replacing <S3 bucket name> with the name of your S3 bucket, <Timestream database name> with the name of your Timestream for LiveAnalytics database, and <Timestream table name> with the name of your Timestream for LiveAnalytics table:
+To delete line protocol data within your S3 bucket, run the following AWS CLI command, replacing `<S3 bucket name>` with the name of your S3 bucket, `<Timestream database name>` with the name of your Timestream for LiveAnalytics database, `<Timestream table name>` with the name of your Timestream for LiveAnalytics table, and `<timestamp>` with the timestamp that forms the `unload-<%Y-%m-%d %H:%M:%S>` path in your S3 bucket:
 
 ```shell
-aws s3 rm s3://<S3 bucket name>/<Timestream database name>/<Timestream table name>/line-protocol-output --recursive
+aws s3 rm s3://<S3 bucket name>/<Timestream database name>/<Timestream table name>/unload-<timestamp>/line-protocol-output --recursive
 ```
