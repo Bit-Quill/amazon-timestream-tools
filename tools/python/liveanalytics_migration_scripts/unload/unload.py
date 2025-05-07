@@ -164,7 +164,7 @@ if __name__ == "__main__":
     end_time = args.end_time
     migration_tag = (
         args.migration_tag
-        or f"unload-{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}"
+        or f"unload-{datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S')}"
     )
     database = args.database
     table = args.table

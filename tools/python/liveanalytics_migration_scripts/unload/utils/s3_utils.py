@@ -86,7 +86,7 @@ class S3Utility:
         """
         Gets the latest unload path within an S3 bucket. Using the unload script, paths for unloaded data
         is expected to be in
-        s3://<s3 bucket name>/<timestream database name>/<timestream table name>/unload-<%Y-%m-%d %H:%M:%S>/results
+        s3://<s3 bucket name>/<timestream database name>/<timestream table name>/unload-<%Y-%m-%d-%H:%M:%S>/results
         """
         prefix = f"{timestream_database_name}/{timestream_table_name}/"
         list_response = self.s3_client.list_objects_v2(
