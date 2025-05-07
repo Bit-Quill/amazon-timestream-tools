@@ -1,11 +1,12 @@
 import boto3
+from datetime import datetime
 from logger_utils import create_logger
 import botocore
 import json
 
 
 class S3Utility:
-    def __init__(self, region):
+    def __init__(self, region=None):
         botocore_config = botocore.config.Config(
             max_pool_connections=5000, retries={"max_attempts": 10}
         )
@@ -23,7 +24,7 @@ class S3Utility:
         Returns:
             bool: Whether the bucket exists.
         """
-        waiter = self.s3_client.waiter("bucket_exists")
+        waiter = self.s3_client.get_waiter("bucket_exists")
         try:
             waiter.wait(Bucket=bucket_name, WaiterConfig={"Delay": 5, "MaxAttempts": 5})
             return True
@@ -76,3 +77,34 @@ class S3Utility:
         response = self.s3_client.get_object(Bucket=bucket_name, Key=key)
         json_content = response["Body"].read().decode("utf-8")
         return json.loads(json_content)
+
+    def get_latest_unload_path(
+        self,
+        bucket_name: str,
+        timestream_database_name: str,
+        timestream_table_name: str,
+    ):
+        """
+        Gets the latest unload path within an S3 bucket. Using the unload script, paths for unloaded data
+        is expected to be in
+        s3://<s3 bucket name>/<timestream database name>/<timestream table name>/unload-<%Y-%m-%d %H:%M:%S>/results
+        """
+        prefix = f"{timestream_database_name}/{timestream_table_name}/"
+        list_response = self.s3_client.list_objects_v2(
+            Bucket=bucket_name, Prefix=prefix, Delimiter="/"
+        )
+
+        unload_dirs = []
+        if "CommonPrefixes" in list_response:
+            for obj in list_response["CommonPrefixes"]:
+                dir_prefix = obj["Prefix"]
+                if "unload-" in dir_prefix:
+                    unload_dirs.append(dir_prefix)
+        if not unload_dirs:
+            raise RuntimeError(
+                f"No unload paths found for s3://{bucket_name}/{timestream_database_name}/{timestream_table_name}"
+            )
+        unload_dirs.sort()
+        latest_dir = unload_dirs[-1]
+        parts = latest_dir.rstrip("/").split("/")
+        return parts[-1]
