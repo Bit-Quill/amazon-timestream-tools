@@ -1,5 +1,4 @@
 import boto3
-from datetime import datetime
 from logger_utils import create_logger
 import botocore
 import json
