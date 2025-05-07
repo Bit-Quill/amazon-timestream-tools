@@ -16,7 +16,7 @@ def docker_compose_file(pytestconfig):
 
 
 @pytest.fixture(scope="session")
-def influxdb_setup(docker_compose_file):
+def influxdb_setup(docker_compose_file, request):
     """
     Set up InfluxDB container using docker-compose.
 
@@ -89,9 +89,16 @@ def influxdb_setup(docker_compose_file):
     yield client
 
     client.close()
-    subprocess.run(
-        ["docker", "compose", "-f", docker_compose_file, "down", "-v"], check=True
-    )
+    cmd = ["docker", "compose", "-f", docker_compose_file, "down", "-v"]
+
+    # Append extra flags if all tests passed
+    if request.session.testsfailed == 0:
+        cmd += ["--rmi", "all"]
+    else:
+        print("Tests failed.")
+
+    # Run the composed command
+    subprocess.run(cmd, check=True)
 
 
 @pytest.fixture(scope="session")

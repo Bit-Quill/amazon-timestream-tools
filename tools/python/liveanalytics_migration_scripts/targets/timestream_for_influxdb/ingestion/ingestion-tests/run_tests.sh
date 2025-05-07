@@ -27,7 +27,4 @@ docker compose -f docker-compose.yml down -v 2>/dev/null
 echo "Running tests..."
 pytest -v
 
-echo "Cleaning up test containers..."
-docker compose -f docker-compose.yml down -v
-
 echo "Tests completed!"

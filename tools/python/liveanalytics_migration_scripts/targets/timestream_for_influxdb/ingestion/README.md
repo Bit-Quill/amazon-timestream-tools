@@ -137,6 +137,7 @@ The optimal values depend on your system resources and network conditions.
 
 - Use an EC2 instance with sufficient CPU cores to handle parallel processing
 - Ensure the instance has enough storage to hold the entire transformed dataset with additional room for extraction
+  - The number of files extracted at one time is equal to the number of workers configured during script execution
 - Position the EC2 instance in the same region as your InfluxDB instance to minimize latency
 - Consider using instance types optimized for network operations, for example C5N
 

@@ -37,8 +37,8 @@ pytest -v
 
 ```bash
 # Run a specific test
-
 pytest -v ingestion_test.py::TestInfluxDBIngestion::test_valid_dataset_ingestion
+```
 
 ## Test Environment
 
@@ -56,4 +56,3 @@ The tests use Docker Compose to create an InfluxDB V2 container with the followi
 
 - If tests fail with connection errors, make sure Docker is running and ports are available
 - Check Docker logs with `docker-compose logs influxdb_test`
-- Increase timeouts in `conftest.py` if InfluxDB takes longer to start up
