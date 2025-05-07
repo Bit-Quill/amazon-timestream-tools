@@ -22,6 +22,33 @@ The following table shows how Timestream for LiveAnalytics data is mapped to lin
 | [Measures](https://docs.aws.amazon.com/timestream/latest/developerguide/API_MeasureValue.html)                             | [Fields](https://docs.influxdata.com/influxdb/v2/reference/syntax/line-protocol/#field-set)                |
 | [Time](https://docs.aws.amazon.com/timestream/latest/developerguide/writes.html#writes.data-types)                                 | [Timestamp](https://docs.influxdata.com/influxdb/v2/reference/syntax/line-protocol/#timestamp)             |
 
+### Single-Measure Record Transformation
+
+The following is a single-measure record in Timestream for LiveAnalytics in the table `example_table`:
+
+| host  | region     | request_id       | measure_name | time                          | measure_value::double |
+|-------|------------|------------------|--------------|-------------------------------|-----------------------|
+| host1 | us-west-2  | saio3242ovnfk    | cpu_usage    | 2025-04-17 16:42:54.702394001 | 0.66                  |
+
+This record will be transformed to:
+
+```
+example_table,host=host1,region=us-west-2,request_id=saio3242ovnfk,measure_name=cpu_usage measure_value::double=0.66 1744933374702
+```
+
+### Multi-Measure Record Transformation
+
+The following is a multi-measure record in Timestream for LiveAnalytics in the table `example_table` with everything to the right of `time` being measures:
+
+| host  | region     | request_id       | measure_name | time                          | cpu_usage             | memory_usage |
+|-------|------------|------------------|--------------|-------------------------------|-----------------------|--------------|
+| host1 | us-west-2  | saio3242ovnfk    | metrics      | 2025-04-17 16:42:54.702394001 | 0.66                  | 0.21         |
+
+This record will be transformed to:
+
+```
+example_table,host=host1,region=us-west-2,request_id=saio3242ovnfk,measure_name=metrics cpu_usage=0.66,memory_usage=0.21 1744933374702
+```
 
 ## Prerequisites
 
