@@ -64,12 +64,11 @@ For detailed instructions on using the unload tool for your preferred migration 
 ## Getting Started
 
 1. Clone this repository
-2. Install required dependencies
-3. Follow these steps to complete your migration:
-   - Determine the appropriate target
-    - Assess the dataset cardinality if applicable
-   - Follow the target-specific migration guide:
-     - [Timestream for InfluxDB](./targets/timestream_for_influxdb/README.md)
-     - [RDS for PostgreSQL](./targets/rds_for_postgresql/README.md)
-  - [Unload your data](./unload/README.md) with the format required for the target migration
+2. Determine migration target
+    - If migrating to Timestream for InfluxDB, assess [schema cardinality](./cardinality/README.md)
+4. Install required dependencies
+5. [Unload your data](./unload/README.md) with the format required for the target migration
+6. Follow the target-specific migration guide:
+    - [Timestream for InfluxDB](./targets/timestream_for_influxdb/README.md)
+    - [RDS for PostgreSQL](./targets/rds_for_postgresql/README.md)
 

@@ -74,10 +74,10 @@ direction LR
 Run `unload_and_transform.py` to export data from Timestream to S3 and transform it to line protocol (LP) using Athena.
 
 ```
-python transorm/main.py --database-name benchmark12 --athena-database-name mig3  --tables cpu --s3-bucket-name migration-002-tmp --add-validation-field
+python transorm/transform.py --database-name benchmark12 --athena-database-name mig3  --tables cpu --s3-bucket-name migration-002-tmp --add-validation-field true
 ```
 
-- If end-to-end validation is not required (comparing row counts between source and destination databases), remove the `--add-validation-field` flag. 
+- If end-to-end validation is not required (comparing row counts between source and destination databases), set `--add-validation-field` flag to `false`.
 - To convert dimensions to fields during transformation, use the `--dimensions-to-fields` flag.
 
 The output LP dataset can be found in `s3://<bucket_name>/<database_name>/<table_name>/line_protocol_output`
