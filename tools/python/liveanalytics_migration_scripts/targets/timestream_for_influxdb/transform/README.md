@@ -22,7 +22,6 @@ The following table shows how Timestream for LiveAnalytics data is mapped to lin
 | [Measures](https://docs.aws.amazon.com/timestream/latest/developerguide/API_MeasureValue.html)                             | [Fields](https://docs.influxdata.com/influxdb/v2/reference/syntax/line-protocol/#field-set)                |
 | [Time](https://docs.aws.amazon.com/timestream/latest/developerguide/writes.html#writes.data-types)                                 | [Timestamp](https://docs.influxdata.com/influxdb/v2/reference/syntax/line-protocol/#timestamp)             |
 
-**NOTE**: The finest timestamp precision that Athena supports is **milliseconds**. If you need greater timestamp precision, such as microsecond or nanosecond precision, consider migrating to [Amazon RDS](https://aws.amazon.com/rds/).
 
 ## Prerequisites
 
@@ -148,3 +147,8 @@ To delete line protocol data within your S3 bucket, run the following AWS CLI co
 ```shell
 aws s3 rm s3://<S3 bucket name>/<Timestream database name>/<Timestream table name>/unload-<timestamp>/line-protocol-output --recursive
 ```
+
+## Limitations
+
+The following limitations should be considered before transforming Timestream for LiveAnalytics records to line protocol:
+- The finest timestamp precision that Athena supports is **milliseconds**. If you need greater timestamp precision, such as microsecond or nanosecond precision, consider migrating to [Amazon RDS](https://aws.amazon.com/rds/).
