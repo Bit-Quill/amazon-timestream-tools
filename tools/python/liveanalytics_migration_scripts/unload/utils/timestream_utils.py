@@ -183,12 +183,12 @@ class TimestreamUtility:
             next_token = None
             while True:
                 if next_token:
-                    response = self.timestream_write_client.list_tables(
-                        DatabaseName=database_name, NextToken=next_token
+                    response = self.list_tables(
+                        database_name=database_name, next_token=next_token
                     )
                 else:
-                    response = self.timestream_write_client.list_tables(
-                        DatabaseName=database_name
+                    response = self.list_tables(
+                        database_name=database_name
                     )
 
                 for table in response["Tables"]:
@@ -203,6 +203,14 @@ class TimestreamUtility:
         except Exception as e:
             self.logger.error(f"Error getting tables: {str(e)}", exc_info=True)
             raise
+
+    def list_tables(self, database_name, next_token=None):
+        if next_token is not None:
+            return self.timestream_write_client.list_tables(
+                DatabaseName=database_name, NextToken=next_token
+            )
+        else:
+            return self.timestream_write_client.list_tables(DatabaseName=database_name)
 
     def sns_publish_message(self, message, subject, message_structure="email"):
         """
