@@ -1,4 +1,4 @@
-# Timestream for LiveAnalytics to Line Protocol Translation Script
+# Timestream for LiveAnalytics to Line Protocol Transformation Script
 
 ## Overview
 
@@ -6,7 +6,7 @@ The script in this directory converts [Amazon Timestream](https://aws.amazon.com
 
 Specifically, the script does the following:
 - Loads exported Timestream for LiveAnalytics [data](https://docs.aws.amazon.com/timestream/latest/developerguide/API_Record.html) from an [Amazon S3](https://aws.amazon.com/s3/) bucket into an [Amazon Athena](https://aws.amazon.com/athena/) table.
-- Translates the data stored in the Athena table into line protocol and stores it in the S3 bucket.
+- Transforms the data stored in the Athena table into line protocol and stores it in the S3 bucket.
 
 This script assumes that the path `<Timestream database name>/<Timestream table name>/unload-<%Y-%m-%d-%H:%M:%S>/results` exists in your S3 bucket and contains data unloaded by the [unload script](../../../unload/README.md). Line protocol data will be exported to `<Timestream database name>/<Timestream table name>/unload-<%Y-%m-%d-%H:%M:%S>/line-protocol-output` in your S3 bucket.
 
@@ -49,18 +49,18 @@ python3 -m pip install -r requirements.txt
 `transform.py` provides the following options:
 
 - `-h`, `--help`: Show this help message and exit.
-- `--tables TABLES`: Optional. A comma-separated list of Timestream for LiveAnalytics tables to translate.
+- `--tables TABLES`: Optional. A comma-separated list of Timestream for LiveAnalytics tables to transform.
 - `--database-name DATABASE_NAME`: The Timestream for LiveAnalytics database that your table(s) resides in.
-- `--all-tables`: Optional. Whether to translate all tables in the database.
+- `--all-tables`: Optional. Whether to transform all tables in the database.
 - `--s3-bucket-name S3_BUCKET_NAME`: The name of the S3 bucket to load and unload data from. This bucket must already exist.
 - `--athena-database-name ATHENA_DATABASE_NAME`: Optional. The name of the Athena database to use when creating any new Athena tables. Defaults to "`default`".
-- `--athena-table-name ATHENA_TABLE_NAME`: Optional. The name to use for a new Athena table, used for the translation of LiveAnalytics records to line protocol. Defaults to the Timestream for LiveAnalytics database and table name connected with an underscore, without dashes.
+- `--athena-table-name ATHENA_TABLE_NAME`: Optional. The name to use for a new Athena table, used for the transformation of LiveAnalytics records to line protocol. Defaults to the Timestream for LiveAnalytics database and table name connected with an underscore, without dashes.
 - `--dimensions-to-fields DIMENSIONS_TO_FIELDS`: Optional. The tables and names of dimensions within to change to fields in resulting line protocol. Dimensions are usually mapped to tags. Mapping dimensions to fields can lower cardinality. The required format is `--dimensions-to-fields table1=dimension1,dimension2 --dimensions-to-fields table2=dimension3,dimension4`.
-- `--add-validation-field`: Whether to add an additional field to all translated line protocol points to help with post-migration validation. The field will be `la_unload=1`.
+- `--add-validation-field`: Whether to add an additional field to all transformed line protocol points to help with post-migration validation. The field will be `la_unload=1`.
 
 ### Basic Usage
 
-To translate data stored in the bucket, `example_s3_bucket` from the Timestream for LiveAnalytics table `example_table` in `example_database`, run the following command:
+To transform data stored in the bucket, `example_s3_bucket` from the Timestream for LiveAnalytics table `example_table` in `example_database`, run the following command:
 ```shell
 python3 transform.py \
     --database-name example_database \
@@ -71,7 +71,7 @@ python3 transform.py \
 
 After the script has finished running:
 - In Athena, the table `example_database_example_table` will be created, containing Timestream for LiveAnalytics data.
-- In Athena, the table `lp_example_database_example_table` will be created, containing Timestream for LiveAnalytics data translated to line protocol points.
+- In Athena, the table `lp_example_database_example_table` will be created, containing Timestream for LiveAnalytics data transformed to line protocol points.
 - In the S3 bucket `example_s3_bucket`, within the path `example_database/example_table/unload-<%Y-%m-%d-%H:%M:%S>/line-protocol-output`, line protocol data will be stored.
 
 ### Multiple Tables
@@ -129,9 +129,9 @@ python3 transform.py \
 
 ## Cleanup
 
-After translating Timestream for LiveAnalytics data to line protocol, three resources/artifacts will be created:
+After transforming Timestream for LiveAnalytics data to line protocol, three resources/artifacts will be created:
 - An Athena table, containing Timestream for LiveAnalytics data. By default, this is `<Timestream database name>_<Timestream table name>` in the `default` Athena database.
-- An Athena table, containing translated line protocol data. By default, this is `lp_<Athena table name>` in the `default` Athena database.
+- An Athena table, containing transformed line protocol data. By default, this is `lp_<Athena table name>` in the `default` Athena database.
 - Line protocol data within your S3 bucket, with the path `<Timestream database name>/<Timestream table name>/line-protocol-output`.
 
 To delete any Athena table, run the following [AWS CLI](https://aws.amazon.com/cli/) command, replacing `<Athena table name>` with the name of the table that you want to delete and `<Athena database name>` with the name of the Athena database that the table resides in:
