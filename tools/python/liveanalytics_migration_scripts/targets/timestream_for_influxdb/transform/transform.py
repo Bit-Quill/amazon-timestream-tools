@@ -575,12 +575,13 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--add-validation-field",
-        help="Optional. Whether to add an additional "
+        help="Whether to add an additional "
         "field to all translated line protocol points "
         "to help with post-migration validation. "
-        "The field will be 'la_unload=1'.",
-        required=False,
-        action="store_true",
+        "The field will be 'la_unload=1'. This argument "
+        "can be negated with --no-add-validation-field.",
+        required=True,
+        action=argparse.BooleanOptionalAction,
     )
 
     args = parser.parse_args()
