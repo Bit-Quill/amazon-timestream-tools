@@ -6,7 +6,7 @@ sys.path.append("../../../unload/utils/")
 
 from timestream_utils import TimestreamUtility
 from s3_utils import S3Utility
-from athena_utils import AthenaUtility
+from athena_utils import AthenaUtility, MAX_WAIT_SECONDS
 from logger_utils import create_logger
 
 
@@ -129,7 +129,7 @@ def create_and_load_athena_table(
     athena_database_name="default",
     athena_table_name=None,
     wait_for_completion=True,
-    max_wait_seconds=AthenaUtility.MAX_WAIT_SECONDS,
+    max_wait_seconds=MAX_WAIT_SECONDS,
 ):
     """
     Creates and loads an Athena table, importing data from an S3 bucket.
@@ -152,14 +152,14 @@ def create_and_load_athena_table(
 
     # Timestream database and table names are passed directly into a Timestream
     # query -- they must be validated.
-    if not timestream_utility.is_valid_timestream_database_or_table_name(
+    if not TimestreamUtility.is_valid_timestream_database_or_table_name(
         timestream_database_name
     ):
         raise RuntimeError(
             f"Timestream database name is invalid: {timestream_database_name}"
         )
 
-    if not timestream_utility.is_valid_timestream_database_or_table_name(
+    if not TimestreamUtility.is_valid_timestream_database_or_table_name(
         timestream_table_name
     ):
         raise RuntimeError(f"Timestream table name is invalid: {timestream_table_name}")
@@ -170,7 +170,7 @@ def create_and_load_athena_table(
         )
         athena_table_name.replace("-", "_")
 
-    if not timestream_utility.is_valid_athena_table_name(athena_table_name):
+    if not AthenaUtility.is_valid_athena_table_name(athena_table_name):
         raise RuntimeError(f"Athena table name {athena_table_name} is invalid")
 
     if s3_bucket_name.lower().startswith("s3://"):
@@ -178,7 +178,7 @@ def create_and_load_athena_table(
 
     # S3 bucket names are easier to check by simply checking if the
     # bucket already exists
-    if not s3_utility.s3_bucket_exists(s3_bucket_name=s3_bucket_name):
+    if not s3_utility.s3_bucket_exists(bucket_name=s3_bucket_name):
         raise RuntimeError(f"S3 bucket {s3_bucket_name} does not exist")
 
     athena_columns = []
@@ -235,9 +235,17 @@ def create_and_load_athena_table(
         return
 
     try:
+        # Expect the unload path to be
+        # unload-%Y-%m-%d %H:%M:S
+        s3_unload_path = s3_utility.get_latest_unload_path(
+            bucket_name=s3_bucket_name,
+            timestream_database_name=timestream_database_name,
+            timestream_table_name=timestream_table_name,
+        )
+        print(f"S3 unload path: {s3_unload_path}")
         unload_query = f"""
                        CREATE EXTERNAL TABLE `{athena_database_name}`.`{athena_table_name}` ({", ".join(athena_columns)})
-                       STORED AS PARQUET LOCATION 's3://{s3_bucket_name}/{timestream_database_name}/{timestream_table_name}/results/';
+                       STORED AS PARQUET LOCATION 's3://{s3_bucket_name}/{timestream_database_name}/{timestream_table_name}/{s3_unload_path}/results';
                        """
         transform_logger.info(f"Executing query: {unload_query}")
         response = athena_utility.start_query_execution(
@@ -267,7 +275,7 @@ def translate_athena_table_to_line_protocol(
     athena_table_name=None,
     lp_athena_table_name=None,
     wait_for_completion: bool = True,
-    max_wait_seconds: int = AthenaUtility.MAX_WAIT_SECONDS,
+    max_wait_seconds: int = MAX_WAIT_SECONDS,
     add_validation_field: bool = False,
 ) -> LineProtocolTranslationResult:
     """
@@ -324,19 +332,19 @@ def translate_athena_table_to_line_protocol(
         )
         athena_table_name.replace("-", "_")
 
-    if not TimestreamUtility.is_valid_athena_table_name(athena_table_name):
+    if not AthenaUtility.is_valid_athena_table_name(athena_table_name):
         raise RuntimeError(f"Athena table name {athena_table_name} is invalid")
 
     if lp_athena_table_name is None:
         lp_athena_table_name = f"lp_{athena_table_name}"
 
-    if not TimestreamUtility.is_valid_athena_table_name(lp_athena_table_name):
+    if not AthenaUtility.is_valid_athena_table_name(lp_athena_table_name):
         raise RuntimeError(f"Athena table name {lp_athena_table_name} is invalid")
 
     if s3_bucket_name.lower().startswith("s3://"):
         s3_bucket_name = s3_bucket_name[5:]
 
-    if not s3_utility.s3_bucket_exists(s3_bucket_name=s3_bucket_name):
+    if not s3_utility.s3_bucket_exists(bucket_name=s3_bucket_name):
         raise RuntimeError(f"S3 bucket {s3_bucket_name} does not exist")
 
     line_protocol_translation_result = LineProtocolTranslationResult(
@@ -357,12 +365,12 @@ def translate_athena_table_to_line_protocol(
             f'DESCRIBE "{timestream_database_name}"."{timestream_table_name}"'
         )
         transform_logger.info(f"Executing query: {describe_query}")
-        describe_response = timestream_utility.query(QueryString=describe_query)
+        describe_response = timestream_utility.query(query_string=describe_query)
         next_token = describe_response.get("NextToken", None)
         schema = describe_response["Rows"]
         while next_token:
             describe_response = timestream_utility.query(
-                QueryString=describe_query, NextToken=next_token
+                query_string=describe_query, next_token=next_token
             )
             next_token = describe_response.get("NextToken", None)
             schema.extend(describe_response["Rows"])
@@ -412,6 +420,11 @@ def translate_athena_table_to_line_protocol(
     line_protocol_translation_result.tags.append(measure_name)
 
     try:
+        s3_unload_path = s3_utility.get_latest_unload_path(
+            bucket_name=s3_bucket_name,
+            timestream_database_name=timestream_database_name,
+            timestream_table_name=timestream_table_name,
+        )
         # Translate to line protocol.
         #
         # All column names are wrapped in quotes.
@@ -421,7 +434,7 @@ def translate_athena_table_to_line_protocol(
             CREATE TABLE "{athena_database_name}"."{lp_athena_table_name}"
             WITH (
                 format = 'TEXTFILE',
-                external_location = 's3://{s3_bucket_name}/{timestream_database_name}/{timestream_table_name}/line-protocol-output'
+                external_location = 's3://{s3_bucket_name}/{timestream_database_name}/{timestream_table_name}/{s3_unload_path}/line-protocol-output'
             ) AS
             SELECT
                 -- Measurement, from table name
@@ -587,7 +600,7 @@ if __name__ == "__main__":
     if args.all_tables:
         try:
             list_tables_response = timestream_utility.list_tables(
-                DatabaseName=args.database_name
+                database_name=args.database_name
             )
             for table in list_tables_response.get("Tables", []):
                 timestream_table_names.append(table["TableName"])
@@ -595,7 +608,7 @@ if __name__ == "__main__":
             if next_token:
                 while next_token:
                     list_tables_response = timestream_utility.list_tables(
-                        DatabaseName=args.database_name, NextToken=next_token
+                        database_name=args.database_name, next_token=next_token
                     )
                     for table in list_tables_response.get("Tables", []):
                         timestream_table_names.append(table["TableName"])
