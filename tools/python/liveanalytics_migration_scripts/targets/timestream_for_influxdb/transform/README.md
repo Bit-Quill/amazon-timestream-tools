@@ -36,11 +36,12 @@ The following prerequisites must be met before using the script:
 ## Installation
 
 Optionally, a [Python virtual environment](https://docs.python.org/3/library/venv.html), with all packages in `../../../requirements.txt` installed. The following command can be used to create a virtual environment, activate it, and install all necessary packages:
-    ```shell
-    python3 -m venv env && \
-    source env/bin/activate && \
-    python3 -m pip install -r requirements.txt
-    ```
+
+```shell
+python3 -m venv env && \
+source env/bin/activate && \
+python3 -m pip install -r requirements.txt
+```
 
 ## Usage
 
