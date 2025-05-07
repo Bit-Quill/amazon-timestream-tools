@@ -2,7 +2,7 @@
 
 ## Overview
 
-The script in this directory converts [Amazon Timestream](https://aws.amazon.com/timestream/) for LiveAnalytics data into [line protocol](https://docs.influxdata.com/influxdb/v2/reference/syntax/line-protocol/), allowing ingestion of that data into [Timestream for InfluxDB](https://docs.aws.amazon.com/timestream/latest/developerguide/timestream-for-influxdb.html).
+The script in this directory converts [Amazon Timestream](https://aws.amazon.com/timestream/) for LiveAnalytics data into [line protocol](https://docs.influxdata.com/influxdb/v2/reference/syntax/line-protocol/), allowing ingestion to any database that supports line protocol.
 
 Specifically, the script does the following:
 - Loads exported Timestream for LiveAnalytics [data](https://docs.aws.amazon.com/timestream/latest/developerguide/API_Record.html) from an [Amazon S3](https://aws.amazon.com/s3/) bucket into an [Amazon Athena](https://aws.amazon.com/athena/) table.
