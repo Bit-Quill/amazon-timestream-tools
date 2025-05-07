@@ -34,7 +34,10 @@ The following prerequisites must be met before using the script:
 2. A Timestream for LiveAnalytics table [created](https://docs.aws.amazon.com/timestream/latest/developerguide/console_timestream.html#console_timestream.table.using-console).
 3. Data from the Timestream for LiveAnalytics table having been unloaded to an S3 bucket, within the path `<S3 bucket name>/<Timestream database name>/<Timestream table name>/results`.
 4. [Python 3.13 installed](https://www.python.org/downloads/).
-5. Optionally, a [Python virtual environment](https://docs.python.org/3/library/venv.html), with all packages in `requirements.txt` installed. The following command can be used to create a virtual environment, activate it, and install all necessary packages:
+
+## Installation
+
+Optionally, a [Python virtual environment](https://docs.python.org/3/library/venv.html), with all packages in `../../../requirements.txt` installed. The following command can be used to create a virtual environment, activate it, and install all necessary packages:
     ```shell
     python3 -m venv env && \
     source env/bin/activate && \
