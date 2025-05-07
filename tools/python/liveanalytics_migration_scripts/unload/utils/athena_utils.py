@@ -1,5 +1,6 @@
 import boto3
 import time
+import re
 from logger_utils import create_logger
 
 
@@ -55,3 +56,17 @@ class AthenaUtility:
             raise RuntimeError(
                 f"Query failed: {query_status['QueryExecution']['Status']}"
             )
+
+    @staticmethod
+    def is_valid_athena_table_name(athena_table_name: str) -> bool:
+        """
+        Validates an Athena table name.
+
+        Args:
+            athena_table_name (str): The Athena table name to validate.
+
+        Returns:
+            bool: Whether the Athena table name is valid.
+        """
+        VALID_ATHENA_NAME = re.compile(r"^[A-Za-z0-9._ ][A-Za-z0-9._]{1,255}$")
+        return VALID_ATHENA_NAME.match(athena_table_name) is not None
