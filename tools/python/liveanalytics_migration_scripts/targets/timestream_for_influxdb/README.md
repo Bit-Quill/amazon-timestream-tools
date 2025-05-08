@@ -87,7 +87,7 @@ python transform.py --database-name benchmark --tables cpu --s3-bucket-name <s3_
 
 Download transformed LP dataset from S3:
 ```
-aws s3 sync s3://<s3_bucket name>/benchmark/cpu/unload-<%Y-%m-%d-%H-%M-%S>/line-protocol-output ./line-protocol-output
+aws s3 sync s3://<s3_bucket_name>/benchmark/cpu/unload-<%Y-%m-%d-%H-%M-%S>/line-protocol-output ./line-protocol-output
 ```
 
 Run the ingestion script with the target Timestream for InfluxDB bucket and path to your downloaded LP dataset:
