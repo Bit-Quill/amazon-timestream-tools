@@ -77,7 +77,7 @@ Transform the unloaded data from Timestream to line protocol (LP) using Athena.
 
 ```
 cd transform
-python transform.py --database-name $TIMESTREAM_DATABASE_NAME --athena-table-name $ATHENA_TABLE_NAME  --tables $TIMESTREAM_TABLE_NAME --s3-bucket-name <bucket_name> --add-validation-field true
+python transform.py --database-name benchmark --tables cpu --s3-bucket-name <bucket_name> --add-validation-field true
 ```
 
 - If end-to-end validation (comparing row counts between source and destination databases) is not required, set `--add-validation-field` flag to `false`.
@@ -92,7 +92,7 @@ aws s3 sync s3://<bucket_name> ./line-protocol-output
 
 Run the ingestion script with the target Timestream for InfluxDB bucket and path to your downloaded LP dataset:
 ```
-python3 ingestion/influxdb_ingestion.py $INFLUXDB_V2_BUCKET ./line-protocol-output
+python3 ingestion/influxdb_ingestion.py benchmark ./line-protocol-output
 ```
 
 You can optionally run ingestion with the `--continue-on-error` flag to continue ingesting remaining files even if one fails.
@@ -100,7 +100,7 @@ You can optionally run ingestion with the `--continue-on-error` flag to continue
 On failure or disruption to ingestion, you can resume from a previous run by using the `--resume-from` flag. Specify the path to the tracking directory from a previous run to skip already ingested files.
 
 ```
-python3 ingestion/influxdb_ingestion.py $INFLUXDB_V2_BUCKET ./line-protocol-output --resume-from  ./influxdb-ingestion-logs/tracking_<run_id>
+python3 ingestion/influxdb_ingestion.py benchmark ./line-protocol-output --resume-from  ./influxdb-ingestion-logs/tracking_<run_id>
 ```
 
 
