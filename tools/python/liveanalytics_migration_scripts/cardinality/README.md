@@ -125,7 +125,7 @@ Your recommended Timestream for InfluxDB type is: db.influx.medium
 
 ### Using a Time Range
 
-If you believe a time range within your data reasonably represents the cardinality of your table, and you would like to avoid calculating **all** the combinations of dimensions and measure name in your table, which could be costly, the `--start-time` and `--end-time` arguments allow you to query a specific time range using timestamps in [ISO-8601 format](https://www.iso.org/iso-8601-date-and-time-format.html).
+If a time range of data reasonably represents the expected unique combinations of dimensions and measure name for your table, and you would like to avoid the cost of calculating **all** the combinations of dimensions and measure name in your table, use the `--start-time` and `--end-time` arguments which allow you to query a specific time range using timestamps in [ISO-8601 format](https://www.iso.org/iso-8601-date-and-time-format.html).
 
 For example:
 
