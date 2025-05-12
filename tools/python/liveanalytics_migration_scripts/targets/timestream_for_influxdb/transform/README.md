@@ -55,7 +55,7 @@ example_table,host=host1,region=us-west-2,request_id=saio3242ovnfk,measure_name=
 The following prerequisites must be met before using the script:
 
 1. A Timestream for LiveAnalytics table [created](https://docs.aws.amazon.com/timestream/latest/developerguide/console_timestream.html#console_timestream.table.using-console).
-2. Data from the Timestream for LiveAnalytics table having been unloaded to an S3 bucket, within the path `<S3 bucket name>/<Timestream database name>/<Timestream table name>/results`.
+2. Data from the Timestream for LiveAnalytics table having been unloaded to an S3 bucket, within the path `<S3 bucket name>/<Timestream database name>/<Timestream table name>/unload-<%Y-%m-%d-%H:%M:%S>/results`.
 
 
 ## Installation
