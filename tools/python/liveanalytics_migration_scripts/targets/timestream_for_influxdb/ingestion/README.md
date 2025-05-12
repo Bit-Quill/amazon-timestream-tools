@@ -26,7 +26,7 @@ Before running this script, complete the following:
 
 ## Installation
 
-See [README.md#Installation](../../../README.md#Installation).
+See [README.md#Installation](../../../README.md#installation).
 
 
 ## Data preparation
