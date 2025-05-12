@@ -148,4 +148,4 @@ For information about testing the ingestion process, refer to [ingestion-tests/R
 
 ## Validation
 
-For information on validating ingestion data, refer to [../validator/README](../validator/README)
+For information on validating ingestion data, refer to [../validation/README.md](../validation/README.md)
