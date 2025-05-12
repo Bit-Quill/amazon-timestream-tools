@@ -111,18 +111,10 @@ func addTelegrafEC2InstanceToStack(stack awscdk.Stack, stackProps awscdk.StackPr
 		}
 
 		telegrafInputOutputConfig += fmt.Sprintf(`
-[[outputs.timestream]]
+[[outputs.cloudwatch]]
   region = "%s"
-  database_name = "%s"
-  describe_database_on_start = false
-  mapping_mode = "multi-table"
-  measure_name_for_multi_measure_records = "telegraf_measure"
-  use_multi_measure_records = true
-  create_table_if_not_exists = true
-  create_table_magnetic_store_retention_period_in_days = 365
-  create_table_memory_store_retention_period_in_hours = 24
-  [outputs.timestream.tagpass]
-    influxDBInstance = ["%s"]
+  namespace = "AWS/Timestream/InfluxDB"
+  high_resolution_metrics = true
 [[inputs.prometheus]]
   urls = ["%s"]
   tags = { influxDBInstance = "%s" }
@@ -139,7 +131,7 @@ func addTelegrafEC2InstanceToStack(stack awscdk.Stack, stackProps awscdk.StackPr
       name = "DbInstanceName"
       value = "%s"
 
-      `, *stackProps.Env.Region, databaseName, instanceId, instanceEndpoint, instanceId, *stackProps.Env.Region, instanceId, *influxDBInstance.Name)
+      `, *stackProps.Env.Region, databaseName, instanceId, instanceEndpoint, instanceId, *stackProps.Env.Region)
 	}
 
 	userDataScript :=
@@ -438,17 +430,17 @@ func main() {
 		databaseName = databaseNameContext.(string)
 	}
 
-	stack, err := addTelegrafEC2InstanceToStack(stack, stackProps, databaseName, influxDBIdContext.(string))
+	_, err := addTelegrafEC2InstanceToStack(stack, stackProps, databaseName, influxDBIdContext.(string))
 	if err != nil {
 		log.Printf("Error adding Telegraf instance to stack: %s", err)
 		return
 	}
-	stack, err = addGrafanaWorkspaceToStack(stack, stackProps, databaseName, grafanaWorkspaceName)
+	_, err = addGrafanaWorkspaceToStack(stack, stackProps, databaseName, grafanaWorkspaceName)
 	if err != nil {
 		log.Printf("Error adding Grafana workspace to stack: %s", err)
 		return
 	}
-	stack, err = createLambdaResource(stack, stackProps, databaseName, grafanaWorkspaceName, dashboardName, timestreamDatasourceName)
+	_, err = createLambdaResource(stack, stackProps, databaseName, grafanaWorkspaceName, dashboardName, timestreamDatasourceName)
 	if err != nil {
 		log.Printf("Error adding Lambda function to stack: %s", err)
 		return
