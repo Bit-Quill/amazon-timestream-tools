@@ -23,20 +23,11 @@ Before running this script, complete the following:
 3. Create the target bucket in InfluxDB where data will be ingested
 4. Ensure sufficient storage space is allocated for the transformed dataset (EC2 instance recommended)
 
+
 ## Installation
 
-1. Create and activate a virtual environment:
+See [README.md#Installation](../../../README.md#Installation).
 
-```bash
-python -m venv venv
-source venv/bin/activate
-```
-
-2. Install the required dependencies:
-
-```bash
-pip install -r requirements.txt
-```
 
 ## Data preparation
 
