@@ -23,7 +23,7 @@ The validation script can be run anytime after ingestion has begun. The script f
 ## Prerequisites
 
 1. Complete the previous migration stages as highlighted above. The validation script will exit early if there are no points ingested to the target InfluxDB instance.
-2. [An InfluxDB access token](https://docs.influxdata.com/influxdb/cloud/admin/tokens/create-token/) for the target Timestream for InfluxDB instance.
+2. [An InfluxDB API token](https://docs.influxdata.com/influxdb/v2/admin/tokens/create-token/) for the target Timestream for InfluxDB instance.
 3. Optional: Docker
 
 ## Installation
