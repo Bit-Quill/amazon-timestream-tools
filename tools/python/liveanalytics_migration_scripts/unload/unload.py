@@ -2,8 +2,6 @@
 
 import argparse
 import boto3
-import json
-from botocore.config import Config
 from datetime import datetime, timezone
 import sys
 import os
