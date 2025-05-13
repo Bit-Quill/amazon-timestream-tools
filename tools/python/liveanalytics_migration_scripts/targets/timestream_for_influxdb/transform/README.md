@@ -60,7 +60,7 @@ The following prerequisites must be met before using the script:
 
 ## Installation
 
-See [README.md#Installation](../../../README.md#Installation).
+See [README.md#Installation](../../../README.md#installation).
 
 
 ## Usage

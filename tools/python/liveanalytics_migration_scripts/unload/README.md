@@ -57,7 +57,7 @@
 
 <div>
 <h2>Installation</h2>
-<p>See <a href="../README.md#Installation">../README.md#Installation</a>.</p>
+<p>See <a href="../README.md#Installation">../README.md#installation</a>.</p>
 </div>
 
 <div>

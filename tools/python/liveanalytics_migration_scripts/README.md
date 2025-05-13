@@ -1,6 +1,6 @@
 # Timestream for LiveAnalytics Migration Tooling
 
-The Timestream for LiveAnalytics migration tooling is a collection of scripts to perform a migration of your Timestream for LiveAnalytics data to a supported database target. The Timestream for LiveAnalytics data is first unloaded from Timestream to S3 to be prepared and migrated to a new database target.
+The Timestream for LiveAnalytics migration tooling is a collection of scripts to perform a migration of your Timestream for LiveAnalytics data to a supported target database. The Timestream for LiveAnalytics data is first unloaded from Timestream to S3 to be prepared and migrated to a new database target.
 
 ## Migration Targets
 

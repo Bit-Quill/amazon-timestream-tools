@@ -83,7 +83,7 @@ If you decide to migrate to Timestream for InfluxDB and decide to translate any 
 
 ## Installation
 
-See [../README.md#Installation](../README.md#Installation).
+See [../README.md#Installation](../README.md#installation).
 
 ## Usage
 

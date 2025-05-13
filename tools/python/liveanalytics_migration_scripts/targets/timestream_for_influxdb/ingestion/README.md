@@ -15,7 +15,7 @@ The `influxdb_ingestion.py` script is a Python utility that:
 
 Before running this script, complete the following:
 
-1. Complete the LiveAnalytics unload and Athena transformation scripts (see [../../../unload/README](../../../unload/README.md) and [../transform/README](../transform/README) for details)
+1. Complete the LiveAnalytics unload and Athena transformation scripts (see [../../../unload/README](../../../unload/README.md) and [../transform/README](../transform/README.md) for details)
 2. Set up the required environment variables:
    - `INFLUXDB_V2_URL`: The URL of your InfluxDB instance with the included scheme and port, for example `http://localhost:8086`
    - `INFLUXDB_V2_ORG`: Your InfluxDB organization name

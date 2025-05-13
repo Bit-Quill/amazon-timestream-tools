@@ -107,7 +107,7 @@ python3 ingestion/influxdb_ingestion.py benchmark-bucket ./line-protocol-output
 
 See [ingestion/README.md](./ingestion/README.md) for more details.
 
-#### 3. Validation
+### 3. Validation
 
 Validate that all records have been ingested to InfluxDB:
 ```

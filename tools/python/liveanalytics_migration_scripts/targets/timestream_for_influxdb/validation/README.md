@@ -28,7 +28,7 @@ The validation script can be run anytime after ingestion has begun. The script f
 
 ## Installation
 
-See [README.md#Installation](../../../README.md#Installation).
+See [README.md#Installation](../../../README.md#installation).
 
 
 #### With Docker
