@@ -12,7 +12,7 @@ from logger_utils import create_logger
 from timestream_utils import TimestreamUtility
 from s3_utils import S3Utility
 
-if __name__ == "__main__":
+def main(input_args):
     parser = argparse.ArgumentParser()
     
     parser.add_argument("-r", "--region", help="AWS region of your Timestream table to be unloaded",default=None,required=False)
@@ -45,7 +45,7 @@ if __name__ == "__main__":
     parser.add_argument("-ld", "--logs-dir", help='Directory for export logs (default: timestream-export-logs)', default = None, required = False)
 
     #assign arguments to args variable
-    args = parser.parse_args()
+    args = parser.parse_args(input_args)
 
     log_dir = args.logs_dir
 
@@ -245,3 +245,6 @@ if __name__ == "__main__":
     if sns_topic_arn is not None:
         timestream_utility.sns_publish_message(message, "Unload Script Completed")
     logger.info(message)
+
+if __name__ == "__main__":
+    main(sys.argv[1:])

@@ -416,7 +416,7 @@ def poll_for_result(result, failure_flag, continue_on_error, failed_log, file_na
                 logging.error("Fix the issue and run with --resume-from with the path to the previous tracking folder.")
                 sys.exit(1)
 
-def main():
+def main(input_args):
     load_dotenv()
 
     parser = argparse.ArgumentParser(description='Process gzip files in a directory using multiple processes')
@@ -436,7 +436,7 @@ def main():
                         help='Resume from a previous run, providing the path to the previous tracking_<run_id> directory')
     parser.add_argument('--continue-on-error', action='store_true',
                         help='Continue ingesting remaining files even if one fails')
-    args = parser.parse_args()
+    args = parser.parse_args(input_args)
 
     setup_logging()
 
@@ -535,4 +535,4 @@ def main():
         logging.error("To retry failed files, run the script with the --resume-from with the path to the previous tracking folder.")
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])

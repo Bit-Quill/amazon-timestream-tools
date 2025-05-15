@@ -526,7 +526,7 @@ def parse_table_dimensions(arg):
         raise argparse.ArgumentTypeError("Use format table1=dimension1,dimension2")
 
 
-if __name__ == "__main__":
+def main(input_args):
     parser = argparse.ArgumentParser(
         prog="main.py",
         description="""A sample application that translates all data in a Timestream for LiveAnalytics
@@ -597,7 +597,7 @@ if __name__ == "__main__":
         type=parse_bool_cli_argument,
     )
 
-    args = parser.parse_args()
+    args = parser.parse_args(input_args)
 
     timestream_database_name = args.database_name
     s3_bucket_name = args.s3_bucket_name
@@ -669,3 +669,7 @@ if __name__ == "__main__":
     for line_protocol_result in line_protocol_results:
         print(line_protocol_result)
         print()
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])

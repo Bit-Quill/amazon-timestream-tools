@@ -296,7 +296,7 @@ def count_influx_rows(
 
 # ────────────────────── CLI parsing ─────────────────────────
 
-def parse_args() -> argparse.Namespace:
+def parse_args(input_args: list[str]) -> argparse.Namespace:
     """
     Precedence order:
         1. command-line flags
@@ -312,7 +312,7 @@ def parse_args() -> argparse.Namespace:
         help="Data source engine, 'timestream' or 'athena'. (Defaults to 'athena')",
     )
 
-    prelim, remaining = source_engine_arg.parse_known_args()
+    prelim, remaining = source_engine_arg.parse_known_args(input_args)
 
     env = os.getenv
     missing = lambda var: env(var) is None
@@ -555,6 +555,6 @@ def main() -> None:
 
 if __name__ == "__main__":
     try:
-        main()
+        main(sys.argv[1:])
     except KeyboardInterrupt:
         sys.exit("Interrupted by user.")
