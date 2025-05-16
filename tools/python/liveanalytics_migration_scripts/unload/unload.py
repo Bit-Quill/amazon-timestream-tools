@@ -41,7 +41,7 @@ def main(input_args):
     parser.add_argument("-en", "--encryption", help="Encryption type", default='SSE_S3', choices=['SSE_KMS', 'SSE_S3'], required=False)
     parser.add_argument("-rf", "--recent-first", default=False,type=lambda x: x.lower() in ['true', '1', 'yes'],help="Set to true to load data in reverse chronological order (most recent batch first)",required=False)
     parser.add_argument("-cp", "--custom-partition-count", help="Custom partition count", default=99, required=False)
-    parser.add_argument("-ob", "--order-by-asc", help="data order by ascending", default=False, type=lambda x: x.lower() in ['true', '1', 'yes'], required=False)
+    parser.add_argument("-ob", "--order-by-asc", help="data order by time ascending", default=False, type=lambda x: x.lower() in ['true', '1', 'yes'], required=False)
     parser.add_argument("-ld", "--logs-dir", help='Directory for export logs (default: timestream-export-logs)', default = None, required = False)
 
     #assign arguments to args variable
@@ -101,7 +101,7 @@ def main(input_args):
     timestream_utility = TimestreamUtility(
         region, sns_topic_arn, args.enable_dynamodb_logger, log_file=log_file_path, s3_util=s3_utility)
     if args.sns_topic_arn is not None:
-        if not timestream_utility.validate_sns_topic(sns_topic_arn):
+        if not timestream_utility.init_sns_topic(sns_topic_arn):
             sys.exit(1)
 
     #create bucked if not provided
