@@ -2,10 +2,8 @@ import argparse
 from datetime import datetime
 import sys
 
-sys.path.append("../unload/utils/")
-
-from timestream_utils import TimestreamUtility
-from logger_utils import create_logger
+from unload.utils.timestream_utils import TimestreamUtility
+from unload.utils.logger_utils import create_logger
 
 
 cardinality_logger = create_logger("cardinality")

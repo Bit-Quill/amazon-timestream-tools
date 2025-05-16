@@ -6,11 +6,9 @@ from datetime import datetime, timezone
 import sys
 import os
 
-sys.path.append("./utils/")
-
-from logger_utils import create_logger
-from timestream_utils import TimestreamUtility
-from s3_utils import S3Utility
+from unload.utils.logger_utils import create_logger
+from unload.utils.timestream_utils import TimestreamUtility
+from unload.utils.s3_utils import S3Utility
 
 def main(input_args):
     parser = argparse.ArgumentParser()

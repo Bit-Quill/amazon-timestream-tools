@@ -4,10 +4,10 @@ import sys
 
 sys.path.append("../../../unload/utils/")
 
-from timestream_utils import TimestreamUtility
-from s3_utils import S3Utility
-from athena_utils import AthenaUtility, MAX_WAIT_SECONDS
-from logger_utils import create_logger
+from unload.utils.timestream_utils import TimestreamUtility
+from unload.utils.s3_utils import S3Utility
+from unload.utils.athena_utils import AthenaUtility, MAX_WAIT_SECONDS
+from unload.utils.logger_utils import create_logger
 
 
 transform_logger = create_logger("transform")
@@ -144,7 +144,9 @@ def create_and_load_athena_table(
     Creates and loads an Athena table, importing data from an S3 bucket.
 
     Args:
-        session (boto3.Session): The boto3 Session to use to create clients.
+        timestream_utility (TimestreamUtility): The TimestreamUtility to use to execute queries.
+        s3_utility (S3Utility): The S3Utility to use to check the existence of S3 buckets.
+        athena_utility (AthenaUtility): The AthenaUtility used to execute Athena queries.
         timestream_database_name (str): The Timestream database to retrieve the table schema from.
         timestream_table_name (str): The Timestream table to replicate the schema of.
         s3_bucket_path (str): The S3 bucket path containing Timestream data.
@@ -177,7 +179,7 @@ def create_and_load_athena_table(
         athena_table_name = (
             f"{timestream_database_name.lower()}_{timestream_table_name.lower()}"
         )
-        athena_table_name.replace("-", "_")
+        athena_table_name = athena_table_name.replace("-", "_")
 
     if not AthenaUtility.is_valid_athena_table_name(athena_table_name):
         raise RuntimeError(f"Athena table name {athena_table_name} is invalid")
@@ -294,8 +296,9 @@ def create_and_load_athena_table(
 
 
 def translate_athena_table_to_line_protocol(
+    timestream_utility: TimestreamUtility,
     s3_utility: S3Utility,
-    athena_utlity: AthenaUtility,
+    athena_utility: AthenaUtility,
     timestream_database_name: str,
     timestream_table_name: str,
     s3_output_path: str,
@@ -359,7 +362,7 @@ def translate_athena_table_to_line_protocol(
         athena_table_name = (
             f"{timestream_database_name.lower()}_{timestream_table_name.lower()}"
         )
-        athena_table_name.replace("-", "_")
+        athena_table_name = athena_table_name.replace("-", "_")
 
     if not AthenaUtility.is_valid_athena_table_name(athena_table_name):
         raise RuntimeError(f"Athena table name {athena_table_name} is invalid")
@@ -538,7 +541,7 @@ def translate_athena_table_to_line_protocol(
         """
 
         transform_logger.info(f"Executing query: {lp_translation_query}")
-        response = athena_utlity.start_query_execution(
+        response = athena_utility.start_query_execution(
             query_string=lp_translation_query,
             output_location=f"{s3_unload_path}/athena-query-results",
             database_name=athena_database_name,
@@ -710,7 +713,7 @@ def main(input_args):
                         timestream_table_names.append(table["TableName"])
                     next_token = list_tables_response.get("NextToken", None)
         except Exception as e:
-            transform_logger.logging.error(e)
+            transform_logger.error(e)
             exit(1)
     elif args.tables is not None:
         timestream_table_names = args.tables
@@ -733,8 +736,9 @@ def main(input_args):
         )
 
         line_protocol_result = translate_athena_table_to_line_protocol(
+            timestream_utility=timestream_utility,
             s3_utility=s3_utility,
-            athena_utlity=athena_utility,
+            athena_utility=athena_utility,
             timestream_database_name=timestream_database_name,
             timestream_table_name=timestream_table_name,
             s3_output_path=s3_lp_output_path,

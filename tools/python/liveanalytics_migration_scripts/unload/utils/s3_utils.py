@@ -1,6 +1,6 @@
 import random
 import boto3
-from logger_utils import create_logger
+from unload.utils.logger_utils import create_logger
 import botocore
 import json
 import time
