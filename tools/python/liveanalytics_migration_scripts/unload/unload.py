@@ -2,6 +2,8 @@
 
 import argparse
 import boto3
+import json
+from botocore.config import Config
 from datetime import datetime, timezone
 import sys
 import os
@@ -33,7 +35,7 @@ def main(input_args):
                    default="\\",
                    help="""Character used for escaping in CSV files. Examples:
                    - If value is 'Time"stream' → becomes 'Time\"stream'
-                   - If value is 'Time\\stream' → becomes 'Time\\\\stream'""")
+                   - If value is 'Time\stream' → becomes 'Time\\stream'""")
     parser.add_argument("--field-delimiter", default=",",help="Character used to separate fields in CSV files (default: comma)")
     parser.add_argument("-ik", "--kms-key", help="KMS key to be used to encrypt the data in S3", default=None, required=False)
     parser.add_argument("-en", "--encryption", help="Encryption type", default='SSE_S3', choices=['SSE_KMS', 'SSE_S3'], required=False)

@@ -475,7 +475,9 @@ def translate_athena_table_to_line_protocol(
                 raise RuntimeError(
                     f"S3 bucket path does not exist or is unavailable: {s3_output_path}"
                 )
-            s3_unload_path = f"s3://{s3_output_path}"
+            # Assume that the path provided is a "results" path, containing valid parquet files.
+            # Avoid adding line protocol output to the same path, to not clobber the parquet files.
+            s3_unload_path = f's3://{"/".join(s3_output_path_parts[:-1])}'
 
         line_protocol_translation_result.s3_bucket_destination = (
             s3_unload_path + "/line-protocol-output"
@@ -600,26 +602,9 @@ def main(input_args):
         "to load data from. This bucket must already "
         "exist. If this is an S3 bucket name or URI, "
         "for example, s3://example_bucket, then the path "
-        "database_name/table_name/unload-latest-timestamp/results "
-        "will be searched for in this bucket and used to load "
-        "data. If this is a full path, for example, "
-        "s3://example_bucket/example_path, then this path will be used "
-        "to load data.",
+        "s3://example_bucket/database_name/table_name/unload-latest-timestamp/results "
+        "will be used to load data.",
         required=True,
-    )
-    parser.add_argument(
-        "--s3-lp-output-path",
-        help="Optional. The S3 bucket path in which "
-        "to load transformed line protocol data into, in a new "
-        "line-protocol-output path. "
-        "If this is an S3 bucket name or URI, for example, "
-        "s3://example_bucket, then the path "
-        "database_name/table_name/unload_latest_timestamp will "
-        "be searched for in this bucket. "
-        "If this is a full path, for example, s3://example_bucket/example_path, "
-        "then the path line-protocol-output will be added to this path. If not provided, "
-        "this defaults to the value provided by --s3-bucket-path.",
-        required=False,
     )
     parser.add_argument(
         "--athena-database-name",
@@ -668,24 +653,6 @@ def main(input_args):
     if s3_bucket_path.lower().startswith("s3://"):
         s3_bucket_path = s3_bucket_path[5:]
 
-    s3_lp_output_path = args.s3_lp_output_path
-    if s3_lp_output_path is None:
-        s3_bucket_path_parts = s3_bucket_path.split("/")
-        # If a custom path has been provided, for example,
-        # my_bucket/some_path/results, then line protocol will
-        # be added to my_bucket/some_path/line-protocol-output.
-        if len(s3_bucket_path_parts) > 1:
-            s3_lp_output_path = "/".join(s3_bucket_path_parts[:-1])
-        # If the user has provided a bucket name as the bucket path,
-        # use it also for the lp output path. The bucket will be
-        # searched for the latest unload path.
-        else:
-            s3_lp_output_path = s3_bucket_path
-    else:
-        s3_lp_output_path = s3_lp_output_path.rstrip("/")
-        if s3_lp_output_path.lower().startswith("s3://"):
-            s3_lp_output_path = s3_lp_output_path[5:]
-
     dimensions_to_fields_map = (
         dict(args.dimensions_to_fields) if args.dimensions_to_fields else {}
     )
@@ -718,7 +685,7 @@ def main(input_args):
     elif args.tables is not None:
         timestream_table_names = args.tables
     else:
-        transform_logger.logging.error(
+        transform_logger.error(
             "Neither --tables nor --all-tables have been provided. One is required."
         )
         exit(1)
@@ -741,7 +708,7 @@ def main(input_args):
             athena_utility=athena_utility,
             timestream_database_name=timestream_database_name,
             timestream_table_name=timestream_table_name,
-            s3_output_path=s3_lp_output_path,
+            s3_output_path=s3_bucket_path,
             dimensions_to_fields=dimensions_to_fields_map.get(
                 timestream_table_name, []
             ),

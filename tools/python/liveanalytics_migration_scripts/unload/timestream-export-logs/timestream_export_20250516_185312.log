@@ -1,0 +1,45 @@
+2025-05-16 18:53:12,133 - timestream_export - INFO - logging into /Users/trevor.bonas/amazon-timestream-tools/tools/python/liveanalytics_migration_scripts/unload/timestream-export-logs/timestream_export_20250516_185312.log
+2025-05-16 18:53:12,181 - timestream_export - INFO - Using provided S3 URI: s3://la-idb-it-bucketrutlkk4uff
+2025-05-16 18:53:12,181 - s3_logger - INFO - Checking for S3 bucket access
+2025-05-16 18:53:12,307 - timestream_export - INFO - Bucket la-idb-it-bucketrutlkk4uff exists and is accessible
+2025-05-16 18:53:12,308 - timestream_export - INFO - bucket_s3_uri s3://la-idb-it-bucketrutlkk4uff
+2025-05-16 18:53:12,308 - timestream_export - INFO - sns_topic_arn None
+2025-05-16 18:53:12,308 - timestream_export - INFO - export_format PARQUET
+2025-05-16 18:53:12,308 - timestream_export - INFO - compression NONE
+2025-05-16 18:53:12,308 - timestream_export - INFO - start_time 2025-04-16 18:53:12 
+2025-05-16 18:53:12,308 - timestream_export - INFO - end_time 2025-04-17 18:53:12 
+2025-05-16 18:53:12,308 - timestream_export - INFO - partition by day
+2025-05-16 18:53:12,308 - timestream_export - INFO - migration_tag unload-2025-05-17-01:53:12
+2025-05-16 18:53:12,308 - timestream_export - INFO - unload_type table
+2025-05-16 18:53:12,308 - timestream_export - INFO - max_file_size 2GB
+2025-05-16 18:53:12,308 - timestream_export - INFO - encryption SSE_S3
+2025-05-16 18:53:12,309 - timestream_export - INFO - escaped_by \
+2025-05-16 18:53:12,309 - timestream_export - INFO - field_delimiter ,
+2025-05-16 18:53:12,309 - timestream_export - INFO - recent_first False
+2025-05-16 18:53:12,309 - timestream_export - INFO - kms_key None
+2025-05-16 18:53:12,309 - timestream_export - INFO - enable_dynamodb_logger False
+2025-05-16 18:53:12,309 - timestream_export - INFO - region us-west-2
+2025-05-16 18:53:12,309 - timestream_export - INFO - database la-idb-it-dbnzezbwycoc, it may print None if exporting all databases for specific region
+2025-05-16 18:53:12,309 - timestream_export - INFO - table la-idb-it-tablezqv6k15czy, it may print None if exporting a database or all databases
+2025-05-16 18:53:12,309 - timestream_export - INFO - custom_partition_count 99
+2025-05-16 18:53:12,309 - timestream_export - INFO - order_by_asc False
+2025-05-16 18:53:12,309 - timestream_logger - INFO - DynamoDB logging is disabled. Skipping table creation.
+2025-05-16 18:53:12,309 - timestream_logger - INFO - DynamoDB logging is disabled. Skipping logging to DynamoDB.
+2025-05-16 18:53:12,309 - timestream_export - INFO - unloading  la-idb-it-dbnzezbwycoc.la-idb-it-tablezqv6k15czy
+2025-05-16 18:53:12,309 - timestream_logger - INFO - Starting unload for la-idb-it-dbnzezbwycoc.la-idb-it-tablezqv6k15czy
+2025-05-16 18:53:12,309 - timestream_logger - INFO - Unload will be performed in batches:[['2025-04-16 18:53:12', '2025-04-17 18:53:12']]
+2025-05-16 18:53:12,309 - timestream_logger - INFO - DynamoDB logging is disabled. Skipping logging to DynamoDB.
+2025-05-16 18:53:12,309 - timestream_logger - INFO - DynamoDB logging is disabled. Skipping logging to DynamoDB.
+2025-05-16 18:53:12,309 - timestream_logger - INFO - Building unload query for la-idb-it-dbnzezbwycoc.la-idb-it-tablezqv6k15czy
+2025-05-16 18:53:12,309 - timestream_logger - INFO - DynamoDB logging is disabled. Skipping logging to DynamoDB.
+2025-05-16 18:53:12,309 - timestream_logger - INFO - Running unload query for la-idb-it-dbnzezbwycoc.la-idb-it-tablezqv6k15czy
+2025-05-16 18:53:12,320 - timestream_logger - INFO - QUERY EXECUTING: UNLOAD( SELECT *, DATE_FORMAT(time,'%Y-%m-%d') as partition_date FROM "la-idb-it-dbnzezbwycoc"."la-idb-it-tablezqv6k15czy" WHERE time >= '2025-04-16 18:53:12' AND time < '2025-04-17 18:53:12') TO 's3://la-idb-it-bucketrutlkk4uff/la-idb-it-dbnzezbwycoc/la-idb-it-tablezqv6k15czy/unload-2025-05-17-01:53:12' WITH ( partitioned_by = ARRAY['partition_date'], max_file_size='2GB', format='PARQUET', encryption='SSE_S3', compression='NONE')
+2025-05-16 18:53:12,320 - timestream_logger - INFO - UNLOAD IN PROGRESS for batch start_time >= 2025-04-16 18:53:12 and end_time < 2025-04-17 18:53:12 for la-idb-it-dbnzezbwycoc.la-idb-it-tablezqv6k15czy 
+2025-05-16 18:53:15,078 - timestream_logger - INFO - Progress Percentage for batch start_time >= 2025-04-16 18:53:12 and end_time < 2025-04-17 18:53:12 for la-idb-it-dbnzezbwycoc.la-idb-it-tablezqv6k15czy : 100.0%
+2025-05-16 18:53:15,116 - timestream_logger - INFO - {'s3://la-idb-it-bucketrutlkk4uff/la-idb-it-dbnzezbwycoc/la-idb-it-tablezqv6k15czy/unload-2025-05-17-01:53:12/results/partition_date=2025-04-16/AEDACAN4MYI3DRGKZCFF44SYGCZZST74BTFPJ7OZVKDPZSSJTF25G6IP2S2VX4A_1650645579_q1dISe2MpfqmVZoM.parquet': 1}
+2025-05-16 18:53:15,116 - timestream_logger - INFO - Rows exported for batch start_time >= 2025-04-16 18:53:12 and end_time < 2025-04-17 18:53:12 for la-idb-it-dbnzezbwycoc.la-idb-it-tablezqv6k15czy: 1
+2025-05-16 18:53:15,116 - timestream_logger - INFO - DynamoDB logging is disabled. Skipping logging to DynamoDB.
+2025-05-16 18:53:15,116 - timestream_logger - INFO - Unload completed for la-idb-it-dbnzezbwycoc.la-idb-it-tablezqv6k15czy
+2025-05-16 18:53:15,116 - timestream_logger - INFO - Total rows exported for start_time >= 2025-04-16 18:53:12 and end_time < 2025-04-17 18:53:12 for  la-idb-it-dbnzezbwycoc.la-idb-it-tablezqv6k15czy : 1
+2025-05-16 18:53:15,116 - timestream_logger - INFO - DynamoDB logging is disabled. Skipping logging to DynamoDB.
+2025-05-16 18:53:15,116 - timestream_export - INFO - Unload script completed for table with migration tag unload-2025-05-17-01:53:12
