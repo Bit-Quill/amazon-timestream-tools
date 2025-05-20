@@ -81,3 +81,40 @@ Create a virtual environment using `venv` and install required dependencies.
     - [Timestream for InfluxDB](./targets/timestream_for_influxdb/README.md)
     - [RDS for PostgreSQL](./targets/rds_for_postgresql/README.md)
 
+## Testing
+
+`integration_test.py` provides end-to-end integration tests.
+
+### Setup
+
+Integration tests require a local InfluxDB instance running on http://localhost:8086. The directory `test_scripts` contains bash scripts that help set up an InfluxDB Docker container with credentials the tests expect. To set up a local InfluxDB Docker container, run the following command from within `test_scripts`:
+
+```shell
+./influxdb-restart.sh
+```
+
+### Running All Tests
+
+Assuming you have created a [virtual environment and have installed all necessary packages](#installation), all tests can be run with the following command:
+
+```
+python3 -m pytest integration_test.py
+```
+
+### Running a Specific Test
+
+A specific test can be run with the following command, replacing `<test name>` with the name of the test that you want to run:
+
+```
+python3 -m pytest integration_test.py::MigrationTest::<test name>
+```
+
+### Reducing Test Verbosity
+
+A `pytest.ini` file is provided with some default configurations. By default, tests show `INFO` logs and output from print statements. To disable this, use the following command:
+
+```
+python3 -m pytest integration_test.py \
+    --override-ini="log_cli=false" \
+    --override-ini="addopts="
+```

@@ -22,8 +22,10 @@ from targets.timestream_for_influxdb.transform import transform
 from targets.timestream_for_influxdb.ingestion import influxdb_ingestion
 from targets.timestream_for_influxdb.validation import validator
 
+# Format expected by unload.py.
 UNLOAD_TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
-ISO_8601_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
+# Format expected by the cardinality and validation scripts.
+ISO_8601_TIMESTAMP_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
 
 class BaseTestCases:
@@ -46,13 +48,13 @@ class BaseTestCases:
 
         # Prefixes stand for
         # "LiveAnalytics InfluxDB Integration Test".
-        database_name_prefix = "la-idb-it-db"
+        database_name_prefix = "la-idb-it-db-"
         database_name: str
 
-        table_name_prefix = "la-idb-it-table"
+        table_name_prefix = "la-idb-it-table-"
         table_name: str
 
-        s3_bucket_name_prefix = "la-idb-it-bucket"
+        s3_bucket_name_prefix = "la-idb-it-bucket-"
         s3_bucket_name: str
 
         athena_database_name = "default"
@@ -79,7 +81,7 @@ class BaseTestCases:
             health_check = cls.influxdb_client.ping()
             if not health_check:
                 raise ConnectionError(
-                    f"Failed to connect to InfluxDB v2 at {influxdb_url}"
+                    f"setUpClass: Failed to connect to InfluxDB v2 at {influxdb_url}"
                 )
 
             # AWS setup.
@@ -161,7 +163,7 @@ class BaseTestCases:
                 except ClientError as e:
                     error_code = e.response.get("Error", {}).get("Code")
                     if error_code != "ResourceNotFoundException":
-                        return False
+                        raise
                 attempts += 1
                 time.sleep(delay_seconds)
 
@@ -176,11 +178,11 @@ class BaseTestCases:
                     )
                     status = response.get("Table", {}).get("TableStatus")
                     if status == "ACTIVE":
-                        return True
+                        return
                 except ClientError as e:
                     error_code = e.response.get("Error", {}).get("Code")
                     if error_code != "ResourceNotFoundException":
-                        return False
+                        raise
                 attempts += 1
                 time.sleep(delay_seconds)
 
@@ -245,14 +247,9 @@ class BaseTestCases:
             self, athena_database_name: str, athena_table_names: list
         ):
             for athena_table_name in athena_table_names:
-                try:
-                    self.glue_client.delete_table(
-                        DatabaseName=athena_database_name, Name=athena_table_name
-                    )
-                except Exception as e:
-                    logging.error(
-                        f'Failed to delete athena table "{athena_database_name}"."{athena_table_name}": {e}'
-                    )
+                self.glue_client.delete_table(
+                    DatabaseName=athena_database_name, Name=athena_table_name
+                )
 
         @classmethod
         def tearDownClass(cls):
@@ -265,14 +262,16 @@ class BaseTestCases:
                 time.sleep(1)
                 instance.delete_database(database_name=instance.database_name)
             except Exception as e:
-                logging.error(f"Failed to delete Timestream database: {e}")
+                logging.warning(
+                    f"tearDownClass: Failed to delete Timestream database: {e}"
+                )
 
             try:
                 if os.path.exists(cls.lp_base_directory):
                     shutil.rmtree(cls.lp_base_directory)
             except Exception as e:
-                logging.error(
-                    f"Failed to delete local line protocol base directory: {e}"
+                logging.warning(
+                    f"tearDownClass: Failed to delete local line protocol base directory: {e}"
                 )
 
         def tearDown(self):
@@ -289,7 +288,7 @@ class BaseTestCases:
                     DatabaseName=self.database_name, TableName=self.table_name
                 )
             except Exception as e:
-                logging.error(f"Failed to delete Timestream table: {e}")
+                logging.warning(f"tearDown: Failed to delete Timestream table: {e}")
 
             try:
                 self.delete_athena_tables(
@@ -297,7 +296,7 @@ class BaseTestCases:
                     athena_table_names=[self.athena_table_name],
                 )
             except Exception as e:
-                logging.error(f"Failed to delete Athena unload table: {e}")
+                logging.warning(f"tearDown: Failed to delete Athena unload table: {e}")
 
             try:
                 self.delete_athena_tables(
@@ -305,18 +304,22 @@ class BaseTestCases:
                     athena_table_names=[self.athena_lp_table_name],
                 )
             except Exception as e:
-                logging.error(f"Failed to delete Athena line protocol table: {e}")
+                logging.warning(
+                    f"tearDown: Failed to delete Athena line protocol table: {e}"
+                )
 
             try:
                 self.delete_s3_bucket(bucket_name=self.s3_bucket_name)
             except Exception as e:
-                logging.error(f"Failed to delete S3 bucket: {e}")
+                logging.warning(f"tearDown: Failed to delete S3 bucket: {e}")
 
             try:
                 if os.path.exists(self.lp_directory):
                     shutil.rmtree(self.lp_directory)
             except Exception as e:
-                logging.error(f"Failed to delete local line protocol directory: {e}")
+                logging.warning(
+                    f"tearDown: Failed to delete local line protocol directory: {e}"
+                )
 
             try:
                 influxdb_bucket = (
@@ -326,17 +329,18 @@ class BaseTestCases:
                 )
                 self.influxdb_client.buckets_api().delete_bucket(influxdb_bucket)
             except Exception as e:
-                logging.error(f"Failed to delete InfluxDB bucket: {e}")
+                logging.warning(f"tearDown: Failed to delete InfluxDB bucket: {e}")
 
 
-class TestCase(BaseTestCases.BaseTestCase):
-    def test_sm_basic(self):
+class MigrationTest(BaseTestCases.BaseTestCase):
+    def test_single_measure_basic(self):
         current_time = pandas.Timestamp.now()
         start_time = current_time - Timedelta(days=30)
         end_time = start_time + Timedelta(days=1)
 
         dimensions = [
-            {"Name": "hostname", "Value": "hostname1", "DimensionValueType": "VARCHAR"}
+            {"Name": "hostname", "Value": "hostname1", "DimensionValueType": "VARCHAR"},
+            {"Name": "region", "Value": "us-west-2", "DimensionValueType": "VARCHAR"},
         ]
         schema_tags = ",".join(dimension["Name"] for dimension in dimensions)
 
@@ -371,9 +375,9 @@ class TestCase(BaseTestCases.BaseTestCase):
                 "--table-name",
                 self.table_name,
                 "--start-time",
-                start_time.strftime(ISO_8601_FORMAT),
+                start_time.strftime(ISO_8601_TIMESTAMP_FORMAT),
                 "--end-time",
-                end_time.strftime(ISO_8601_FORMAT),
+                end_time.strftime(ISO_8601_TIMESTAMP_FORMAT),
             ]
         )
         transform.main(
@@ -431,16 +435,509 @@ class TestCase(BaseTestCases.BaseTestCase):
                 "--schema-tags",
                 schema_tags,
                 "--start-time",
-                start_time.strftime(ISO_8601_FORMAT),
+                start_time.strftime(ISO_8601_TIMESTAMP_FORMAT),
                 "--skip-wal-check",
             ]
         )
 
-    @pytest.mark.skip(reason="Error placeholder")
-    def test_sm_invalid(self):
-        with self.assertRaises(SystemExit) as error:
-            exit(1)
-        self.assertEqual(error.exception.code, 1)
+    def test_single_measure_boolean(self):
+        current_time = pandas.Timestamp.now()
+        start_time = current_time - Timedelta(days=30)
+        end_time = start_time + Timedelta(days=1)
+
+        dimensions = [
+            {"Name": "hostname", "Value": "hostname1", "DimensionValueType": "VARCHAR"},
+            {"Name": "region", "Value": "us-west-2", "DimensionValueType": "VARCHAR"},
+        ]
+        schema_tags = ",".join(dimension["Name"] for dimension in dimensions)
+
+        record = {
+            "Dimensions": dimensions,
+            "MeasureName": "is_success",
+            "MeasureValue": "TRUE",
+            "MeasureValueType": "BOOLEAN",
+            "Time": str(start_time.value),
+            "TimeUnit": "NANOSECONDS",
+        }
+        self.put_records([record])
+        unload.main(
+            [
+                "--database",
+                self.database_name,
+                "--table",
+                self.table_name,
+                "--s3-uri",
+                f"s3://{self.s3_bucket_name}",
+                "--start-time",
+                start_time.strftime(UNLOAD_TIMESTAMP_FORMAT),
+                "--end-time",
+                end_time.strftime(UNLOAD_TIMESTAMP_FORMAT),
+                "--export-table",
+            ]
+        )
+        cardinality.main(
+            [
+                "--database-name",
+                self.database_name,
+                "--table-name",
+                self.table_name,
+                "--start-time",
+                start_time.strftime(ISO_8601_TIMESTAMP_FORMAT),
+                "--end-time",
+                end_time.strftime(ISO_8601_TIMESTAMP_FORMAT),
+            ]
+        )
+        transform.main(
+            [
+                "--database-name",
+                self.database_name,
+                "--tables",
+                self.table_name,
+                "--s3-bucket-path",
+                self.s3_bucket_name,
+                "--add-validation-field",
+                "true",
+            ]
+        )
+        self.s3_utility.sync_line_protocol_to_storage(
+            s3_bucket_path=self.s3_bucket_name,
+            directory=self.lp_directory,
+            timestream_database_name=self.database_name,
+            timestream_table_name=self.table_name,
+        )
+        influxdb_ingestion.main(
+            [
+                "-w",
+                "5",
+                "-l",
+                "5000",
+                "-m",
+                "5",
+                self.influxdb_bucket_name,
+                self.lp_directory,
+            ]
+        )
+        validator.main(
+            [
+                "--source-engine",
+                "athena",
+                "--athena-output",
+                "s3://" + self.s3_bucket_name,
+                "--athena-database-name",
+                self.athena_database_name,
+                "--athena-table-name",
+                self.athena_table_name,
+                "--influxdb-v2-url",
+                os.environ["INFLUXDB_V2_URL"],
+                "--influxdb-v2-token",
+                os.environ["INFLUXDB_V2_TOKEN"],
+                "--influxdb-v2-org",
+                os.environ["INFLUXDB_V2_ORG"],
+                "--influxdb-v2-bucket",
+                os.environ["INFLUXDB_V2_ORG"],
+                "--influxdb-v2-bucket",
+                self.influxdb_bucket_name,
+                "--influxdb-v2-measurement",
+                self.table_name,
+                "--schema-tags",
+                schema_tags,
+                "--start-time",
+                start_time.strftime(ISO_8601_TIMESTAMP_FORMAT),
+                "--skip-wal-check",
+            ]
+        )
+
+    @pytest.mark.skip(reason="Nanosecond timestamp precision isn't supported")
+    def test_single_measure_nanosecond_timestamp_sequential(self):
+        """
+        Tests migrating a dataset that is comprised of two records where the
+        two records have the same dimensions and measure names but different
+        measure values and are one nanosecond apart.
+
+        In InfluxDB, if these data points had the same timestamp, possibly
+        due to Timestreamp precision loss, one would override the other,
+        causing only one data point to exist in InfluxDB.
+        """
+        current_time = pandas.Timestamp.now()
+        start_time = current_time - Timedelta(days=30)
+        end_time = start_time + Timedelta(days=1)
+
+        dimensions = [
+            {"Name": "hostname", "Value": "hostname1", "DimensionValueType": "VARCHAR"},
+            {"Name": "region", "Value": "us-west-2", "DimensionValueType": "VARCHAR"},
+        ]
+
+        records = [
+            {
+                "Dimensions": dimensions,
+                "MeasureName": "cpu_utilization",
+                "MeasureValue": "13.5",
+                "MeasureValueType": "DOUBLE",
+                "Time": str(start_time.value),
+                "TimeUnit": "NANOSECONDS",
+            },
+            {
+                "Dimensions": dimensions,
+                "MeasureName": "cpu_utilization",
+                "MeasureValue": "44.0",
+                "MeasureValueType": "DOUBLE",
+                "Time": str((start_time + Timedelta(nanoseconds=1)).value),
+                "TimeUnit": "NANOSECONDS",
+            },
+        ]
+        self.put_records(records)
+
+        unload.main(
+            [
+                "--database",
+                self.database_name,
+                "--table",
+                self.table_name,
+                "--s3-uri",
+                f"s3://{self.s3_bucket_name}",
+                "--start-time",
+                start_time.strftime(UNLOAD_TIMESTAMP_FORMAT),
+                "--end-time",
+                end_time.strftime(UNLOAD_TIMESTAMP_FORMAT),
+                "--export-table",
+            ]
+        )
+        cardinality.main(
+            [
+                "--database-name",
+                self.database_name,
+                "--table-name",
+                self.table_name,
+                "--start-time",
+                start_time.strftime(ISO_8601_TIMESTAMP_FORMAT),
+                "--end-time",
+                end_time.strftime(ISO_8601_TIMESTAMP_FORMAT),
+            ]
+        )
+        transform.main(
+            [
+                "--database-name",
+                self.database_name,
+                "--tables",
+                self.table_name,
+                "--s3-bucket-path",
+                self.s3_bucket_name,
+                "--add-validation-field",
+                "true",
+            ]
+        )
+        self.s3_utility.sync_line_protocol_to_storage(
+            s3_bucket_path=self.s3_bucket_name,
+            directory=self.lp_directory,
+            timestream_database_name=self.database_name,
+            timestream_table_name=self.table_name,
+        )
+        influxdb_ingestion.main(
+            [
+                "-w",
+                "5",
+                "-l",
+                "5000",
+                "-m",
+                "5",
+                self.influxdb_bucket_name,
+                self.lp_directory,
+            ]
+        )
+        validator.main(
+            [
+                "--source-engine",
+                "timestream",
+                "--timestream-database-name",
+                self.database_name,
+                "--timestream-table-name",
+                self.table_name,
+                "--influxdb-v2-url",
+                os.environ["INFLUXDB_V2_URL"],
+                "--influxdb-v2-token",
+                os.environ["INFLUXDB_V2_TOKEN"],
+                "--influxdb-v2-org",
+                os.environ["INFLUXDB_V2_ORG"],
+                "--influxdb-v2-bucket",
+                os.environ["INFLUXDB_V2_ORG"],
+                "--influxdb-v2-bucket",
+                self.influxdb_bucket_name,
+                "--influxdb-v2-measurement",
+                self.table_name,
+                "--start-time",
+                start_time.strftime(ISO_8601_TIMESTAMP_FORMAT),
+                "--skip-wal-check",
+            ]
+        )
+
+    @pytest.mark.skip(reason="Timestamp measures are not supported")
+    def test_multi_measure_timestamp_measure(self):
+        current_time = pandas.Timestamp.now()
+        start_time = current_time - Timedelta(days=30)
+        end_time = start_time + Timedelta(days=1)
+
+        dimensions = [
+            {"Name": "hostname", "Value": "hostname1", "DimensionValueType": "VARCHAR"},
+            {"Name": "region", "Value": "us-west-2", "DimensionValueType": "VARCHAR"},
+        ]
+        schema_tags = ",".join(dimension["Name"] for dimension in dimensions)
+
+        # Only multi-measure records can use TIMESTAMP as a measure type.
+        record = {
+            "Dimensions": dimensions,
+            "MeasureName": "metrics",
+            "MeasureValueType": "MULTI",
+            "Time": str(start_time.value),
+            "TimeUnit": "NANOSECONDS",
+            "MeasureValues": [
+                {
+                    "Name": "request_time",
+                    "Value": str(start_time.value),
+                    "Type": "TIMESTAMP",
+                }
+            ],
+        }
+        self.put_records([record])
+        unload.main(
+            [
+                "--database",
+                self.database_name,
+                "--table",
+                self.table_name,
+                "--s3-uri",
+                f"s3://{self.s3_bucket_name}",
+                "--start-time",
+                start_time.strftime(UNLOAD_TIMESTAMP_FORMAT),
+                "--end-time",
+                end_time.strftime(UNLOAD_TIMESTAMP_FORMAT),
+                "--export-table",
+            ]
+        )
+        cardinality.main(
+            [
+                "--database-name",
+                self.database_name,
+                "--table-name",
+                self.table_name,
+                "--start-time",
+                start_time.strftime(ISO_8601_TIMESTAMP_FORMAT),
+                "--end-time",
+                end_time.strftime(ISO_8601_TIMESTAMP_FORMAT),
+            ]
+        )
+        transform.main(
+            [
+                "--database-name",
+                self.database_name,
+                "--tables",
+                self.table_name,
+                "--s3-bucket-path",
+                self.s3_bucket_name,
+                "--add-validation-field",
+                "true",
+            ]
+        )
+        self.s3_utility.sync_line_protocol_to_storage(
+            s3_bucket_path=self.s3_bucket_name,
+            directory=self.lp_directory,
+            timestream_database_name=self.database_name,
+            timestream_table_name=self.table_name,
+        )
+        influxdb_ingestion.main(
+            [
+                "-w",
+                "5",
+                "-l",
+                "5000",
+                "-m",
+                "5",
+                self.influxdb_bucket_name,
+                self.lp_directory,
+            ]
+        )
+        validator.main(
+            [
+                "--source-engine",
+                "athena",
+                "--athena-output",
+                "s3://" + self.s3_bucket_name,
+                "--athena-database-name",
+                self.athena_database_name,
+                "--athena-table-name",
+                self.athena_table_name,
+                "--influxdb-v2-url",
+                os.environ["INFLUXDB_V2_URL"],
+                "--influxdb-v2-token",
+                os.environ["INFLUXDB_V2_TOKEN"],
+                "--influxdb-v2-org",
+                os.environ["INFLUXDB_V2_ORG"],
+                "--influxdb-v2-bucket",
+                os.environ["INFLUXDB_V2_ORG"],
+                "--influxdb-v2-bucket",
+                self.influxdb_bucket_name,
+                "--influxdb-v2-measurement",
+                self.table_name,
+                "--schema-tags",
+                schema_tags,
+                "--start-time",
+                start_time.strftime(ISO_8601_TIMESTAMP_FORMAT),
+                "--skip-wal-check",
+            ]
+        )
+
+    def test_multi_measure_basic(self):
+        current_time = pandas.Timestamp.now()
+        start_time = current_time - Timedelta(days=30)
+        end_time = start_time + Timedelta(days=1)
+
+        dimensions = [
+            {"Name": "hostname", "Value": "hostname1", "DimensionValueType": "VARCHAR"},
+            {"Name": "region", "Value": "us-west-2", "DimensionValueType": "VARCHAR"},
+        ]
+        schema_tags = ",".join(dimension["Name"] for dimension in dimensions)
+
+        record = {
+            "Dimensions": dimensions,
+            "MeasureName": "metrics",
+            "MeasureValueType": "MULTI",
+            "Time": str(start_time.value),
+            "TimeUnit": "NANOSECONDS",
+            "MeasureValues": [
+                {"Name": "cpu_utilization", "Value": "12.3", "Type": "DOUBLE"},
+                {"Name": "memory_utilization", "Value": "33.8", "Type": "DOUBLE"},
+            ],
+        }
+        self.put_records([record])
+        unload.main(
+            [
+                "--database",
+                self.database_name,
+                "--table",
+                self.table_name,
+                "--s3-uri",
+                f"s3://{self.s3_bucket_name}",
+                "--start-time",
+                start_time.strftime(UNLOAD_TIMESTAMP_FORMAT),
+                "--end-time",
+                end_time.strftime(UNLOAD_TIMESTAMP_FORMAT),
+                "--export-table",
+            ]
+        )
+        cardinality.main(
+            [
+                "--database-name",
+                self.database_name,
+                "--table-name",
+                self.table_name,
+                "--start-time",
+                start_time.strftime(ISO_8601_TIMESTAMP_FORMAT),
+                "--end-time",
+                end_time.strftime(ISO_8601_TIMESTAMP_FORMAT),
+            ]
+        )
+        transform.main(
+            [
+                "--database-name",
+                self.database_name,
+                "--tables",
+                self.table_name,
+                "--s3-bucket-path",
+                self.s3_bucket_name,
+                "--add-validation-field",
+                "true",
+            ]
+        )
+        self.s3_utility.sync_line_protocol_to_storage(
+            s3_bucket_path=self.s3_bucket_name,
+            directory=self.lp_directory,
+            timestream_database_name=self.database_name,
+            timestream_table_name=self.table_name,
+        )
+        influxdb_ingestion.main(
+            [
+                "-w",
+                "5",
+                "-l",
+                "5000",
+                "-m",
+                "5",
+                self.influxdb_bucket_name,
+                self.lp_directory,
+            ]
+        )
+        validator.main(
+            [
+                "--source-engine",
+                "athena",
+                "--athena-output",
+                "s3://" + self.s3_bucket_name,
+                "--athena-database-name",
+                self.athena_database_name,
+                "--athena-table-name",
+                self.athena_table_name,
+                "--influxdb-v2-url",
+                os.environ["INFLUXDB_V2_URL"],
+                "--influxdb-v2-token",
+                os.environ["INFLUXDB_V2_TOKEN"],
+                "--influxdb-v2-org",
+                os.environ["INFLUXDB_V2_ORG"],
+                "--influxdb-v2-bucket",
+                os.environ["INFLUXDB_V2_ORG"],
+                "--influxdb-v2-bucket",
+                self.influxdb_bucket_name,
+                "--influxdb-v2-measurement",
+                self.table_name,
+                "--schema-tags",
+                schema_tags,
+                "--start-time",
+                start_time.strftime(ISO_8601_TIMESTAMP_FORMAT),
+                "--skip-wal-check",
+            ]
+        )
+
+    def test_single_measure_start_time_before_end_time(self):
+        with self.assertRaises(Exception):
+            current_time = pandas.Timestamp.now()
+            end_time = current_time - Timedelta(days=30)
+            start_time = end_time + Timedelta(days=1)
+
+            dimensions = [
+                {
+                    "Name": "hostname",
+                    "Value": "hostname1",
+                    "DimensionValueType": "VARCHAR",
+                },
+                {
+                    "Name": "region",
+                    "Value": "us-west-2",
+                    "DimensionValueType": "VARCHAR",
+                },
+            ]
+
+            record = {
+                "Dimensions": dimensions,
+                "MeasureName": "cpu_utilization",
+                "MeasureValue": "13.5",
+                "MeasureValueType": "DOUBLE",
+                "Time": str(start_time.value),
+                "TimeUnit": "NANOSECONDS",
+            }
+            self.put_records([record])
+            unload.main(
+                [
+                    "--database",
+                    self.database_name,
+                    "--table",
+                    self.table_name,
+                    "--s3-uri",
+                    f"s3://{self.s3_bucket_name}",
+                    "--start-time",
+                    start_time.strftime(UNLOAD_TIMESTAMP_FORMAT),
+                    "--end-time",
+                    end_time.strftime(UNLOAD_TIMESTAMP_FORMAT),
+                    "--export-table",
+                ]
+            )
 
 
 if __name__ == "__main__":

@@ -234,7 +234,13 @@ class S3Utility:
             f"Multipart uploads did not complete after {max_attempts} attempts"
         )
 
-    def sync_line_protocol_to_storage(self, s3_bucket_path: str, directory: str, timestream_database_name="", timestream_table_name=""):
+    def sync_line_protocol_to_storage(
+        self,
+        s3_bucket_path: str,
+        directory: str,
+        timestream_database_name="",
+        timestream_table_name="",
+    ):
         if s3_bucket_path.lower().startswith("s3://"):
             s3_bucket_path = s3_bucket_path[5:]
         s3_bucket_parts = s3_bucket_path.split("/")
@@ -253,22 +259,36 @@ class S3Utility:
                 rel_path = os.path.relpath(file_path, directory)
                 local_files[rel_path] = {
                     "Size": os.path.getsize(file_path),
-                    "LastModified": os.path.getmtime(file_path)
+                    "LastModified": os.path.getmtime(file_path),
                 }
 
         if len(s3_bucket_parts) > 1:
             prefix_parts = "/".join(s3_bucket_parts[1:])
             prefix = "/".join(prefix_parts)
-            if not self.s3_bucket_path_exists(bucket_name=s3_bucket_name, prefix=prefix):
-                raise RuntimeError(f"The S3 bucket path {s3_bucket_path} does not exist")
+            if not self.s3_bucket_path_exists(
+                bucket_name=s3_bucket_name, prefix=prefix
+            ):
+                raise RuntimeError(
+                    f"The S3 bucket path {s3_bucket_path} does not exist"
+                )
             self.wait_for_multipart_uploads(bucket_name=s3_bucket_name, prefix=prefix)
-            if not self.s3_bucket_path_exists(bucket_name=s3_bucket_name, prefix=prefix):
-                raise RuntimeError(f"The S3 bucket path {s3_bucket_path} does not exist")
+            if not self.s3_bucket_path_exists(
+                bucket_name=s3_bucket_name, prefix=prefix
+            ):
+                raise RuntimeError(
+                    f"The S3 bucket path {s3_bucket_path} does not exist"
+                )
             line_protocol_path = s3_bucket_path
         else:
             if not timestream_database_name or not timestream_table_name:
-                raise RuntimeError("Timestream database and table name are required when syncing using only an S3 bucket name")
-            latest_unload = self.get_latest_unload_path(bucket_name=s3_bucket_name, timestream_database_name=timestream_database_name, timestream_table_name=timestream_table_name)
+                raise RuntimeError(
+                    "Timestream database and table name are required when syncing using only an S3 bucket name"
+                )
+            latest_unload = self.get_latest_unload_path(
+                bucket_name=s3_bucket_name,
+                timestream_database_name=timestream_database_name,
+                timestream_table_name=timestream_table_name,
+            )
             line_protocol_path = f"{s3_bucket_name}/{timestream_database_name}/{timestream_table_name}/{latest_unload}/line-protocol-output"
             prefix_parts = line_protocol_path.split("/")[1:]
             prefix = "/".join(prefix_parts)
@@ -281,7 +301,7 @@ class S3Utility:
                 if s3_key == prefix:
                     continue
                 s3_keys.append(s3_key)
-                rel_path = s3_key[len(prefix):]
+                rel_path = s3_key[len(prefix) :]
                 # A leading "/" will cause os.path.join to believe the path is
                 # the root directory.
                 rel_path = rel_path.lstrip("/")
