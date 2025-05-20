@@ -1,4 +1,0 @@
-2025-05-16 09:47:37,575 - timestream_export - INFO - logging into /Users/trevor.bonas/amazon-timestream-tools/tools/python/liveanalytics_migration_scripts/unload/timestream-export-logs/timestream_export_20250516_094737.log
-2025-05-16 09:47:37,690 - timestream_export - INFO - Using provided S3 URI: s3://la-idb-it-bucket6g423d5hq9
-2025-05-16 09:47:37,690 - s3_logger - INFO - Checking for S3 bucket access
-2025-05-16 09:47:37,800 - timestream_export - INFO - Bucket la-idb-it-bucket6g423d5hq9 exists and is accessible
