@@ -433,8 +433,8 @@ def parse_args(input_args: list[str]) -> argparse.Namespace:
 
 # ────────────────────────── Main ────────────────────────────
 
-def main() -> None:
-    args = parse_args()
+def main(input_args) -> None:
+    args = parse_args(input_args)
     print("-" * 20)
     print("Starting validation")
     print("-" * 20)
@@ -547,11 +547,13 @@ def main() -> None:
                 print(
                     f"⚠️  {src_label} ({src_count}) {sign} InfluxDB ({infl_count})\n"
                 )
+                sys.exit(1)
     else:
         print("\n--------- Exceptions ---------\n")
         for name, exc in errors.items():
             print(f"{name} query failed: {exc}")
         print()
+        sys.exit(1)
 
 if __name__ == "__main__":
     try:

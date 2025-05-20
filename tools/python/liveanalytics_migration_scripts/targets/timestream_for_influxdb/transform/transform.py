@@ -2,7 +2,7 @@ import argparse
 from dataclasses import dataclass
 import sys
 
-sys.path.append("../../../unload/utils/")
+sys.path.append("../../../")
 
 from unload.utils.timestream_utils import TimestreamUtility
 from unload.utils.s3_utils import S3Utility
