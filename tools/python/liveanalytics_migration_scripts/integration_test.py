@@ -61,6 +61,11 @@ class BaseTestCases:
         athena_table_name: str
         athena_lp_table_name: str
 
+        # Whether to silence warnings logs during the cleanup process.
+        # Some tests end early or purposely raise exceptions, causing
+        # the cleanup process to encounter deletion failures.
+        silence_cleanup_logging = False
+
         @classmethod
         def setUpClass(cls):
             """
@@ -148,6 +153,8 @@ class BaseTestCases:
                     "LocationConstraint": self.session.region_name
                 },
             )
+
+            self.silence_cleanup_logging = False
 
         @classmethod
         def wait_for_database_creation(
@@ -262,17 +269,19 @@ class BaseTestCases:
                 time.sleep(1)
                 instance.delete_database(database_name=instance.database_name)
             except Exception as e:
-                logging.warning(
-                    f"tearDownClass: Failed to delete Timestream database: {e}"
-                )
+                if not cls.silence_cleanup_logging:
+                    logging.warning(
+                        f"tearDownClass: Failed to delete Timestream database: {e}"
+                    )
 
             try:
                 if os.path.exists(cls.lp_base_directory):
                     shutil.rmtree(cls.lp_base_directory)
             except Exception as e:
-                logging.warning(
-                    f"tearDownClass: Failed to delete local line protocol base directory: {e}"
-                )
+                if not cls.silence_cleanup_logging:
+                    logging.warning(
+                        f"tearDownClass: Failed to delete local line protocol base directory: {e}"
+                    )
 
         def tearDown(self):
             """
@@ -288,7 +297,8 @@ class BaseTestCases:
                     DatabaseName=self.database_name, TableName=self.table_name
                 )
             except Exception as e:
-                logging.warning(f"tearDown: Failed to delete Timestream table: {e}")
+                if not self.silence_cleanup_logging:
+                    logging.warning(f"tearDown: Failed to delete Timestream table: {e}")
 
             try:
                 self.delete_athena_tables(
@@ -296,7 +306,10 @@ class BaseTestCases:
                     athena_table_names=[self.athena_table_name],
                 )
             except Exception as e:
-                logging.warning(f"tearDown: Failed to delete Athena unload table: {e}")
+                if not self.silence_cleanup_logging:
+                    logging.warning(
+                        f"tearDown: Failed to delete Athena unload table: {e}"
+                    )
 
             try:
                 self.delete_athena_tables(
@@ -304,22 +317,25 @@ class BaseTestCases:
                     athena_table_names=[self.athena_lp_table_name],
                 )
             except Exception as e:
-                logging.warning(
-                    f"tearDown: Failed to delete Athena line protocol table: {e}"
-                )
+                if not self.silence_cleanup_logging:
+                    logging.warning(
+                        f"tearDown: Failed to delete Athena line protocol table: {e}"
+                    )
 
             try:
                 self.delete_s3_bucket(bucket_name=self.s3_bucket_name)
             except Exception as e:
-                logging.warning(f"tearDown: Failed to delete S3 bucket: {e}")
+                if not self.silence_cleanup_logging:
+                    logging.warning(f"tearDown: Failed to delete S3 bucket: {e}")
 
             try:
                 if os.path.exists(self.lp_directory):
                     shutil.rmtree(self.lp_directory)
             except Exception as e:
-                logging.warning(
-                    f"tearDown: Failed to delete local line protocol directory: {e}"
-                )
+                if not self.silence_cleanup_logging:
+                    logging.warning(
+                        f"tearDown: Failed to delete local line protocol directory: {e}"
+                    )
 
             try:
                 influxdb_bucket = (
@@ -329,7 +345,8 @@ class BaseTestCases:
                 )
                 self.influxdb_client.buckets_api().delete_bucket(influxdb_bucket)
             except Exception as e:
-                logging.warning(f"tearDown: Failed to delete InfluxDB bucket: {e}")
+                if not self.silence_cleanup_logging:
+                    logging.warning(f"tearDown: Failed to delete InfluxDB bucket: {e}")
 
 
 class MigrationTest(BaseTestCases.BaseTestCase):
@@ -896,6 +913,7 @@ class MigrationTest(BaseTestCases.BaseTestCase):
         )
 
     def test_single_measure_start_time_before_end_time(self):
+        self.silence_cleanup_logging = True
         with self.assertRaises(Exception):
             current_time = pandas.Timestamp.now()
             end_time = current_time - Timedelta(days=30)
