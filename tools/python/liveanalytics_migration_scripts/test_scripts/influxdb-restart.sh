@@ -35,7 +35,7 @@ NETWORK_NAME=migration_test_influx_network
 docker kill $CONTAINER_NAME || true
 docker rm $CONTAINER_NAME || true
 docker network rm $NETWORK_NAME || true
-docker network create -d bridge $NETWORK_NAME --subnet 192.168.0.0/24 --gateway 192.168.0.1
+docker network create -d bridge $NETWORK_NAME
 
 #
 # InfluxDB 2.0
