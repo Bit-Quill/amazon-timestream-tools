@@ -4,6 +4,7 @@ import unittest
 import random
 import string
 import shutil
+import sys
 import logging
 
 from boto3 import Session
@@ -14,6 +15,8 @@ import pandas
 from pandas import Timedelta
 import pytest
 from influxdb_client import InfluxDBClient
+
+sys.path.append("../../")
 
 import unload
 from unload.utils.s3_utils import S3Utility
