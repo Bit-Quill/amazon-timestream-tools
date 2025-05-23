@@ -1,8 +1,9 @@
 import argparse
 from datetime import datetime
+import os
 import sys
 
-sys.path.append("..")
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from unload.utils.timestream_utils import TimestreamUtility
 from unload.utils.logger_utils import create_logger

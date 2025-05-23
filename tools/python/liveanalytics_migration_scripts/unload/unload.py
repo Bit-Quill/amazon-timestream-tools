@@ -2,11 +2,11 @@
 
 import argparse
 import boto3
-import json
-from botocore.config import Config
 from datetime import datetime, timezone
 import sys
 import os
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from unload.utils.logger_utils import create_logger
 from unload.utils.timestream_utils import TimestreamUtility
@@ -14,7 +14,7 @@ from unload.utils.s3_utils import S3Utility
 
 def main(input_args):
     parser = argparse.ArgumentParser()
-    
+
     parser.add_argument("-r", "--region", help="AWS region of your Timestream table to be unloaded",default=None,required=False)
     parser.add_argument("-d", "--database", help="Timestream database name", required=False)
     parser.add_argument("-t", "--table", help="Timestream table name to be unloaded", required=False)
