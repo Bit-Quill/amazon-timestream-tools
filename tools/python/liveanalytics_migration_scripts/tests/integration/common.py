@@ -30,7 +30,7 @@ ISO_8601_TIMESTAMP_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
 class BaseIntegrationTestCase(unittest.TestCase):
     """
-    Base TestCase to be overridden by all integration test cases.
+    Base TestCase for all integration test cases.
     This class provides a number of fields and methods common to
     all integration tests.
 
