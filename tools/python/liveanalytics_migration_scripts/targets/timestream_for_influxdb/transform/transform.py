@@ -120,17 +120,37 @@ def get_athena_ddl_type_mapping(timestream_type: str) -> str:
         )
     return athena_type
 
-
 def get_parquet_column_details(s3_uri: str):
     s3, path = fs.FileSystem.from_uri(s3_uri)
     with s3.open_input_file(path) as file:
         parquet_file = pq.ParquetFile(file)
+        schema = parquet_file.schema_arrow
+        all_field_names = {field.name for field in schema}
+
         formatted_columns = []
-        for field in parquet_file.schema_arrow:
+        processed_fields = set()
+
+        for field in schema:
+            field_name = field.name
+            if field_name in processed_fields:
+                continue
+
             column_type = str(field.type).upper()
-            if column_type == "TIMESTAMP[NS]":
-                column_type = "TIMESTAMP"
-            formatted_columns.append(f"`{field.name}` {column_type}")
+            if not column_type == "TIMESTAMP[NS]":
+                formatted_columns.append(f"`{field_name}` {column_type}")
+                processed_fields.add(field_name)
+            else:
+                ns_field_name = f"{field_name}_ns"
+                # Check if corresponding _ns field exists
+                if ns_field_name in all_field_names:
+                    # Use the _ns field instead and mark both as processed
+                    formatted_columns.append(f"`{ns_field_name}` STRING")
+                    processed_fields.add(field_name)
+                    processed_fields.add(ns_field_name)
+                else:
+                    # No _ns field exists, use the original field
+                    formatted_columns.append(f"`{field_name}` TIMESTAMP")
+                    processed_fields.add(field_name)
         return formatted_columns
 
 def create_and_load_athena_table(
@@ -280,7 +300,7 @@ def translate_athena_table_to_line_protocol(
     wait_for_completion: bool = True,
     max_wait_seconds: int = MAX_WAIT_SECONDS,
     add_validation_field: bool = False,
-    add_time_ns: bool = False,
+    use_ns_precision: bool = False,
 ) -> LineProtocolTranslationResult:
     """
     Translates the contents of an Athena table to line protocol and stores the
@@ -503,12 +523,21 @@ def translate_athena_table_to_line_protocol(
                 lp_translation_query += f"""
                 CASE WHEN \"{measure_value_name}\" IS NOT NULL THEN '{measure_value_name}="' || CAST(\"{measure_value_name}\" AS VARCHAR) || '",' ELSE '' END {delimiter}
                 """
+            elif measure_value_type == "timestamp":
+                if use_ns_precision:
+                    lp_translation_query += f"""
+                    CASE WHEN \"{measure_value_name}_ns\" IS NOT NULL THEN '{measure_value_name}=' || {measure_value_name}_ns || ',' ELSE '' END {delimiter}
+                    """
+                else:
+                    lp_translation_query += f"""
+                    CASE WHEN \"{measure_value_name}\" IS NOT NULL THEN '{measure_value_name}=' || CAST(CAST(TO_UNIXTIME({measure_value_name}) * 1000 AS BIGINT) AS VARCHAR) || ',' ELSE '' END {delimiter}
+                    """
             else:
                 lp_translation_query += f"""
                 CASE WHEN \"{measure_value_name}\" IS NOT NULL THEN '{measure_value_name}=' || CAST(\"{measure_value_name}\" AS VARCHAR) || ',' ELSE '' END {delimiter}
                 """
 
-        if add_time_ns:
+        if use_ns_precision:
             # Nanosecond precision, expects time_ns column from unload
             time_query = "time_ns"
         else:
@@ -681,7 +710,6 @@ if __name__ == "__main__":
             if not athena_columns:
                 continue
 
-            # TODO: Update to retrieve schema from parquet
             line_protocol_result = translate_athena_table_to_line_protocol(
                 timestream_utility=timestream_utility,
                 s3_utility=s3_utility,
@@ -695,7 +723,7 @@ if __name__ == "__main__":
                 athena_database_name=args.athena_database_name,
                 athena_table_name=args.athena_table_name,
                 add_validation_field=args.add_validation_field,
-                add_time_ns=("`time_ns` STRING" in athena_columns),
+                use_ns_precision=("`time_ns` STRING" in athena_columns),
             )
             line_protocol_results.append(line_protocol_result)
         except Exception as e:
