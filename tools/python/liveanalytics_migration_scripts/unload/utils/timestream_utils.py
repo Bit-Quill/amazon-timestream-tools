@@ -294,7 +294,7 @@ class TimestreamUtility:
         except Exception as err:
             self.logger.error(f"Error publishing message to SNS topic: {str(err)}", exc_info=True)
 
-    def timestream_unload(self, database, table, bucket_s3_uri, partition, export_format, start_time, end_time, compression, migration_tag, max_file_size, kms_key, encryption, escaped_by, field_delimiter, recent_first, custom_partition_count, order_by_asc, preserve_timestamps):
+    def timestream_unload(self, database, table, bucket_s3_uri, partition, export_format, start_time, end_time, compression, migration_tag, max_file_size, kms_key, encryption, escaped_by, field_delimiter, recent_first, custom_partition_count, order_by_asc, append_timestamps):
         """
         Unload data from Timestream to S3
 
@@ -313,7 +313,7 @@ class TimestreamUtility:
             encryption: Encryption type (default: 'SSE_KMS')
             escaped_by: Escaped by character (default: '')
             field_delimiter: Field delimiter (default: ',')
-            preserve_timestamps: Whether timestamps should be preserved
+            append_timestamps: Whether timestamps should be preserved
         """
         self.logger.info(f"Starting unload for {database}.{table}")
         total_rows_exported = 0
@@ -343,7 +343,7 @@ class TimestreamUtility:
             status="unload_started",
         )
         timestamp_measures = []
-        if preserve_timestamps:
+        if append_timestamps:
             timestamp_measures = self.list_timestamp_columns(database, table)
         for index, start_end_pair in enumerate(batches, start=1):
             batch_start_time = start_end_pair[0]  # Gets first timestamp (start time)

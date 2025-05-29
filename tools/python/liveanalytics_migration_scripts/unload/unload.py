@@ -45,7 +45,7 @@ if __name__ == "__main__":
     parser.add_argument("-cp", "--custom-partition-count", help="Custom partition count", default=99, required=False)
     parser.add_argument("-ob", "--order-by-asc", help="data order by time ascending", default=False, type=lambda x: x.lower() in ['true', '1', 'yes'], required=False)
     parser.add_argument("-ld", "--logs-dir", help='Directory for export logs (default: timestream-export-logs)', default = None, required = False)
-    parser.add_argument("-pt", "--append-timestamps", help="Whether to preserve timestamps for nanosecond precision.", default=True, type=lambda x: x.lower() in ['true', '1', 'yes'], required=False)
+    parser.add_argument("-at", "--append-timestamps", help="Whether to append extra timestamp columns for preserving nanosecond precision.", default=True, type=lambda x: x.lower() in ['true', '1', 'yes'], required=False)
 
     #assign arguments to args variable
     args = parser.parse_args()
