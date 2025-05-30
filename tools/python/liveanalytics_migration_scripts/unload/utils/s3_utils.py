@@ -241,6 +241,24 @@ class S3Utility:
         timestream_database_name="",
         timestream_table_name="",
     ):
+        """
+        Downloads line protocol data from an S3 bucket path to a directory.
+        If provided simply the bucket path and the Timestream database and
+        table name, the latest unload directory will be searched for. If the
+        S3 bucket path is a path within an S3 bucket, such as s3://my-bucket/my-path,
+        then all objects will be downloaded from this path.
+
+        Args:
+            s3_bucket_path (str): The path of the S3 bucket to download objects from,
+                for example, s3://my-bucket, or, s3://my-bucket/my-path.
+            directory (str): The path to the existing directory to download objects to.
+            timestream_database_name (str): The name of the Timestream for LiveAnalytics
+                database used in the unload process.
+            timestream_table_name (str): The name of the Timestream for LiveAnalytics
+                table used in the unload process.
+        Returns:
+            None
+        """
         if s3_bucket_path.lower().startswith("s3://"):
             s3_bucket_path = s3_bucket_path[5:]
         s3_bucket_parts = s3_bucket_path.split("/")
