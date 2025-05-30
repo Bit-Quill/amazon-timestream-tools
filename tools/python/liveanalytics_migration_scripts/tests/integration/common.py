@@ -122,8 +122,9 @@ class BaseIntegrationTestCase(unittest.TestCase):
     def set_database_name(self, database_name):
         self.database_name = database_name
 
-    def delete_database(self, database_name):
-        list_tables_response = self.timestream_write_client.list_tables(
+    @classmethod
+    def delete_database(cls, database_name):
+        list_tables_response = cls.timestream_write_client.list_tables(
             DatabaseName=database_name
         )
         table_names = list_tables_response.get("Tables", [])
@@ -131,17 +132,17 @@ class BaseIntegrationTestCase(unittest.TestCase):
             next_token = list_tables_response["NextToken"]
             while next_token is not None:
                 time.sleep(5)
-                list_tables_response = self.timestream_write_client.list_tables(
+                list_tables_response = cls.timestream_write_client.list_tables(
                     DatabaseName=database_name
                 )
                 next_token = list_tables_response.get("NextToken", None)
                 table_names.extend(list_tables_response.get("Tables", []))
 
         for table in table_names:
-            self.timestream_write_client.delete_table(
+            cls.timestream_write_client.delete_table(
                 DatabaseName=database_name, TableName=table["TableName"]
             )
-        self.timestream_write_client.delete_database(DatabaseName=database_name)
+        cls.timestream_write_client.delete_database(DatabaseName=database_name)
 
     def delete_s3_bucket(self, bucket_name: str):
         object_response_paginator = self.s3_client.get_paginator("list_objects_v2")
@@ -212,11 +213,10 @@ class UnloadTestCase(BaseIntegrationTestCase):
         """
         Overrides unittest.TestCase.tearDownClass, called after all tests have finished.
         """
-        instance = cls()
         try:
             # Enforce the maximum of 1 create or delete action per second in Timestream for LiveAnalytics.
             time.sleep(1)
-            instance.delete_database(database_name=instance.database_name)
+            cls.delete_database(database_name=cls.database_name)
         except Exception as e:
             if not cls.silence_cleanup_logging:
                 logging.warning(
