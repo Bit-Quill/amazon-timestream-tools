@@ -4,6 +4,16 @@
 
 The directory `integration` contains integration tests.
 
+### Prerequisites
+
+For common tests, within `common.py`, no prerequisites in addition to those listed in [`../README.md#prerequisites`](../README.md#prerequisites) are required.
+
+For the InfluxDB V2 target tests, within `influxdb_v2_target.py`, in addition to the prerequisites listed in [`../README.md#prerequisites`](../README.md#prerequisites), a local InfluxDB instance must be up and running on http://localhost:8086. The directory `test_scripts` contains bash scripts that help set up an InfluxDB Docker container with credentials the tests expect. To set up a local InfluxDB Docker container, run the following command from within `test_scripts`:
+
+```shell
+./influxdb-restart.sh
+```
+
 ### Common Tests
 
 `common.py` contains integration tests for scripts that are independent of the migration target, such as `unload.py`. These tests mainly integrate with Timestream for LiveAnalytics.
@@ -11,14 +21,6 @@ The directory `integration` contains integration tests.
 ### InfluxDB V2 Target Tests
 
 `influxdb_v2_target.py` contains end-to-end integration tests for migrating from Timestream for LiveAnalytics to InfluxDB.
-
-#### Setup
-
-The InfluxDB V2 target integration tests require a local InfluxDB instance running on http://localhost:8086. The directory `test_scripts` contains bash scripts that help set up an InfluxDB Docker container with credentials the tests expect. To set up a local InfluxDB Docker container, run the following command from within `test_scripts`:
-
-```shell
-./influxdb-restart.sh
-```
 
 ### Running All Tests
 
