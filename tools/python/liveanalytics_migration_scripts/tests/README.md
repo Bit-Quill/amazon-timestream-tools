@@ -6,9 +6,23 @@ The directory `integration` contains integration tests.
 
 ### Prerequisites
 
-For common tests, within `common.py`, no prerequisites in addition to those listed in [`../README.md#prerequisites`](../README.md#prerequisites) are required.
+1. AWS CLI configured with appropriate permissions.
+2. Python 3.12+.
+3. Required Python packages (see [test-requirements.txt](test-requirements.txt)).
 
-For the InfluxDB V2 target tests, within `influxdb_v2_target.py`, in addition to the prerequisites listed in [`../README.md#prerequisites`](../README.md#prerequisites), a local InfluxDB instance must be up and running on http://localhost:8086. The directory `test_scripts` contains bash scripts that help set up an InfluxDB Docker container with credentials the tests expect. To set up a local InfluxDB Docker container, run the following command from within `test_scripts`:
+Additionally, for the InfluxDB V2 target tests, a local InfluxDB instance must be up and running on http://localhost:8086. The directory `test_scripts` contains bash scripts that help set up an InfluxDB Docker container with credentials the tests expect.
+
+## Installation
+
+Create a virtual environment using `venv` and install required dependencies:
+
+```shell
+python3 -m venv env && \
+source env/bin/activate && \
+python3 -m pip install -r test-requirements.txt
+```
+
+For the InfluxDB V2 target tests, run the following command from within `test_scripts` to set up a local InfluxDB Docker container:
 
 ```shell
 ./influxdb-restart.sh
