@@ -66,6 +66,88 @@ class BaseIntegrationTestCase(unittest.TestCase):
     silence_cleanup_logging = False
 
     @classmethod
+    def setUpClass(cls):
+        """
+        Overrides unittest.TestCase.setUpClass, called once before any
+        tests in the class.
+        """
+        cls.session = Session()
+        cls.timestream_write_client = cls.session.client("timestream-write")
+        cls.s3_client = cls.session.client("s3")
+
+        cls.s3_utility = S3Utility()
+
+        cls.database_name = cls.database_name_prefix + cls.get_random_string(10)
+        cls.timestream_write_client.create_database(DatabaseName=cls.database_name)
+        # Enforce the maximum of 1 create or delete action per second in Timestream for LiveAnalytics.
+        time.sleep(1)
+        cls.wait_for_database_creation(cls.database_name)
+
+    def setUp(self):
+        """
+        Overrides unittest.TestCase.setUp, called before each test runs.
+        """
+        self.table_name = self.table_name_prefix + self.get_random_string(10)
+        time.sleep(1)
+        self.timestream_write_client.create_table(
+            DatabaseName=self.database_name,
+            TableName=self.table_name,
+            RetentionProperties={
+                "MemoryStoreRetentionPeriodInHours": 8766,
+                "MagneticStoreRetentionPeriodInDays": 7305,
+            },
+        )
+        self.wait_for_table_creation(
+            database_name=self.database_name, table_name=self.table_name
+        )
+
+        self.s3_bucket_name = self.s3_bucket_name_prefix + self.get_random_string(10)
+        self.s3_client.create_bucket(
+            Bucket=self.s3_bucket_name,
+            CreateBucketConfiguration={"LocationConstraint": self.session.region_name},
+        )
+
+        self.silence_cleanup_logging = False
+
+    @classmethod
+    def tearDownClass(cls):
+        """
+        Overrides unittest.TestCase.tearDownClass, called after all tests have finished.
+        """
+        try:
+            # Enforce the maximum of 1 create or delete action per second in Timestream for LiveAnalytics.
+            time.sleep(1)
+            cls.delete_database(database_name=cls.database_name)
+        except Exception as e:
+            if not cls.silence_cleanup_logging:
+                logging.warning(
+                    f"tearDownClass: Failed to delete Timestream database: {e}"
+                )
+
+    def tearDown(self):
+        """
+        Overrides unittest.TestCase.tearDown, called after each test runs.
+        """
+        # Tests may purposely fail, causing resource to not be created.
+        # To handle this, each resource needs its own try except block
+        # with logging in case of failure.
+        try:
+            # Enforce the maximum of 1 create or delete action per second in Timestream for LiveAnalytics.
+            time.sleep(1)
+            self.timestream_write_client.delete_table(
+                DatabaseName=self.database_name, TableName=self.table_name
+            )
+        except Exception as e:
+            if not self.silence_cleanup_logging:
+                logging.warning(f"tearDown: Failed to delete Timestream table: {e}")
+
+        try:
+            self.delete_s3_bucket(bucket_name=self.s3_bucket_name)
+        except Exception as e:
+            if not self.silence_cleanup_logging:
+                logging.warning(f"tearDown: Failed to delete S3 bucket: {e}")
+
+    @classmethod
     def wait_for_database_creation(
         cls, database_name: str, max_attempts=20, delay_seconds=5
     ):
@@ -163,88 +245,6 @@ class UnloadTestCase(BaseIntegrationTestCase):
     Tests unload.py, which unloads data from Timestream for LiveAnalytics
     into an S3 bucket.
     """
-
-    @classmethod
-    def setUpClass(cls):
-        """
-        Overrides unittest.TestCase.setUpClass, called once before any
-        tests in the class.
-        """
-        cls.session = Session()
-        cls.timestream_write_client = cls.session.client("timestream-write")
-        cls.s3_client = cls.session.client("s3")
-
-        cls.s3_utility = S3Utility()
-
-        cls.database_name = cls.database_name_prefix + cls.get_random_string(10)
-        cls.timestream_write_client.create_database(DatabaseName=cls.database_name)
-        # Enforce the maximum of 1 create or delete action per second in Timestream for LiveAnalytics.
-        time.sleep(1)
-        cls.wait_for_database_creation(cls.database_name)
-
-    def setUp(self):
-        """
-        Overrides unittest.TestCase.setUp, called before each test runs.
-        """
-        self.table_name = self.table_name_prefix + self.get_random_string(10)
-        time.sleep(1)
-        self.timestream_write_client.create_table(
-            DatabaseName=self.database_name,
-            TableName=self.table_name,
-            RetentionProperties={
-                "MemoryStoreRetentionPeriodInHours": 8766,
-                "MagneticStoreRetentionPeriodInDays": 7305,
-            },
-        )
-        self.wait_for_table_creation(
-            database_name=self.database_name, table_name=self.table_name
-        )
-
-        self.s3_bucket_name = self.s3_bucket_name_prefix + self.get_random_string(10)
-        self.s3_client.create_bucket(
-            Bucket=self.s3_bucket_name,
-            CreateBucketConfiguration={"LocationConstraint": self.session.region_name},
-        )
-
-        self.silence_cleanup_logging = False
-
-    @classmethod
-    def tearDownClass(cls):
-        """
-        Overrides unittest.TestCase.tearDownClass, called after all tests have finished.
-        """
-        try:
-            # Enforce the maximum of 1 create or delete action per second in Timestream for LiveAnalytics.
-            time.sleep(1)
-            cls.delete_database(database_name=cls.database_name)
-        except Exception as e:
-            if not cls.silence_cleanup_logging:
-                logging.warning(
-                    f"tearDownClass: Failed to delete Timestream database: {e}"
-                )
-
-    def tearDown(self):
-        """
-        Overrides unittest.TestCase.tearDown, called after each test runs.
-        """
-        # Tests may purposely fail, causing resource to not be created.
-        # To handle this, each resource needs its own try except block
-        # with logging in case of failure.
-        try:
-            # Enforce the maximum of 1 create or delete action per second in Timestream for LiveAnalytics.
-            time.sleep(1)
-            self.timestream_write_client.delete_table(
-                DatabaseName=self.database_name, TableName=self.table_name
-            )
-        except Exception as e:
-            if not self.silence_cleanup_logging:
-                logging.warning(f"tearDown: Failed to delete Timestream table: {e}")
-
-        try:
-            self.delete_s3_bucket(bucket_name=self.s3_bucket_name)
-        except Exception as e:
-            if not self.silence_cleanup_logging:
-                logging.warning(f"tearDown: Failed to delete S3 bucket: {e}")
 
     def test_single_measure_export_table(self):
         current_time: pandas.Timestamp = pandas.Timestamp.now()
@@ -613,77 +613,6 @@ class CardinalityTestCase(BaseIntegrationTestCase):
     Tests cardinality.py, which calculates the cardinality (as defined by
     InfluxData) of a Timestream for LiveAnalytics table.
     """
-
-    @classmethod
-    def setUpClass(cls):
-        """
-        Overrides unittest.TestCase.setUpClass, called once before any
-        tests in the class.
-        """
-        cls.session = Session()
-        cls.timestream_write_client = cls.session.client("timestream-write")
-        cls.s3_client = cls.session.client("s3")
-
-        cls.s3_utility = S3Utility()
-
-        cls.database_name = cls.database_name_prefix + cls.get_random_string(10)
-        cls.timestream_write_client.create_database(DatabaseName=cls.database_name)
-        # Enforce the maximum of 1 create or delete action per second in Timestream for LiveAnalytics.
-        time.sleep(1)
-        cls.wait_for_database_creation(cls.database_name)
-
-    def setUp(self):
-        """
-        Overrides unittest.TestCase.setUp, called before each test runs.
-        """
-        self.table_name = self.table_name_prefix + self.get_random_string(10)
-        time.sleep(1)
-        self.timestream_write_client.create_table(
-            DatabaseName=self.database_name,
-            TableName=self.table_name,
-            RetentionProperties={
-                "MemoryStoreRetentionPeriodInHours": 8766,
-                "MagneticStoreRetentionPeriodInDays": 7305,
-            },
-        )
-        self.wait_for_table_creation(
-            database_name=self.database_name, table_name=self.table_name
-        )
-
-        self.silence_cleanup_logging = False
-
-    @classmethod
-    def tearDownClass(cls):
-        """
-        Overrides unittest.TestCase.tearDownClass, called after all tests have finished.
-        """
-        instance = cls()
-        try:
-            # Enforce the maximum of 1 create or delete action per second in Timestream for LiveAnalytics.
-            time.sleep(1)
-            instance.delete_database(database_name=instance.database_name)
-        except Exception as e:
-            if not cls.silence_cleanup_logging:
-                logging.warning(
-                    f"tearDownClass: Failed to delete Timestream database: {e}"
-                )
-
-    def tearDown(self):
-        """
-        Overrides unittest.TestCase.tearDown, called after each test runs.
-        """
-        # Tests may purposely fail, causing resource to not be created.
-        # To handle this, each resource needs its own try except block
-        # with logging in case of failure.
-        try:
-            # Enforce the maximum of 1 create or delete action per second in Timestream for LiveAnalytics.
-            time.sleep(1)
-            self.timestream_write_client.delete_table(
-                DatabaseName=self.database_name, TableName=self.table_name
-            )
-        except Exception as e:
-            if not self.silence_cleanup_logging:
-                logging.warning(f"tearDown: Failed to delete Timestream table: {e}")
 
     def test_one_record_one_cardinality(self):
         current_time = pandas.Timestamp.now()

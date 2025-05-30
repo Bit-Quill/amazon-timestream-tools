@@ -1,16 +1,14 @@
 import os
-import time
 import unittest
 import shutil
 import sys
 import logging
 
-from boto3 import Session
-
 import pandas
 from pandas import Timedelta
 import pytest
 from influxdb_client.client.influxdb_client import InfluxDBClient
+from testcontainers.influxdb2 import InfluxDb2Container
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
@@ -20,7 +18,6 @@ from common import (
     BaseIntegrationTestCase,
 )
 import unload
-from unload.utils.s3_utils import S3Utility
 from cardinality import cardinality
 from targets.timestream_for_influxdb.transform import transform
 from targets.timestream_for_influxdb.ingestion import influxdb_ingestion
@@ -33,6 +30,7 @@ class InfluxDbV2TargetTestCase(BaseIntegrationTestCase):
     to InfluxDB 2.x.
     """
 
+    influxdb_container: InfluxDb2Container
     influxdb_client: InfluxDBClient
 
     influxdb_bucket_name_prefix = "la-idb-it-lp-influxdb-bucket-"
@@ -54,15 +52,29 @@ class InfluxDbV2TargetTestCase(BaseIntegrationTestCase):
         Overrides unittest.TestCase.setUpClass, called once before any
         tests in the class.
         """
+        super().setUpClass()
+
         # InfluxDB setup.
-        # These values are assumed by the configuration in the
-        # test_scripts directory.
-        influxdb_url = "http://localhost:8086"
+        influxdb_port = 8086
+        influxdb_host = "http://localhost"
+        influxdb_url = f"{influxdb_host}:{influxdb_port}"
 
         # The ingestion scripts requires these environment variables.
         os.environ["INFLUXDB_V2_URL"] = influxdb_url
         os.environ["INFLUXDB_V2_ORG"] = "test-org"
         os.environ["INFLUXDB_V2_TOKEN"] = "test-token"
+
+        cls.influxdb_container = InfluxDb2Container(
+            "influxdb:2.7",
+            container_port=influxdb_port,
+            host_port=influxdb_port,
+            init_mode="setup",
+            username="root",
+            password="test-password",
+            org_name=os.environ["INFLUXDB_V2_ORG"],
+            bucket="test-bucket",
+            admin_token=os.environ["INFLUXDB_V2_TOKEN"],
+        ).start()
 
         cls.influxdb_client = InfluxDBClient.from_env_properties()
         health_check = cls.influxdb_client.ping()
@@ -71,21 +83,8 @@ class InfluxDbV2TargetTestCase(BaseIntegrationTestCase):
                 f"setUpClass: Failed to connect to InfluxDB v2 at {influxdb_url}"
             )
 
-        # AWS setup.
-        cls.session = Session()
-        cls.timestream_write_client = cls.session.client("timestream-write")
-        cls.s3_client = cls.session.client("s3")
-
-        cls.s3_utility = S3Utility()
-
         # For interacting with Athena.
         cls.glue_client = cls.session.client("glue")
-
-        cls.database_name = cls.database_name_prefix + cls.get_random_string(10)
-        cls.timestream_write_client.create_database(DatabaseName=cls.database_name)
-        # Enforce the maximum of 1 create or delete action per second in Timestream for LiveAnalytics.
-        time.sleep(1)
-        cls.wait_for_database_creation(cls.database_name)
 
         # Create directory to hold nested directories of line protocol data.
         os.makedirs(cls.lp_base_directory, exist_ok=True)
@@ -94,19 +93,8 @@ class InfluxDbV2TargetTestCase(BaseIntegrationTestCase):
         """
         Overrides unittest.TestCase.setUp, called before each test runs.
         """
-        self.table_name = self.table_name_prefix + self.get_random_string(10)
-        time.sleep(1)
-        self.timestream_write_client.create_table(
-            DatabaseName=self.database_name,
-            TableName=self.table_name,
-            RetentionProperties={
-                "MemoryStoreRetentionPeriodInHours": 8766,
-                "MagneticStoreRetentionPeriodInDays": 7305,
-            },
-        )
-        self.wait_for_table_creation(
-            database_name=self.database_name, table_name=self.table_name
-        )
+        super().setUp()
+
         # Keep a copy of the names of Athena tables that transform will create.
         # This should be overridden if --athena-table-name is used.
         self.athena_table_name = (
@@ -126,14 +114,6 @@ class InfluxDbV2TargetTestCase(BaseIntegrationTestCase):
             bucket_name=self.influxdb_bucket_name
         )
 
-        self.s3_bucket_name = self.s3_bucket_name_prefix + self.get_random_string(10)
-        self.s3_client.create_bucket(
-            Bucket=self.s3_bucket_name,
-            CreateBucketConfiguration={"LocationConstraint": self.session.region_name},
-        )
-
-        self.silence_cleanup_logging = False
-
     def delete_athena_tables(self, athena_database_name: str, athena_table_names: list):
         for athena_table_name in athena_table_names:
             self.glue_client.delete_table(
@@ -145,16 +125,7 @@ class InfluxDbV2TargetTestCase(BaseIntegrationTestCase):
         """
         Overrides unittest.TestCase.tearDownClass, called after all tests have finished.
         """
-        instance = cls()
-        try:
-            # Enforce the maximum of 1 create or delete action per second in Timestream for LiveAnalytics.
-            time.sleep(1)
-            instance.delete_database(database_name=instance.database_name)
-        except Exception as e:
-            if not cls.silence_cleanup_logging:
-                logging.warning(
-                    f"tearDownClass: Failed to delete Timestream database: {e}"
-                )
+        super().tearDownClass()
 
         try:
             if os.path.exists(cls.lp_base_directory):
@@ -165,23 +136,23 @@ class InfluxDbV2TargetTestCase(BaseIntegrationTestCase):
                     f"tearDownClass: Failed to delete local line protocol base directory: {e}"
                 )
 
+        try:
+            cls.influxdb_container.stop(force=True, delete_volume=True)
+        except Exception as e:
+            if not cls.silence_cleanup_logging:
+                logging.warning(
+                    f"tearDownClass: Failed to delete InfluxDB v2 container: {e}"
+                )
+
     def tearDown(self):
         """
         Overrides unittest.TestCase.tearDown, called after each test runs.
         """
+        super().tearDown()
+
         # Tests may purposely fail, causing resource to not be created.
         # To handle this, each resource needs its own try except block
         # with logging in case of failure.
-        try:
-            # Enforce the maximum of 1 create or delete action per second in Timestream for LiveAnalytics.
-            time.sleep(1)
-            self.timestream_write_client.delete_table(
-                DatabaseName=self.database_name, TableName=self.table_name
-            )
-        except Exception as e:
-            if not self.silence_cleanup_logging:
-                logging.warning(f"tearDown: Failed to delete Timestream table: {e}")
-
         try:
             self.delete_athena_tables(
                 athena_database_name=self.athena_database_name,
@@ -201,12 +172,6 @@ class InfluxDbV2TargetTestCase(BaseIntegrationTestCase):
                 logging.warning(
                     f"tearDown: Failed to delete Athena line protocol table: {e}"
                 )
-
-        try:
-            self.delete_s3_bucket(bucket_name=self.s3_bucket_name)
-        except Exception as e:
-            if not self.silence_cleanup_logging:
-                logging.warning(f"tearDown: Failed to delete S3 bucket: {e}")
 
         try:
             if os.path.exists(self.lp_directory):

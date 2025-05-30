@@ -16,14 +16,14 @@ Test suite for the `influxdb_ingestion.py` script, which ingests `.gz` line prot
 
 ### Prerequisites
 
-- Docker and Docker Compose
-- Python 3.7+
-- Required Python packages (install with `pip install -r requirements.txt`)
+- Docker and Docker Compose.
+- Python 3.7+.
+- Required Python packages (install with `pip install -r test-requirements.txt`).
 
 ### Installation Notes
 
 ```bash
-pip install --no-build-isolation -r requirements.txt
+pip install --no-build-isolation -r test-requirements.txt
 ```
 
 ### Running All Tests
