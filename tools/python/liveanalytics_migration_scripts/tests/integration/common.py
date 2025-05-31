@@ -246,6 +246,28 @@ class UnloadTestCase(BaseIntegrationTestCase):
     into an S3 bucket.
     """
 
+    def s3_bucket_has_contents(
+        self, bucket_name: str, prefix: str, delimiter="/"
+    ) -> bool:
+        """
+        Recursively searches for any object within an S3 bucket.
+
+        Args:
+            bucket_name (str): The name of the S3 bucket to search.
+            prefix (str): The prefix to start the search from.
+            delimiter (str): The delimiter between prefixes.
+        """
+        self.s3_utility.wait_for_multipart_uploads(
+            bucket_name=bucket_name, prefix=prefix
+        )
+        resp = self.s3_client.list_objects_v2(
+            Bucket=bucket_name, Prefix=prefix, Delimiter=delimiter
+        )
+        if "CommonPrefixes" in resp and len(resp["CommonPrefixes"]) > 0:
+            prefix = resp["CommonPrefixes"][0]["Prefix"]
+            return self.s3_bucket_has_contents(bucket_name=bucket_name, prefix=prefix)
+        return "Contents" in resp
+
     def test_single_measure_export_table(self):
         current_time: pandas.Timestamp = pandas.Timestamp.now()
 
@@ -282,6 +304,11 @@ class UnloadTestCase(BaseIntegrationTestCase):
                 end_time.strftime(UNLOAD_TIMESTAMP_FORMAT),
                 "--export-table",
             ]
+        )
+        self.assertTrue(
+            self.s3_bucket_has_contents(
+                bucket_name=self.s3_bucket_name, prefix=self.database_name
+            )
         )
 
     def test_single_measure_export_table_gzip(self):
@@ -323,6 +350,11 @@ class UnloadTestCase(BaseIntegrationTestCase):
                 "GZIP",
             ]
         )
+        self.assertTrue(
+            self.s3_bucket_has_contents(
+                bucket_name=self.s3_bucket_name, prefix=self.database_name
+            )
+        )
 
     def test_single_measure_export_table_csv(self):
         current_time: pandas.Timestamp = pandas.Timestamp.now()
@@ -362,6 +394,11 @@ class UnloadTestCase(BaseIntegrationTestCase):
                 "--export-format",
                 "CSV",
             ]
+        )
+        self.assertTrue(
+            self.s3_bucket_has_contents(
+                bucket_name=self.s3_bucket_name, prefix=self.database_name
+            )
         )
 
     def test_single_measure_export_table_partition_hour(self):
@@ -403,6 +440,11 @@ class UnloadTestCase(BaseIntegrationTestCase):
                 "hour",
             ]
         )
+        self.assertTrue(
+            self.s3_bucket_has_contents(
+                bucket_name=self.s3_bucket_name, prefix=self.database_name
+            )
+        )
 
     def test_single_measure_export_table_partition_day(self):
         current_time: pandas.Timestamp = pandas.Timestamp.now()
@@ -442,6 +484,11 @@ class UnloadTestCase(BaseIntegrationTestCase):
                 "--partition",
                 "day",
             ]
+        )
+        self.assertTrue(
+            self.s3_bucket_has_contents(
+                bucket_name=self.s3_bucket_name, prefix=self.database_name
+            )
         )
 
     def test_single_measure_export_table_partition_month(self):
@@ -483,6 +530,11 @@ class UnloadTestCase(BaseIntegrationTestCase):
                 "month",
             ]
         )
+        self.assertTrue(
+            self.s3_bucket_has_contents(
+                bucket_name=self.s3_bucket_name, prefix=self.database_name
+            )
+        )
 
     def test_single_measure_export_table_partition_year(self):
         current_time: pandas.Timestamp = pandas.Timestamp.now()
@@ -523,6 +575,11 @@ class UnloadTestCase(BaseIntegrationTestCase):
                 "year",
             ]
         )
+        self.assertTrue(
+            self.s3_bucket_has_contents(
+                bucket_name=self.s3_bucket_name, prefix=self.database_name
+            )
+        )
 
     def test_single_measure_export_database(self):
         current_time: pandas.Timestamp = pandas.Timestamp.now()
@@ -558,6 +615,11 @@ class UnloadTestCase(BaseIntegrationTestCase):
                 end_time.strftime(UNLOAD_TIMESTAMP_FORMAT),
                 "--export-database",
             ]
+        )
+        self.assertTrue(
+            self.s3_bucket_has_contents(
+                bucket_name=self.s3_bucket_name, prefix=self.database_name
+            )
         )
 
     def test_single_measure_start_time_before_end_time(self):
