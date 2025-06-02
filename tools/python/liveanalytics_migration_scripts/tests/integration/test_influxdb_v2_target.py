@@ -18,7 +18,6 @@ from test_common import (
     BaseIntegrationTestCase,
 )
 import unload
-from cardinality import cardinality
 from targets.timestream_for_influxdb.transform import transform
 from targets.timestream_for_influxdb.ingestion import influxdb_ingestion
 from targets.timestream_for_influxdb.validation import validator
@@ -232,18 +231,6 @@ class InfluxDbV2TargetTestCase(BaseIntegrationTestCase):
                 "--export-table",
             ]
         )
-        cardinality.main(
-            [
-                "--database-name",
-                self.database_name,
-                "--table-name",
-                self.table_name,
-                "--start-time",
-                start_time.strftime(ISO_8601_TIMESTAMP_FORMAT),
-                "--end-time",
-                end_time.strftime(ISO_8601_TIMESTAMP_FORMAT),
-            ]
-        )
         transform.main(
             [
                 "--database-name",
@@ -338,18 +325,6 @@ class InfluxDbV2TargetTestCase(BaseIntegrationTestCase):
                 "--end-time",
                 end_time.strftime(UNLOAD_TIMESTAMP_FORMAT),
                 "--export-table",
-            ]
-        )
-        cardinality.main(
-            [
-                "--database-name",
-                self.database_name,
-                "--table-name",
-                self.table_name,
-                "--start-time",
-                start_time.strftime(ISO_8601_TIMESTAMP_FORMAT),
-                "--end-time",
-                end_time.strftime(ISO_8601_TIMESTAMP_FORMAT),
             ]
         )
         transform.main(
@@ -468,18 +443,6 @@ class InfluxDbV2TargetTestCase(BaseIntegrationTestCase):
                 "--export-table",
             ]
         )
-        cardinality.main(
-            [
-                "--database-name",
-                self.database_name,
-                "--table-name",
-                self.table_name,
-                "--start-time",
-                start_time.strftime(ISO_8601_TIMESTAMP_FORMAT),
-                "--end-time",
-                end_time.strftime(ISO_8601_TIMESTAMP_FORMAT),
-            ]
-        )
         transform.main(
             [
                 "--database-name",
@@ -580,18 +543,6 @@ class InfluxDbV2TargetTestCase(BaseIntegrationTestCase):
                 "--export-table",
             ]
         )
-        cardinality.main(
-            [
-                "--database-name",
-                self.database_name,
-                "--table-name",
-                self.table_name,
-                "--start-time",
-                start_time.strftime(ISO_8601_TIMESTAMP_FORMAT),
-                "--end-time",
-                end_time.strftime(ISO_8601_TIMESTAMP_FORMAT),
-            ]
-        )
         transform.main(
             [
                 "--database-name",
@@ -689,18 +640,6 @@ class InfluxDbV2TargetTestCase(BaseIntegrationTestCase):
                 "--end-time",
                 end_time.strftime(UNLOAD_TIMESTAMP_FORMAT),
                 "--export-table",
-            ]
-        )
-        cardinality.main(
-            [
-                "--database-name",
-                self.database_name,
-                "--table-name",
-                self.table_name,
-                "--start-time",
-                start_time.strftime(ISO_8601_TIMESTAMP_FORMAT),
-                "--end-time",
-                end_time.strftime(ISO_8601_TIMESTAMP_FORMAT),
             ]
         )
         transform.main(
