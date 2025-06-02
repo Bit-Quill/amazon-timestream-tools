@@ -29,7 +29,13 @@ python3 -m pip install -r test-requirements.txt
 
 `test_influxdb_v2_target.py` contains end-to-end integration tests for migrating from Timestream for LiveAnalytics to InfluxDB.
 
-This test case will create an InfluxDB v2 Docker container on http://localhost:8086, configure it, and delete it once all tests have finished. Make sure Docker is running and ports are available
+This test case will create an InfluxDB v2 Docker container on http://localhost:8087, configure it, and delete it once all tests have finished. Make sure Docker is running and ports are available
+
+If you want to use a different port for the InfluxDB v2 Docker container, the environment variable `TEST_INFLUXDB_HOST_PORT` can be used to set the port that the container uses. For example:
+
+```shell
+export TEST_INFLUXDB_HOST_PORT=8085
+```
 
 ### Running All Tests
 

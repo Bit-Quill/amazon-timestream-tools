@@ -12,7 +12,7 @@ from testcontainers.influxdb2 import InfluxDb2Container
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
-from common import (
+from test_common import (
     UNLOAD_TIMESTAMP_FORMAT,
     ISO_8601_TIMESTAMP_FORMAT,
     BaseIntegrationTestCase,
@@ -55,19 +55,20 @@ class InfluxDbV2TargetTestCase(BaseIntegrationTestCase):
         super().setUpClass()
 
         # InfluxDB setup.
-        influxdb_port = 8086
+        influxdb_host_port = int(os.environ.get("TEST_INFLUXDB_HOST_PORT", 8087))
+        influxdb_internal_port = 8086
         influxdb_host = "http://localhost"
-        influxdb_url = f"{influxdb_host}:{influxdb_port}"
+        influxdb_url = f"{influxdb_host}:{influxdb_host_port}"
 
-        # The ingestion scripts requires these environment variables.
+        # The ingestion script requires these environment variables.
         os.environ["INFLUXDB_V2_URL"] = influxdb_url
         os.environ["INFLUXDB_V2_ORG"] = "test-org"
         os.environ["INFLUXDB_V2_TOKEN"] = "test-token"
 
         cls.influxdb_container = InfluxDb2Container(
             "influxdb:2.7",
-            container_port=influxdb_port,
-            host_port=influxdb_port,
+            container_port=influxdb_internal_port,
+            host_port=influxdb_host_port,
             init_mode="setup",
             username="root",
             password="test-password",
