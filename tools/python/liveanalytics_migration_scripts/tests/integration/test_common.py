@@ -276,6 +276,12 @@ class UnloadTestCase(BaseIntegrationTestCase):
         end_time = start_time + Timedelta(days=1)
         assert isinstance(end_time, pandas.Timestamp)
 
+        self.assertFalse(
+            self.s3_bucket_has_contents(
+                bucket_name=self.s3_bucket_name, prefix=self.database_name
+            )
+        )
+
         dimensions = [
             {"Name": "hostname", "Value": "hostname1", "DimensionValueType": "VARCHAR"},
             {"Name": "region", "Value": "us-west-2", "DimensionValueType": "VARCHAR"},
@@ -318,6 +324,12 @@ class UnloadTestCase(BaseIntegrationTestCase):
         assert isinstance(start_time, pandas.Timestamp)
         end_time = start_time + Timedelta(days=1)
         assert isinstance(end_time, pandas.Timestamp)
+
+        self.assertFalse(
+            self.s3_bucket_has_contents(
+                bucket_name=self.s3_bucket_name, prefix=self.database_name
+            )
+        )
 
         dimensions = [
             {"Name": "hostname", "Value": "hostname1", "DimensionValueType": "VARCHAR"},
@@ -364,6 +376,12 @@ class UnloadTestCase(BaseIntegrationTestCase):
         end_time = start_time + Timedelta(days=1)
         assert isinstance(end_time, pandas.Timestamp)
 
+        self.assertFalse(
+            self.s3_bucket_has_contents(
+                bucket_name=self.s3_bucket_name, prefix=self.database_name
+            )
+        )
+
         dimensions = [
             {"Name": "hostname", "Value": "hostname1", "DimensionValueType": "VARCHAR"},
             {"Name": "region", "Value": "us-west-2", "DimensionValueType": "VARCHAR"},
@@ -408,6 +426,12 @@ class UnloadTestCase(BaseIntegrationTestCase):
         assert isinstance(start_time, pandas.Timestamp)
         end_time = start_time + Timedelta(days=1)
         assert isinstance(end_time, pandas.Timestamp)
+
+        self.assertFalse(
+            self.s3_bucket_has_contents(
+                bucket_name=self.s3_bucket_name, prefix=self.database_name
+            )
+        )
 
         dimensions = [
             {"Name": "hostname", "Value": "hostname1", "DimensionValueType": "VARCHAR"},
@@ -454,6 +478,12 @@ class UnloadTestCase(BaseIntegrationTestCase):
         end_time = start_time + Timedelta(days=1)
         assert isinstance(end_time, pandas.Timestamp)
 
+        self.assertFalse(
+            self.s3_bucket_has_contents(
+                bucket_name=self.s3_bucket_name, prefix=self.database_name
+            )
+        )
+
         dimensions = [
             {"Name": "hostname", "Value": "hostname1", "DimensionValueType": "VARCHAR"},
             {"Name": "region", "Value": "us-west-2", "DimensionValueType": "VARCHAR"},
@@ -498,6 +528,12 @@ class UnloadTestCase(BaseIntegrationTestCase):
         assert isinstance(start_time, pandas.Timestamp)
         end_time = start_time + Timedelta(days=1)
         assert isinstance(end_time, pandas.Timestamp)
+
+        self.assertFalse(
+            self.s3_bucket_has_contents(
+                bucket_name=self.s3_bucket_name, prefix=self.database_name
+            )
+        )
 
         dimensions = [
             {"Name": "hostname", "Value": "hostname1", "DimensionValueType": "VARCHAR"},
@@ -544,6 +580,12 @@ class UnloadTestCase(BaseIntegrationTestCase):
         end_time = start_time + Timedelta(days=1)
         assert isinstance(end_time, pandas.Timestamp)
 
+        self.assertFalse(
+            self.s3_bucket_has_contents(
+                bucket_name=self.s3_bucket_name, prefix=self.database_name
+            )
+        )
+
         dimensions = [
             {"Name": "hostname", "Value": "hostname1", "DimensionValueType": "VARCHAR"},
             {"Name": "region", "Value": "us-west-2", "DimensionValueType": "VARCHAR"},
@@ -588,6 +630,12 @@ class UnloadTestCase(BaseIntegrationTestCase):
         assert isinstance(start_time, pandas.Timestamp)
         end_time = start_time + Timedelta(days=1)
         assert isinstance(end_time, pandas.Timestamp)
+
+        self.assertFalse(
+            self.s3_bucket_has_contents(
+                bucket_name=self.s3_bucket_name, prefix=self.database_name
+            )
+        )
 
         dimensions = [
             {"Name": "hostname", "Value": "hostname1", "DimensionValueType": "VARCHAR"},
