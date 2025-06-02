@@ -7,7 +7,7 @@ The directory `integration` contains integration tests.
 ### Prerequisites
 
 1. AWS CLI configured with appropriate permissions.
-2. Docker and Docker Compose.
+2. Docker.
 3. Python 3.12+.
 4. Required Python packages (see [test-requirements.txt](test-requirements.txt)).
 
@@ -16,18 +16,18 @@ The directory `integration` contains integration tests.
 Create a virtual environment using `venv` and install required dependencies:
 
 ```shell
-python3 -m venv env && \
-source env/bin/activate && \
+python3 -m venv .env && \
+source .env/bin/activate && \
 python3 -m pip install -r test-requirements.txt
 ```
 
 ### Common Tests
 
-`common.py` contains integration tests for scripts that are independent of the migration target, such as `unload.py`. These tests mainly integrate with Timestream for LiveAnalytics.
+`test_common.py` contains integration tests for scripts that are independent of the migration target, such as `unload.py`. These tests mainly integrate with Timestream for LiveAnalytics.
 
 ### InfluxDB V2 Target Tests
 
-`influxdb_v2_target.py` contains end-to-end integration tests for migrating from Timestream for LiveAnalytics to InfluxDB.
+`test_influxdb_v2_target.py` contains end-to-end integration tests for migrating from Timestream for LiveAnalytics to InfluxDB.
 
 This test case will create an InfluxDB v2 Docker container on http://localhost:8086, configure it, and delete it once all tests have finished. Make sure Docker is running and ports are available
 
@@ -36,7 +36,7 @@ This test case will create an InfluxDB v2 Docker container on http://localhost:8
 Assuming you have satisfied the prerequisites for all integration tests, such as having installed all packages from `../requirements.txt`, all tests can be run with the following command:
 
 ```
-python3 -m pytest *
+python3 -m pytest .
 ```
 
 ### Running a Specific Test
