@@ -716,6 +716,11 @@ class UnloadTestCase(BaseIntegrationTestCase):
                     "--export-table",
                 ]
             )
+        self.assertFalse(
+            self.s3_bucket_has_contents(
+                bucket_name=self.s3_bucket_name, prefix=self.database_name
+            )
+        )
 
 
 class CardinalityTestCase(BaseIntegrationTestCase):
