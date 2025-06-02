@@ -403,7 +403,7 @@ class TimestreamUtility:
             encryption: Encryption type (default: 'SSE_KMS')
             escaped_by: Escaped by character (default: '')
             field_delimiter: Field delimiter (default: ', ')
-            timestamp_measures: Comma-separated list of timestamp columns that will be casted as VARCHAR and appended to export.
+            timestamp_measures: Comma-separated list of timestamp columns that will be cast to VARCHAR and appended to export.
 
         Returns:
             str: Timestream unload query

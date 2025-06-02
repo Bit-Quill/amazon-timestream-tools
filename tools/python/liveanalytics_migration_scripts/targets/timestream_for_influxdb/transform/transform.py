@@ -136,10 +136,8 @@ def get_parquet_column_details(s3_uri: str):
                 continue
 
             column_type = str(field.type).upper()
-            if not column_type == "TIMESTAMP[NS]":
-                formatted_columns.append(f"`{field_name}` {column_type}")
-                processed_fields.add(field_name)
-            else:
+
+            if column_type == "TIMESTAMP[NS]":
                 ns_field_name = f"{field_name}_ns"
                 # Check if corresponding _ns field exists
                 if ns_field_name in all_field_names:
@@ -151,6 +149,12 @@ def get_parquet_column_details(s3_uri: str):
                     # No _ns field exists, use the original field
                     formatted_columns.append(f"`{field_name}` TIMESTAMP")
                     processed_fields.add(field_name)
+            elif column_type == "INT64":
+                formatted_columns.append(f"`{field_name}` BIGINT")
+                processed_fields.add(field_name)
+            else:
+                formatted_columns.append(f"`{field_name}` {column_type}")
+                processed_fields.add(field_name)
         return formatted_columns
 
 def create_and_load_athena_table(
@@ -518,19 +522,22 @@ def translate_athena_table_to_line_protocol(
                 delimiter = "||"
             else:
                 delimiter = ")) ||"
-
             if measure_value_type == "varchar":
                 lp_translation_query += f"""
                 CASE WHEN \"{measure_value_name}\" IS NOT NULL THEN '{measure_value_name}="' || CAST(\"{measure_value_name}\" AS VARCHAR) || '",' ELSE '' END {delimiter}
                 """
+            elif measure_value_type == "bigint":
+                lp_translation_query += f"""
+                CASE WHEN \"{measure_value_name}\" IS NOT NULL THEN '{measure_value_name}=' || CAST(\"{measure_value_name}\" AS VARCHAR) || 'i,' ELSE '' END {delimiter}
+                """
             elif measure_value_type == "timestamp":
                 if use_ns_precision:
                     lp_translation_query += f"""
-                    CASE WHEN \"{measure_value_name}_ns\" IS NOT NULL THEN '{measure_value_name}=' || {measure_value_name}_ns || ',' ELSE '' END {delimiter}
+                    CASE WHEN \"{measure_value_name}_ns\" IS NOT NULL THEN '{measure_value_name}=' || {measure_value_name}_ns || 'i,' ELSE '' END {delimiter}
                     """
                 else:
                     lp_translation_query += f"""
-                    CASE WHEN \"{measure_value_name}\" IS NOT NULL THEN '{measure_value_name}=' || CAST(CAST(TO_UNIXTIME({measure_value_name}) * 1000 AS BIGINT) AS VARCHAR) || ',' ELSE '' END {delimiter}
+                    CASE WHEN \"{measure_value_name}\" IS NOT NULL THEN '{measure_value_name}=' || CAST(CAST(TO_UNIXTIME({measure_value_name}) * 1000 AS BIGINT) AS VARCHAR) || 'i,' ELSE '' END {delimiter}
                     """
             else:
                 lp_translation_query += f"""
