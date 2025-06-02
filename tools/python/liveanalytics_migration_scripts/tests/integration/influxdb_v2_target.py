@@ -136,6 +136,8 @@ class InfluxDbV2TargetTestCase(BaseIntegrationTestCase):
                     f"tearDownClass: Failed to delete local line protocol base directory: {e}"
                 )
 
+        cls.influxdb_client.close()
+
         try:
             cls.influxdb_container.stop(force=True, delete_volume=True)
         except Exception as e:
