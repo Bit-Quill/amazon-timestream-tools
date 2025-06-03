@@ -270,16 +270,6 @@ class S3Utility:
 
         os.makedirs(directory, exist_ok=True)
 
-        local_files = {}
-        for root, _, files in os.walk(directory):
-            for file in files:
-                file_path = os.path.join(root, file)
-                rel_path = os.path.relpath(file_path, directory)
-                local_files[rel_path] = {
-                    "Size": os.path.getsize(file_path),
-                    "LastModified": os.path.getmtime(file_path),
-                }
-
         if len(s3_bucket_parts) > 1:
             prefix_parts = "/".join(s3_bucket_parts[1:])
             prefix = "/".join(prefix_parts)
