@@ -279,13 +279,6 @@ class S3Utility:
                 raise RuntimeError(
                     f"The S3 bucket path {s3_bucket_path} does not exist"
                 )
-            self.wait_for_multipart_uploads(bucket_name=s3_bucket_name, prefix=prefix)
-            if not self.s3_bucket_path_exists(
-                bucket_name=s3_bucket_name, prefix=prefix
-            ):
-                raise RuntimeError(
-                    f"The S3 bucket path {s3_bucket_path} does not exist"
-                )
             line_protocol_path = s3_bucket_path
         else:
             if not timestream_database_name or not timestream_table_name:
