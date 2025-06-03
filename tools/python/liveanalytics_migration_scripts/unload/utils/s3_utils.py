@@ -251,7 +251,7 @@ class S3Utility:
         Args:
             s3_bucket_path (str): The path of the S3 bucket to download objects from,
                 for example, s3://my-bucket, or, s3://my-bucket/my-path.
-            directory (str): The path to the existing directory to download objects to.
+            directory (str): The path to the local directory to download objects to.
             timestream_database_name (str): The name of the Timestream for LiveAnalytics
                 database used in the unload process.
             timestream_table_name (str): The name of the Timestream for LiveAnalytics
