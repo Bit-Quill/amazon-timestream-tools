@@ -3,7 +3,9 @@ from dataclasses import dataclass
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../")))
+sys.path.insert(
+    0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../"))
+)
 
 from unload.utils.timestream_utils import TimestreamUtility
 from unload.utils.s3_utils import S3Utility
@@ -72,15 +74,27 @@ class LineProtocolTranslationResult:
 
         repr += "Tags:\n\t"
         if self.tags:
-            repr += f"{','.join(self.tags)}\n"
+            quoted_tags = []
+            for tag in self.tags:
+                if "," in tag:
+                    quoted_tags.append(f'"{tag}"')
+                else:
+                    quoted_tags.append(tag)
+            repr += f"{','.join(quoted_tags)}\n"
         else:
             repr += "[]\n"
 
         repr += "Fields:\n\t"
-        if self.tags:
-            repr += f"{','.join(self.fields)}"
+        if self.fields:
+            quoted_fields = []
+            for field in self.fields:
+                if "," in field:
+                    quoted_fields.append(f'"{field}"')
+                else:
+                    quoted_fields.append(field)
+            repr += f"{','.join(quoted_fields)}\n"
         else:
-            repr += "[]"
+            repr += "[]\n"
 
         return repr
 
@@ -138,8 +152,6 @@ def create_and_load_athena_table(
     s3_bucket_path: str,
     athena_database_name="default",
     athena_table_name=None,
-    wait_for_completion=True,
-    max_wait_seconds=MAX_WAIT_SECONDS,
 ):
     """
     Creates and loads an Athena table, importing data from an S3 bucket.
@@ -153,10 +165,6 @@ def create_and_load_athena_table(
         s3_bucket_path (str): The S3 bucket path containing Timestream data.
         athena_table_name (str): Optional. The name of the Athena table to
             create. Defaults to <timestream_database_name>_<timestream_table_name>.
-        wait_for_completion (bool): Whether to wait for loading
-            to complete, checking its status periodically.
-        max_wait_seconds (int): The maximum number of seconds to wait
-            for loading to complete.
 
     Returns:
         None
@@ -242,7 +250,7 @@ def create_and_load_athena_table(
             ):
                 is_empty_table = False
 
-            athena_columns.append(f"`{column_name}` {athena_type}")
+            athena_columns.append({"Name": column_name, "Type": athena_type})
         else:
             transform_logger.warning(f"No data entry in column: {column}")
 
@@ -274,23 +282,13 @@ def create_and_load_athena_table(
                 )
             s3_unload_path = f"s3://{'/'.join(s3_bucket_path_parts[:-1])}"
             s3_results_path = f"s3://{s3_bucket_path}"
-        unload_query = f"""
-                       CREATE EXTERNAL TABLE `{athena_database_name}`.`{athena_table_name}` ({", ".join(athena_columns)})
-                       STORED AS PARQUET LOCATION '{s3_results_path}';
-                       """
-        transform_logger.info(f"Executing query: {unload_query}")
-        response = athena_utility.start_query_execution(
-            query_string=unload_query,
-            output_location=f"{s3_unload_path}/athena-query-results",
+
+        athena_utility.create_glue_table_from_parquet(
             database_name=athena_database_name,
+            table_name=athena_table_name,
+            columns=athena_columns,
+            s3_bucket_path=s3_results_path,
         )
-        query_execution_id = response["QueryExecutionId"]
-        transform_logger.info(f"Query execution ID: {query_execution_id}")
-        if wait_for_completion:
-            athena_utility.wait_for_athena_query(
-                query_execution_id=query_execution_id,
-                max_wait_seconds=max_wait_seconds,
-            )
     except Exception as e:
         transform_logger.error(f"Unload query failed: {e}")
         raise
