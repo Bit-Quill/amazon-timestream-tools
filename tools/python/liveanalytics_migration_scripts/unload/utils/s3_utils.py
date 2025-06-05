@@ -272,7 +272,6 @@ class S3Utility:
 
         if len(s3_bucket_parts) > 1:
             prefix = "/".join(s3_bucket_parts[1:])
-            prefix = "/".join(prefix_parts)
             if not self.s3_bucket_path_exists(
                 bucket_name=s3_bucket_name, prefix=prefix
             ):
