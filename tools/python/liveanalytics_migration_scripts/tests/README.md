@@ -25,7 +25,7 @@ python3 -m pip install -r test-requirements.txt
 
 `test_common.py` contains integration tests for scripts that are independent of the migration target, such as `unload.py`. These tests mainly integrate with Timestream for LiveAnalytics.
 
-### InfluxDB V2 Target Tests
+### InfluxDB V2 End-to-End Tests
 
 `test_influxdb_v2_target.py` contains end-to-end integration tests for migrating from Timestream for LiveAnalytics to InfluxDB.
 
@@ -36,6 +36,12 @@ If you want to use a different port for the InfluxDB v2 Docker container, the en
 ```shell
 export TEST_INFLUXDB_HOST_PORT=8085
 ```
+
+### InfluxDB V2 Ingestion Tests
+
+`test_ingestion.py` tests the `influxdb_ingestion.py` script, which ingests `.gz` line protocol files to InfluxDB.
+
+The ingestion tests, like the InfluxDB v2 target tests, use an InfluxDB v2 Docker container.
 
 ### Running All Tests
 

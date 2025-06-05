@@ -193,6 +193,46 @@ class S3Utility:
         parts = latest_dir.rstrip("/").split("/")
         return parts[-1]
 
+    def get_first_of_type(self, bucket_path: str, file_type="parquet") -> str:
+        """
+        Return the full S3 URI to the first *.file_type* file that exists under the
+        supplied bucket_path prefix.
+
+        Args:
+            bucket_path (str): An S3 URI including bucket name and prefix i.e.,
+                `s3://my-bucket/benchmark22/cpu/unload-2025-05-23-18:58:58/results`
+
+        Returns:
+            str: Full S3 URI to the first file type (i.e., parquet) object discovered.
+
+        Raises:
+            ValueError: If *bucket_path* does not include both bucket and prefix.
+            FileNotFoundError: If no *.file_type* files are found beneath the prefix.
+        """
+        if bucket_path.lower().startswith("s3://"):
+            bucket_path = bucket_path[5:]
+
+        try:
+            bucket_name, prefix = bucket_path.split("/", 1)
+        except ValueError:
+            raise ValueError("bucket_path must include both bucket and prefix.")
+
+        # Ensure the prefix ends with a slash so we stay inside bucket_path
+        if not prefix.endswith("/"):
+            prefix += "/"
+
+        self.wait_for_multipart_uploads(bucket_name=bucket_name, prefix=prefix)
+
+        # Paginate through keys until we encounter the first *.file_type
+        paginator = self.s3_client.get_paginator("list_objects_v2")
+        for page in paginator.paginate(Bucket=bucket_name, Prefix=prefix):
+            for obj in page.get("Contents", []):
+                key = obj["Key"]
+                if key.endswith(f".{file_type}"):
+                    return f"s3://{bucket_name}/{key}"
+
+        raise FileNotFoundError(f"No .{file_type} objects found under {bucket_path}")
+
     def wait_for_multipart_uploads(
         self, bucket_name, prefix, delimeter="/", max_attempts=20, base_delay=1
     ):
@@ -251,7 +291,7 @@ class S3Utility:
         Args:
             s3_bucket_path (str): The path of the S3 bucket to download objects from,
                 for example, s3://my-bucket, or, s3://my-bucket/my-path.
-            directory (str): The path to the existing directory to download objects to.
+            directory (str): The path to the local directory to download objects to.
             timestream_database_name (str): The name of the Timestream for LiveAnalytics
                 database used in the unload process.
             timestream_table_name (str): The name of the Timestream for LiveAnalytics
@@ -270,26 +310,8 @@ class S3Utility:
 
         os.makedirs(directory, exist_ok=True)
 
-        local_files = {}
-        for root, _, files in os.walk(directory):
-            for file in files:
-                file_path = os.path.join(root, file)
-                rel_path = os.path.relpath(file_path, directory)
-                local_files[rel_path] = {
-                    "Size": os.path.getsize(file_path),
-                    "LastModified": os.path.getmtime(file_path),
-                }
-
         if len(s3_bucket_parts) > 1:
-            prefix_parts = "/".join(s3_bucket_parts[1:])
-            prefix = "/".join(prefix_parts)
-            if not self.s3_bucket_path_exists(
-                bucket_name=s3_bucket_name, prefix=prefix
-            ):
-                raise RuntimeError(
-                    f"The S3 bucket path {s3_bucket_path} does not exist"
-                )
-            self.wait_for_multipart_uploads(bucket_name=s3_bucket_name, prefix=prefix)
+            prefix = "/".join(s3_bucket_parts[1:])
             if not self.s3_bucket_path_exists(
                 bucket_name=s3_bucket_name, prefix=prefix
             ):

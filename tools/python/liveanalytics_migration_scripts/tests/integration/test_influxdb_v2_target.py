@@ -193,6 +193,31 @@ class InfluxDbV2TargetTestCase(BaseIntegrationTestCase):
             if not self.silence_cleanup_logging:
                 logging.warning(f"tearDown: Failed to delete InfluxDB bucket: {e}")
 
+    @staticmethod
+    def get_quoted_tags(dimensions: list) -> str:
+        """
+        Produces line protocol tags in a format that the validation script
+        expects for its --schema-tags argument. To do this, this function
+        builds a string comprised of comma-separated dimension names, adding
+        quotes to any dimension name that includes commas.
+
+        Args:
+            dimensions (list[dict]): A list of dimensions where each dimension
+                is a dict with the key "Name".
+
+        Returns:
+            str
+        """
+        # measure_name is assumed to always be present as a tag.
+        quoted_tags = ["measure_name"]
+        for dimension in dimensions:
+            tag = dimension["Name"]
+            if "," in tag:
+                quoted_tags.append(f'"{tag}"')
+            else:
+                quoted_tags.append(tag)
+        return ",".join(quoted_tags)
+
     def test_single_measure_basic(self):
         current_time = pandas.Timestamp.now()
 
@@ -205,7 +230,6 @@ class InfluxDbV2TargetTestCase(BaseIntegrationTestCase):
             {"Name": "hostname", "Value": "hostname1", "DimensionValueType": "VARCHAR"},
             {"Name": "region", "Value": "us-west-2", "DimensionValueType": "VARCHAR"},
         ]
-        schema_tags = ",".join(dimension["Name"] for dimension in dimensions)
 
         record = {
             "Dimensions": dimensions,
@@ -215,7 +239,11 @@ class InfluxDbV2TargetTestCase(BaseIntegrationTestCase):
             "Time": str(start_time.value),
             "TimeUnit": "NANOSECONDS",
         }
+
+        schema_tags = self.get_quoted_tags(dimensions)
+
         self.put_records([record])
+
         unload.main(
             [
                 "--database",
@@ -301,7 +329,6 @@ class InfluxDbV2TargetTestCase(BaseIntegrationTestCase):
             {"Name": "hostname", "Value": "hostname1", "DimensionValueType": "VARCHAR"},
             {"Name": "region", "Value": "us-west-2", "DimensionValueType": "VARCHAR"},
         ]
-        schema_tags = ",".join(dimension["Name"] for dimension in dimensions)
 
         record = {
             "Dimensions": dimensions,
@@ -311,6 +338,9 @@ class InfluxDbV2TargetTestCase(BaseIntegrationTestCase):
             "Time": str(start_time.value),
             "TimeUnit": "NANOSECONDS",
         }
+
+        schema_tags = self.get_quoted_tags(dimensions)
+
         self.put_records([record])
         unload.main(
             [
@@ -385,7 +415,6 @@ class InfluxDbV2TargetTestCase(BaseIntegrationTestCase):
             ]
         )
 
-    @pytest.mark.skip(reason="Nanosecond timestamp precision isn't supported")
     def test_single_measure_nanosecond_timestamp_sequential(self):
         """
         Tests migrating a dataset that is comprised of two records where the
@@ -441,6 +470,8 @@ class InfluxDbV2TargetTestCase(BaseIntegrationTestCase):
                 "--end-time",
                 end_time.strftime(UNLOAD_TIMESTAMP_FORMAT),
                 "--export-table",
+                "--append-timestamps",
+                "true",
             ]
         )
         transform.main(
@@ -497,7 +528,6 @@ class InfluxDbV2TargetTestCase(BaseIntegrationTestCase):
             ]
         )
 
-    @pytest.mark.skip(reason="Timestamp measures are not supported")
     def test_multi_measure_timestamp_measure(self):
         current_time = pandas.Timestamp.now()
 
@@ -510,7 +540,6 @@ class InfluxDbV2TargetTestCase(BaseIntegrationTestCase):
             {"Name": "hostname", "Value": "hostname1", "DimensionValueType": "VARCHAR"},
             {"Name": "region", "Value": "us-west-2", "DimensionValueType": "VARCHAR"},
         ]
-        schema_tags = ",".join(dimension["Name"] for dimension in dimensions)
 
         # Only multi-measure records can use TIMESTAMP as a measure type.
         record = {
@@ -527,6 +556,9 @@ class InfluxDbV2TargetTestCase(BaseIntegrationTestCase):
                 }
             ],
         }
+
+        schema_tags = self.get_quoted_tags(dimensions)
+
         self.put_records([record])
         unload.main(
             [
@@ -541,6 +573,8 @@ class InfluxDbV2TargetTestCase(BaseIntegrationTestCase):
                 "--end-time",
                 end_time.strftime(UNLOAD_TIMESTAMP_FORMAT),
                 "--export-table",
+                "--append-timestamps",
+                "true",
             ]
         )
         transform.main(
@@ -613,7 +647,6 @@ class InfluxDbV2TargetTestCase(BaseIntegrationTestCase):
             {"Name": "hostname", "Value": "hostname1", "DimensionValueType": "VARCHAR"},
             {"Name": "region", "Value": "us-west-2", "DimensionValueType": "VARCHAR"},
         ]
-        schema_tags = ",".join(dimension["Name"] for dimension in dimensions)
 
         record = {
             "Dimensions": dimensions,
@@ -626,7 +659,293 @@ class InfluxDbV2TargetTestCase(BaseIntegrationTestCase):
                 {"Name": "memory_utilization", "Value": "33.8", "Type": "DOUBLE"},
             ],
         }
+
+        schema_tags = self.get_quoted_tags(dimensions)
+
         self.put_records([record])
+        unload.main(
+            [
+                "--database",
+                self.database_name,
+                "--table",
+                self.table_name,
+                "--s3-uri",
+                f"s3://{self.s3_bucket_name}",
+                "--start-time",
+                start_time.strftime(UNLOAD_TIMESTAMP_FORMAT),
+                "--end-time",
+                end_time.strftime(UNLOAD_TIMESTAMP_FORMAT),
+                "--export-table",
+            ]
+        )
+        transform.main(
+            [
+                "--database-name",
+                self.database_name,
+                "--tables",
+                self.table_name,
+                "--s3-bucket-path",
+                self.s3_bucket_name,
+                "--add-validation-field",
+                "true",
+            ]
+        )
+        self.s3_utility.sync_line_protocol_to_storage(
+            s3_bucket_path=self.s3_bucket_name,
+            directory=self.lp_directory,
+            timestream_database_name=self.database_name,
+            timestream_table_name=self.table_name,
+        )
+        influxdb_ingestion.main(
+            [
+                "-w",
+                "5",
+                "-l",
+                "5000",
+                "-m",
+                "5",
+                self.influxdb_bucket_name,
+                self.lp_directory,
+            ]
+        )
+        validator.main(
+            [
+                "--source-engine",
+                "athena",
+                "--athena-output",
+                "s3://" + self.s3_bucket_name,
+                "--athena-database-name",
+                self.athena_database_name,
+                "--athena-table-name",
+                self.athena_table_name,
+                "--influxdb-v2-url",
+                os.environ["INFLUXDB_V2_URL"],
+                "--influxdb-v2-token",
+                os.environ["INFLUXDB_V2_TOKEN"],
+                "--influxdb-v2-org",
+                os.environ["INFLUXDB_V2_ORG"],
+                "--influxdb-v2-bucket",
+                self.influxdb_bucket_name,
+                "--influxdb-v2-measurement",
+                self.table_name,
+                "--schema-tags",
+                schema_tags,
+                "--start-time",
+                start_time.strftime(ISO_8601_TIMESTAMP_FORMAT),
+                "--skip-wal-check",
+            ]
+        )
+
+    def test_multi_measure_special_characters(self):
+        """
+        Tests the migration of data with special characters, characters
+        that need to be escaped in line protocol such as spaces, commas, and equals
+        signs, in dimension names, dimension values, measure_name, measure_value names,
+        and measure values.
+        """
+        current_time = pandas.Timestamp.now()
+
+        start_time = current_time - Timedelta(days=30)
+        assert isinstance(start_time, pandas.Timestamp)
+        end_time = start_time + Timedelta(days=1)
+        assert isinstance(end_time, pandas.Timestamp)
+
+        dimensions = [
+            {
+                "Name": "spaces in dimension name",
+                "Value": "spaces in dimension value",
+                "DimensionValueType": "VARCHAR",
+            },
+            {
+                "Name": "commas,in,dimension,name",
+                "Value": "commas,in,dimension,value",
+                "DimensionValueType": "VARCHAR",
+            },
+            {
+                "Name": "equals=in=dimension=name",
+                "Value": "equals=in=dimension=value",
+                "DimensionValueType": "VARCHAR",
+            },
+        ]
+
+        records = [
+            {
+                "Dimensions": dimensions,
+                "MeasureName": "spaces in measure name",
+                "MeasureValueType": "MULTI",
+                "Time": str(start_time.value),
+                "TimeUnit": "NANOSECONDS",
+                "MeasureValues": [
+                    {
+                        "Name": "spaces in measure value name",
+                        "Value": "spaces in measure value",
+                        "Type": "VARCHAR",
+                    },
+                ],
+            },
+            {
+                "Dimensions": dimensions,
+                "MeasureName": "commas,in,measure,name",
+                "MeasureValueType": "MULTI",
+                "Time": str(start_time.value),
+                "TimeUnit": "NANOSECONDS",
+                "MeasureValues": [
+                    {
+                        "Name": "commas,in,measure,value,name",
+                        "Value": "commas,in,measure,value",
+                        "Type": "VARCHAR",
+                    },
+                ],
+            },
+            {
+                "Dimensions": dimensions,
+                "MeasureName": "equals=in=measure=name",
+                "MeasureValueType": "MULTI",
+                "Time": str(start_time.value),
+                "TimeUnit": "NANOSECONDS",
+                "MeasureValues": [
+                    {
+                        "Name": "equals=in=measure=value=name",
+                        "Value": "equals=in=measure=value",
+                        "Type": "VARCHAR",
+                    },
+                ],
+            },
+        ]
+
+        schema_tags = self.get_quoted_tags(dimensions)
+
+        self.put_records(records)
+        unload.main(
+            [
+                "--database",
+                self.database_name,
+                "--table",
+                self.table_name,
+                "--s3-uri",
+                f"s3://{self.s3_bucket_name}",
+                "--start-time",
+                start_time.strftime(UNLOAD_TIMESTAMP_FORMAT),
+                "--end-time",
+                end_time.strftime(UNLOAD_TIMESTAMP_FORMAT),
+                "--export-table",
+            ]
+        )
+        transform.main(
+            [
+                "--database-name",
+                self.database_name,
+                "--tables",
+                self.table_name,
+                "--s3-bucket-path",
+                self.s3_bucket_name,
+                "--add-validation-field",
+                "true",
+            ]
+        )
+        self.s3_utility.sync_line_protocol_to_storage(
+            s3_bucket_path=self.s3_bucket_name,
+            directory=self.lp_directory,
+            timestream_database_name=self.database_name,
+            timestream_table_name=self.table_name,
+        )
+        influxdb_ingestion.main(
+            [
+                "-w",
+                "5",
+                "-l",
+                "5000",
+                "-m",
+                "5",
+                self.influxdb_bucket_name,
+                self.lp_directory,
+            ]
+        )
+        validator.main(
+            [
+                "--source-engine",
+                "athena",
+                "--athena-output",
+                "s3://" + self.s3_bucket_name,
+                "--athena-database-name",
+                self.athena_database_name,
+                "--athena-table-name",
+                self.athena_table_name,
+                "--influxdb-v2-url",
+                os.environ["INFLUXDB_V2_URL"],
+                "--influxdb-v2-token",
+                os.environ["INFLUXDB_V2_TOKEN"],
+                "--influxdb-v2-org",
+                os.environ["INFLUXDB_V2_ORG"],
+                "--influxdb-v2-bucket",
+                self.influxdb_bucket_name,
+                "--influxdb-v2-measurement",
+                self.table_name,
+                "--schema-tags",
+                schema_tags,
+                "--start-time",
+                start_time.strftime(ISO_8601_TIMESTAMP_FORMAT),
+                "--skip-wal-check",
+            ]
+        )
+
+    def test_single_measure_special_characters(self):
+        """
+        Tests the migration of data with special characters, characters
+        that need to be escaped in line protocol such as spaces, commas, and equals
+        signs, in dimension names, dimension values, measure_name, measure_value names,
+        and measure values.
+        """
+        current_time = pandas.Timestamp.now()
+
+        start_time = current_time - Timedelta(days=30)
+        assert isinstance(start_time, pandas.Timestamp)
+        end_time = start_time + Timedelta(days=1)
+        assert isinstance(end_time, pandas.Timestamp)
+
+        dimensions = [
+            {
+                "Name": "spaces in dimension name",
+                "Value": "spaces in dimension value",
+                "DimensionValueType": "VARCHAR",
+            },
+            {
+                "Name": "equals=in=dimension=name",
+                "Value": "equals=in=dimension=value",
+                "DimensionValueType": "VARCHAR",
+            },
+        ]
+
+        records = [
+            {
+                "Dimensions": dimensions,
+                "MeasureName": "spaces in measure name",
+                "MeasureValue": "spaces in measure value",
+                "MeasureValueType": "VARCHAR",
+                "Time": str(start_time.value),
+                "TimeUnit": "NANOSECONDS",
+            },
+            {
+                "Dimensions": dimensions,
+                "MeasureName": "commas,in,measure,name",
+                "MeasureValue": "commas,in,measure,value",
+                "MeasureValueType": "VARCHAR",
+                "Time": str(start_time.value),
+                "TimeUnit": "NANOSECONDS",
+            },
+            {
+                "Dimensions": dimensions,
+                "MeasureName": "equals=in=measure=name",
+                "MeasureValue": "equals=in=measure=value",
+                "MeasureValueType": "VARCHAR",
+                "Time": str(start_time.value),
+                "TimeUnit": "NANOSECONDS",
+            },
+        ]
+
+        schema_tags = self.get_quoted_tags(dimensions)
+
+        self.put_records(records)
         unload.main(
             [
                 "--database",

@@ -3,3 +3,4 @@ influxdb-client==1.48.0
 python-dotenv==1.1.0
 requests==2.32.3
 psycopg2-binary==2.9.10
+pyarrow==20.0.0

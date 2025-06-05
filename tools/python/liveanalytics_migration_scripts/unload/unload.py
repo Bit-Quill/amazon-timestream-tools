@@ -43,6 +43,7 @@ def main(input_args):
     parser.add_argument("-cp", "--custom-partition-count", help="Custom partition count", default=99, required=False)
     parser.add_argument("-ob", "--order-by-asc", help="data order by time ascending", default=False, type=lambda x: x.lower() in ['true', '1', 'yes'], required=False)
     parser.add_argument("-ld", "--logs-dir", help='Directory for export logs (default: timestream-export-logs)', default = None, required = False)
+    parser.add_argument("-at", "--append-timestamps", help="Whether to append extra timestamp columns for preserving nanosecond precision.", default=True, type=lambda x: x.lower() in ['true', '1', 'yes'], required=False)
 
     #assign arguments to args variable
     args = parser.parse_args(input_args)
@@ -72,6 +73,7 @@ def main(input_args):
     recent_first = args.recent_first
     custom_partition_count = args.custom_partition_count
     order_by_asc = args.order_by_asc 
+    append_timestamps = args.append_timestamps
 
     sts_client = boto3.client("sts")
     region = args.region if args.region else sts_client.meta.region_name
@@ -180,7 +182,8 @@ def main(input_args):
         'field_delimiter': field_delimiter,
         'recent_first' : recent_first,
         'custom_partition_count' : custom_partition_count,
-        'order_by_asc' : order_by_asc
+        'order_by_asc' : order_by_asc,
+        'append_timestamps': append_timestamps
     }
 
     # Create dynamodb logging table if dynamodb logging is enabled
