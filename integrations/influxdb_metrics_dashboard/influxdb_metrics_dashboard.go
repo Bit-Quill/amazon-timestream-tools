@@ -5,7 +5,9 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net"
 	"os"
+	"slices"
 	"strings"
 	"text/template"
 	"time"
@@ -41,27 +43,17 @@ func getBaseTelegrafConfig() string {
       float = ["*"]
 
 [[processors.starlark]]
-  source = '''
+  source = '\'''\'''\''
 def apply(metric):
-  if "counter" in metric.fields:
-    counter_value = metric.fields["counter"]
-    metric.fields.clear()
-    metric.fields["value"] = counter_value
-  elif "gauge" in metric.fields:
-    gauge_value = metric.fields["gauge"]
-    metric.fields.clear()
-    metric.fields["value"] = gauge_value
-  elif "sum" in metric.fields:
-    sum_value = metric.fields["sum"]
-    metric.fields.clear()
-    metric.fields["value"] = sum_value
  
   for tagKey, tagVal in metric.tags.items():
     if tagKey != "DbInstanceName":
       metric.tags.pop(tagKey)
 		
   return metric
-'''
+'\'''\'''\''
+
+
 `
 }
 
@@ -85,9 +77,9 @@ func getTelegrafPluginsConfig(configVars map[string]string) string {
 	}
 
 	var templateBuf bytes.Buffer
-		if err := telegrafTmpl.Execute(&templateBuf, configVars); err != nil {
-			log.Printf("Failed to execute template for Telegraf plugins config")
-			os.Exit(1)
+	if err := telegrafTmpl.Execute(&templateBuf, configVars); err != nil {
+		log.Printf("Failed to execute template for Telegraf plugins config")
+		os.Exit(1)
 	}
 	return templateBuf.String()
 }
@@ -95,27 +87,33 @@ func getTelegrafPluginsConfig(configVars map[string]string) string {
 func getEc2InitScript(telegrafConfig map[string]string) string {
 
 	ec2InitScript := `#!/bin/bash
-cat <<EOT >> /etc/yum.repos.d/influxdb.repo
+exec > /tmp/ec2-init.log 2>&1
+set -x
+
+# Install GPG key for yum repository
+curl -s https://repos.influxdata.com/influxdata-archive_compat.key -o /tmp/influxdata-key.gpg
+sudo rpm --import /tmp/influxdata-key.gpg
+
+sudo sh -c 'cat <<EOT >> /etc/yum.repos.d/influxdb.repo
 [influxdb]
 name = InfluxData Repository - Stable
-baseurl = https://repos.influxdata.com/stable/\$basearch/main
+baseurl = https://repos.influxdata.com/stable/x86_64/main
 enabled = 1
 gpgcheck = 1
-gpgkey = https://repos.influxdata.com/influxdata-archive_compat.key
-EOT
+EOT'
 
 # Install Telegraf
-yum install telegraf -y
+sudo yum install telegraf -y
 
 # Backup current configs
-mv /etc/telegraf/telegraf.conf /etc/telegraf/telegraf.bckp
+sudo mv /etc/telegraf/telegraf.conf /etc/telegraf/telegraf.bckp
 
 # Telegraf Config
-cat <<EOT >> /etc/telegraf/telegraf.conf
+sudo sh -c 'cat <<EOT >> /etc/telegraf/telegraf.conf
 {{.TelegrafConfig}}
-EOT
+EOT'
 
-cat <<EOT >> /etc/init.d/telegraf
+sudo sh -c 'cat <<EOT >> /etc/init.d/telegraf
 #!/bin/bash
 #
 # telegraf   Startup script for Telegraf
@@ -174,7 +172,7 @@ case "\$1" in
       exit 1
       ;;
 esac
-EOT
+EOT'
 
 # Make telegraf executable
 sudo chmod +x /etc/init.d/telegraf
@@ -194,20 +192,20 @@ service telegraf start
 		os.Exit(1)
 	}
 
-  var ec2InitScriptBuf bytes.Buffer
-		if err := ec2InitTemplate.Execute(&ec2InitScriptBuf, telegrafConfig); err != nil {
-			log.Printf("Failed to execute template for EC2 init script")
-			os.Exit(1)
-  }
+	var ec2InitScriptBuf bytes.Buffer
+	if err := ec2InitTemplate.Execute(&ec2InitScriptBuf, telegrafConfig); err != nil {
+		log.Printf("Failed to execute template for EC2 init script")
+		os.Exit(1)
+	}
 	return ec2InitScriptBuf.String()
 }
 
-func addTelegrafEC2InstanceToStack(stack awscdk.Stack, stackProps awscdk.StackProps, databaseName string, influxDBIds string) (awscdk.Stack, error) {
+func addTelegrafEC2InstanceToStack(stack awscdk.Stack, stackProps awscdk.StackProps, influxDBIds string, telegrafSshCidr string) (string, error) {
 	instanceRole := awsiam.NewRole(stack, jsii.String("influxdb-dashboard-ec2-role"), &awsiam.RoleProps{
 		AssumedBy: awsiam.NewServicePrincipal(jsii.String("ec2.amazonaws.com"), nil),
 	})
 
-	timestreamPolicy := awsiam.NewPolicy(stack, jsii.String("influxdb-dashboard-ec2-policy"), &awsiam.PolicyProps{
+	cloudwatchPolicy := awsiam.NewPolicy(stack, jsii.String("influxdb-dashboard-ec2-policy"), &awsiam.PolicyProps{
 		Statements: &[]awsiam.PolicyStatement{
 			awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
 				Actions: &[]*string{
@@ -222,7 +220,7 @@ func addTelegrafEC2InstanceToStack(stack awscdk.Stack, stackProps awscdk.StackPr
 		},
 	})
 
-	timestreamPolicy.AttachToRole(instanceRole)
+	cloudwatchPolicy.AttachToRole(instanceRole)
 
 	ctx := context.Background()
 	var awsCredentials aws.CredentialsProvider
@@ -243,6 +241,8 @@ func addTelegrafEC2InstanceToStack(stack awscdk.Stack, stackProps awscdk.StackPr
 
 	instanceEndpoint := ""
 	vpcId := ""
+	instanceNames := ""
+	instancePorts := []int32{}
 	telegrafConfig := getBaseTelegrafConfig()
 
 	// Split the comma separated list of Ids
@@ -273,19 +273,28 @@ func addTelegrafEC2InstanceToStack(stack awscdk.Stack, stackProps awscdk.StackPr
 			os.Exit(1)
 		}
 
+		if !slices.Contains(instancePorts, *influxDBInstance.Port) {
+			instancePorts = append(instancePorts, *influxDBInstance.Port)
+		}
+
 		telegrafConfig += getTelegrafPluginsConfig(
 			map[string]string{
-				"InstanceName": *influxDBInstance.Name,
-				"Region": *stackProps.Env.Region,
+				"InstanceName":     *influxDBInstance.Name,
+				"Region":           *stackProps.Env.Region,
 				"InstanceEndpoint": instanceEndpoint,
 			},
 		)
+
+		if instanceNames != "" {
+			instanceNames += ","
+		}
+		instanceNames += *influxDBInstance.Name
 	}
 
-  ec2InitScript := getEc2InitScript(
+	ec2InitScript := getEc2InitScript(
 		map[string]string{
 			"TelegrafConfig": telegrafConfig,
-			"Ec2InitTime": fmt.Sprintf("%d", time.Now().Unix()),
+			"Ec2InitTime":    fmt.Sprintf("%d", time.Now().Unix()),
 		},
 	)
 
@@ -293,31 +302,41 @@ func addTelegrafEC2InstanceToStack(stack awscdk.Stack, stackProps awscdk.StackPr
 		Region: jsii.String(*stackProps.Env.Region),
 		VpcId:  jsii.String(vpcId),
 	})
+
 	ec2SecurityGroup := awsec2.NewSecurityGroup(stack, jsii.String("TelegrafEC2SG"), &awsec2.SecurityGroupProps{
 		Vpc:               vpc,
 		SecurityGroupName: jsii.String("InstanceSecurityGroup"),
-		Description:       jsii.String("Allow SSH and all outbound traffic"),
+		Description:       jsii.String("Allow EC2 access to InfluxDB instances and optional SSH"),
 	})
-	ec2SecurityGroup.AddIngressRule(
-		awsec2.Peer_Ipv4(jsii.String("0.0.0.0/0")),
-		awsec2.Port_Tcp(jsii.Number(22)),
-		jsii.String("Allow SSH access"),
-		jsii.Bool(false),
-	)
-	ec2SecurityGroup.AddIngressRule(
-		awsec2.Peer_Ipv4(jsii.String("0.0.0.0/0")),
-		awsec2.Port_Tcp(jsii.Number(8086)),
-		jsii.String("Allow open access to InfluxDB /metrics endpoint"),
-		jsii.Bool(false),
-	)
-	
+
+	// Add a rule for each InfluxDB instance
+	for _, port := range instancePorts {
+		ec2SecurityGroup.AddIngressRule(
+			awsec2.Peer_Ipv4(jsii.String(*vpc.VpcCidrBlock())),
+			awsec2.Port_Tcp(jsii.Number(port)),
+			jsii.String("Allow open access to InfluxDB /metrics endpoint"),
+			jsii.Bool(false),
+		)
+	}
+	// If a CIDR is supplied for EC2 SSH add a new rule
+	if telegrafSshCidr != "" {
+		ec2SecurityGroup.AddIngressRule(
+			awsec2.Peer_Ipv4(jsii.String(telegrafSshCidr)),
+			awsec2.Port_Tcp(jsii.Number(22)),
+			jsii.String("Allow SSH access"),
+			jsii.Bool(false),
+		)
+	}
+
 	ec2Instance := awsec2.NewInstance(stack, jsii.String("TelegrafInfluxDBMetricScraper"), &awsec2.InstanceProps{
-		InstanceType:  awsec2.InstanceType_Of(awsec2.InstanceClass_BURSTABLE2, awsec2.InstanceSize_NANO),
-		MachineImage:  awsec2.NewAmazonLinuxImage(&awsec2.AmazonLinuxImageProps{}),
-		Vpc:           vpc,
-		UserData:      awsec2.UserData_Custom(jsii.String(ec2InitScript)),
-		Role:          instanceRole,
-		SecurityGroup: ec2SecurityGroup,
+		InstanceType: awsec2.InstanceType_Of(awsec2.InstanceClass_BURSTABLE2, awsec2.InstanceSize_NANO),
+		MachineImage: awsec2.NewAmazonLinuxImage(&awsec2.AmazonLinuxImageProps{
+			Generation: awsec2.AmazonLinuxGeneration_AMAZON_LINUX_2023,
+		}),
+		Vpc:                       vpc,
+		UserData:                  awsec2.UserData_Custom(jsii.String(ec2InitScript)),
+		Role:                      instanceRole,
+		SecurityGroup:             ec2SecurityGroup,
 		UserDataCausesReplacement: jsii.Bool(true),
 	})
 
@@ -326,25 +345,20 @@ func addTelegrafEC2InstanceToStack(stack awscdk.Stack, stackProps awscdk.StackPr
 		Description: jsii.String("The instance ID of the EC2 instance running Telegraf"),
 	})
 
-	return stack, nil
+	return instanceNames, nil
 }
 
-func addGrafanaWorkspaceToStack(stack awscdk.Stack, stackProps awscdk.StackProps, databaseName string, grafanaWorkspaceName string) (awscdk.Stack, error) {
+func addGrafanaWorkspaceToStack(stack awscdk.Stack, stackProps awscdk.StackProps, grafanaWorkspaceName string) (awscdk.Stack, error) {
 	workspacePolicy := awsiam.NewPolicy(stack, jsii.String("influxdb-dashboard-workspace-policy"), &awsiam.PolicyProps{
 		Statements: &[]awsiam.PolicyStatement{
 			awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
 				Actions: &[]*string{
-					jsii.String("cloudwatch:ListMetrics"),
 					jsii.String("cloudwatch:GetMetricData"),
-				},
-				Resources: &[]*string{
-					jsii.String("*"),
-				},
-			}),
-			//TODO: Delete timestream policies
-			awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
-				Actions: &[]*string{
-					jsii.String("timestream:DescribeEndpoints"),
+					jsii.String("cloudwatch:GetMetricStatistics"),
+					jsii.String("cloudwatch:ListMetrics"),
+					jsii.String("cloudwatch:GetDashboard"),
+					jsii.String("cloudwatch:PutDashboard"),
+					jsii.String("cloudwatch:DeleteDashboards"),
 				},
 				Resources: &[]*string{
 					jsii.String("*"),
@@ -352,10 +366,10 @@ func addGrafanaWorkspaceToStack(stack awscdk.Stack, stackProps awscdk.StackProps
 			}),
 			awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
 				Actions: &[]*string{
-					jsii.String("timestream:Select"),
+					jsii.String("logs:*"),
 				},
 				Resources: &[]*string{
-					jsii.String(fmt.Sprintf("arn:aws:timestream:%s:%s:database/%s/table/*", *stackProps.Env.Region, *stackProps.Env.Account, databaseName)),
+					jsii.String("*"),
 				},
 			}),
 		},
@@ -385,7 +399,7 @@ func addGrafanaWorkspaceToStack(stack awscdk.Stack, stackProps awscdk.StackProps
 	return stack, nil
 }
 
-func createLambdaResource(stack awscdk.Stack, stackProps awscdk.StackProps, databaseName string, grafanaWorkspaceName string, dashboardName string, timestreamDatasourceName string) (awscdk.Stack, error) {
+func createLambdaResource(stack awscdk.Stack, stackProps awscdk.StackProps, grafanaWorkspaceName string, dashboardName string, cloudwatchDatasourceName string, dbInstanceNames string) (awscdk.Stack, error) {
 	var lambdaTimeout float64 = 200.0
 
 	lambdaHandler := awslambda.NewFunction(stack, jsii.String("influxDBMetricDashboardLambdaHandler"), &awslambda.FunctionProps{
@@ -396,9 +410,9 @@ func createLambdaResource(stack awscdk.Stack, stackProps awscdk.StackProps, data
 			"GOARCH":                   jsii.String("arm64"),
 			"GOOS":                     jsii.String("linux"),
 			"GrafanaWorkspaceName":     jsii.String(grafanaWorkspaceName),
-			"TimestreamDatasourceName": jsii.String(timestreamDatasourceName),
+			"CloudWatchDatasourceName": jsii.String(cloudwatchDatasourceName),
 			"DashboardName":            jsii.String(dashboardName),
-			"DatabaseName":             jsii.String(databaseName),
+			"DbInstanceNames":          jsii.String(dbInstanceNames),
 		},
 		Code: awslambda.Code_FromCustomCommand(jsii.String("lambda/upload_dashboard/lambda.zip"), &[]*string{
 			jsii.String("go"),
@@ -417,11 +431,22 @@ func createLambdaResource(stack awscdk.Stack, stackProps awscdk.StackProps, data
 			}),
 			awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
 				Actions: &[]*string{
-					jsii.String("grafana:CreateWorkspaceServiceAccount"),
-					jsii.String("grafana:CreateWorkspaceServiceAccountToken"),
-					jsii.String("grafana:DeleteWorkspaceServiceAccountToken"),
-					jsii.String("grafana:ListWorkspaceServiceAccounts"),
-					jsii.String("grafana:ListWorkspaceServiceAccountTokens"),
+					jsii.String("cloudwatch:GetMetricData"),
+					jsii.String("cloudwatch:GetMetricStatistics"),
+					jsii.String("cloudwatch:ListMetrics"),
+				},
+				Resources: &[]*string{
+					jsii.String("*"),
+				},
+			}),
+			awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+				Actions: &[]*string{
+					//					jsii.String("grafana:CreateWorkspaceServiceAccount"),
+					//					jsii.String("grafana:CreateWorkspaceServiceAccountToken"),
+					//					jsii.String("grafana:DeleteWorkspaceServiceAccountToken"),
+					//					jsii.String("grafana:ListWorkspaceServiceAccounts"),
+					//					jsii.String("grafana:ListWorkspaceServiceAccountTokens"),
+					jsii.String("grafana:*"),
 				},
 				Resources: &[]*string{
 					jsii.String(fmt.Sprintf("arn:aws:grafana:%s:%s:/workspaces/*", *stackProps.Env.Region, *stackProps.Env.Account)),
@@ -470,33 +495,39 @@ func main() {
 	if grafanaWorkspaceNameContext != nil {
 		grafanaWorkspaceName = grafanaWorkspaceNameContext.(string)
 	}
-	timestreamDatasourceNameContext := stack.Node().TryGetContext(jsii.String("TimestreamDatasourceName"))
-	timestreamDatasourceName := "Amazon Timestream for LiveAnalytics Sample Data Source"
-	if timestreamDatasourceNameContext != nil {
-		timestreamDatasourceName = timestreamDatasourceNameContext.(string)
+	cloudwatchDatasourceNameContext := stack.Node().TryGetContext(jsii.String("CloudWatchDatasourceName"))
+	cloudwatchDatasourceName := "Amazon CloudWatch Data Source"
+	if cloudwatchDatasourceNameContext != nil {
+		cloudwatchDatasourceName = cloudwatchDatasourceNameContext.(string)
 	}
 	dashboardNameContext := stack.Node().TryGetContext(jsii.String("DashboardName"))
 	dashboardName := "InfluxDB Performance Dashboard"
 	if dashboardNameContext != nil {
 		dashboardName = dashboardNameContext.(string)
 	}
-	databaseNameContext := stack.Node().TryGetContext(jsii.String("DatabaseName"))
-	databaseName := "InfluxDBMetrics"
-	if databaseNameContext != nil {
-		databaseName = databaseNameContext.(string)
+	telegrafSshCidrContext := stack.Node().TryGetContext(jsii.String("TelegrafSshCidr"))
+	telegrafSshCidr := ""
+	if telegrafSshCidrContext != nil {
+		telegrafSshCidr = telegrafSshCidrContext.(string)
+		_, _, err := net.ParseCIDR(telegrafSshCidr)
+		if err != nil {
+			log.Printf("The value provided for TelegrafSshCidr context is not a valid CIDR range.")
+			os.Exit(1)
+		}
 	}
 
-	_, err := addTelegrafEC2InstanceToStack(stack, stackProps, databaseName, influxDBIdContext.(string))
+	// dbInstanceNames is a comma separated list of names used for variables in the dashboard
+	dbInstanceNames, err := addTelegrafEC2InstanceToStack(stack, stackProps, influxDBIdContext.(string), telegrafSshCidr)
 	if err != nil {
 		log.Printf("Error adding Telegraf instance to stack: %s", err)
 		return
 	}
-	_, err = addGrafanaWorkspaceToStack(stack, stackProps, databaseName, grafanaWorkspaceName)
+	_, err = addGrafanaWorkspaceToStack(stack, stackProps, grafanaWorkspaceName)
 	if err != nil {
 		log.Printf("Error adding Grafana workspace to stack: %s", err)
 		return
 	}
-	_, err = createLambdaResource(stack, stackProps, databaseName, grafanaWorkspaceName, dashboardName, timestreamDatasourceName)
+	_, err = createLambdaResource(stack, stackProps, grafanaWorkspaceName, dashboardName, cloudwatchDatasourceName, dbInstanceNames)
 	if err != nil {
 		log.Printf("Error adding Lambda function to stack: %s", err)
 		return

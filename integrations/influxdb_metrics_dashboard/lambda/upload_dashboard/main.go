@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -76,141 +77,18 @@ func sendGrafanaHttpReq(httpClient http.Client, req *http.Request) (*http.Respon
 	return resp, nil
 }
 
-func uploadDashboard(serviceAccountTokenKey string, workspaceUrl string, datasourceName string, dashboardName string, databaseName string) (string, error) {
-	const SleepDuration = 10
-	const MaxWaitIntervals = 100
-
-	var plugins []struct {
-		Id   string `json:"id"`
-		Name string `json:"name"`
-	}
-
+func uploadDashboard(serviceAccountTokenKey string, workspaceUrl string, datasourceName string, dashboardName string, dbInstanceNames string) (string, error) {
 	httpClient := &http.Client{
 		Timeout: 30 * time.Second,
 	}
 
-	installTimestreamPluginReq, err := getGrafanaHttpReq(
-		"POST",
-		workspaceUrl+"/api/plugins/grafana-timestream-datasource/install",
-		nil,
-		serviceAccountTokenKey,
-	)
-	if err != nil {
-		return "", err
-	}
-	installTimestreamPluginResp, err := sendGrafanaHttpReq(*httpClient, installTimestreamPluginReq)
-	if err != nil {
-		log.Printf("Failed to install Timestream plugin in Grafana workspace: %s", err)
-		return "", err
-	}
-
-	if installTimestreamPluginResp.StatusCode == http.StatusConflict {
-		log.Printf("Timestream plugin is already installed in the Grafana workspace")
-	} else if installTimestreamPluginResp.StatusCode != http.StatusOK {
-		log.Printf("Received status code %d when trying to install plugin: %s", installTimestreamPluginResp.StatusCode, err)
-		return "", fmt.Errorf("error: %d", installTimestreamPluginResp.StatusCode)
-	}
-	log.Printf("Timestream data source installed")
-
-	getGrafanaPluginsReq, err := getGrafanaHttpReq(
-		"GET",
-		workspaceUrl+"/api/plugins",
-		nil,
-		serviceAccountTokenKey,
-	)
-	if err != nil {
-		return "", err
-	}
-
-	getGrafanaPluginsResp, err := sendGrafanaHttpReq(*httpClient, getGrafanaPluginsReq)
-	if err != nil {
-		log.Printf("Failed to retrieve plugins for Grafana workspace: %s", err)
-		return "", err
-	}
-
-	waiterInterval := 0
-	for waiterInterval < MaxWaitIntervals {
-		// Let Grafana catch up
-		time.Sleep(SleepDuration * time.Second)
-		body, err := io.ReadAll(getGrafanaPluginsResp.Body)
-		if err != nil {
-			log.Printf("Failed to read response body %s", err)
-			return "", err
-		}
-		if err := json.Unmarshal(body, &plugins); err != nil {
-			log.Printf("Failed to unmarshal JSON %s", err)
-			return "", err
-		}
-		pluginInstalled := false
-		for _, plugin := range plugins {
-			if plugin.Name == "Amazon Timestream" {
-				pluginInstalled = true
-				break
-			}
-		}
-		if pluginInstalled {
-			break
-		}
-		getGrafanaPluginsResp, err = httpClient.Do(getGrafanaPluginsReq)
-		if err != nil {
-			log.Printf("failed to retrieve plugins for grafana workspace: %s", err)
-			return "", err
-		}
-
-		waiterInterval++
-	}
-
-	if waiterInterval == MaxWaitIntervals {
-		return "", fmt.Errorf("timeout reached for installing Timestream plugin in workspace")
-	}
-
-	// Grafana still requires additional time after plugin is listed installed
-	time.Sleep(20 * time.Second)
-
-	enablePluginConfig := map[string]interface{}{
-		"enabled": true,
-		"pinned":  true,
-	}
-
-	jsonPluginConfig, err := json.Marshal(enablePluginConfig)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal JSON: %v", err)
-	}
-
-	enableGrafanaPluginReq, err := getGrafanaHttpReq(
-		"POST",
-		workspaceUrl+"/api/plugins/grafana-timestream-datasource/settings",
-		bytes.NewBuffer(jsonPluginConfig),
-		serviceAccountTokenKey,
-	)
-	if err != nil {
-		return "", err
-	}
-	enableGrafanaPluginResp, err := sendGrafanaHttpReq(*httpClient, enableGrafanaPluginReq)
-	if err != nil {
-		log.Printf("Failed to enable Grafana plugin: %s", err)
-		return "", err
-	}
-
-	if enableGrafanaPluginResp.StatusCode == http.StatusOK {
-		log.Printf("Timestream plugin successfully enabled")
-	} else if enableGrafanaPluginResp.StatusCode == http.StatusConflict {
-		log.Printf("Timestream plugin already enabled")
-	} else {
-		log.Printf("Failed to enable with status code %d", enableGrafanaPluginResp.StatusCode)
-		return "", fmt.Errorf("failed to enable Timestream plugin: %d", enableGrafanaPluginResp.StatusCode)
-	}
-
-	log.Printf("Timestream plugin installed")
 	dataSourceConfig := map[string]interface{}{
 		"name":   datasourceName,
-		"type":   "grafana-timestream-datasource",
+		"type":   "cloudwatch",
 		"access": "proxy",
 		"jsonData": map[string]interface{}{
-			"defaultRegion":      os.Getenv("AWS_REGION"),
-			"database":           "",
-			"table":              "",
-			"authenticationType": "AWS_IAM",
+			"authType":      "default",
+			"defaultRegion": os.Getenv("AWS_REGION"),
 		},
 	}
 
@@ -230,20 +108,20 @@ func uploadDashboard(serviceAccountTokenKey string, workspaceUrl string, datasou
 	}
 	configureGrafanaDatasourceResp, err := sendGrafanaHttpReq(*httpClient, configureGrafanaDatasourceReq)
 	if err != nil {
-		log.Printf("Failed to configure Timestream data source: %s", err)
+		log.Printf("Failed to configure CloudWatch data source: %s", err)
 		return "", err
 	}
 
 	if configureGrafanaDatasourceResp.StatusCode == http.StatusOK {
-		log.Printf("Timestream data source successfully added to workspace")
+		log.Printf("CloudWatch data source successfully added to workspace")
 	} else if configureGrafanaDatasourceResp.StatusCode == http.StatusConflict {
-		log.Printf("Timestream data source already exists in workspace")
+		log.Printf("CloudWatch data source already exists in workspace")
 	} else {
-		log.Printf("Failed to add Timestream data source to workspace with status code %d", configureGrafanaDatasourceResp.StatusCode)
-		return "", fmt.Errorf("failed to add Timestream data source: %d", configureGrafanaDatasourceResp.StatusCode)
+		log.Printf("Failed to add CloudWatch data source to workspace with status code %d", configureGrafanaDatasourceResp.StatusCode)
+		return "", fmt.Errorf("failed to add CloudWatch data source: %d", configureGrafanaDatasourceResp.StatusCode)
 	}
 
-	jsonDashboard, err := json.Marshal(generateDashboard(datasourceName, dashboardName, databaseName))
+	jsonDashboard, err := json.Marshal(generateDashboard(datasourceName, dashboardName, dbInstanceNames))
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal JSON: %v", err)
 	}
@@ -278,17 +156,17 @@ func createGrafanaDashboard() (string, error) {
 	if workspaceName == "" {
 		return "", fmt.Errorf("Failed to get GrafanaWorkspaceName environment variable")
 	}
-	datasourceName := os.Getenv("TimestreamDatasourceName")
+	datasourceName := os.Getenv("CloudWatchDatasourceName")
 	if datasourceName == "" {
-		return "", fmt.Errorf("Failed to get TimestreamDatasourceName environment variable")
+		return "", fmt.Errorf("Failed to get CloudWatchDatasourceName environment variable")
 	}
 	dashboardName := os.Getenv("DashboardName")
 	if dashboardName == "" {
 		return "", fmt.Errorf("Failed to get DashboardName environment variable")
 	}
-	databaseName := os.Getenv("DatabaseName")
-	if databaseName == "" {
-		return "", fmt.Errorf("Failed to get DatabaseName environment variable")
+	dbInstanceNames := os.Getenv("DbInstanceNames")
+	if dbInstanceNames == "" {
+		return "", fmt.Errorf("Failed to get DbInstanceNames environment variable")
 	}
 
 	awsConfig, err := config.LoadDefaultConfig(context.TODO())
@@ -379,7 +257,7 @@ func createGrafanaDashboard() (string, error) {
 				log.Printf("Existing service account token exists which needs to be deleted and re-created")
 				grafanaClient.DeleteWorkspaceServiceAccountToken(context.TODO(), &grafana.DeleteWorkspaceServiceAccountTokenInput{
 					ServiceAccountId: &serviceAccountID,
-					TokenId:          *&serviceAccountToken.Id,
+					TokenId:          serviceAccountToken.Id,
 					WorkspaceId:      grafanaWorkspace.Id,
 				})
 				break
@@ -418,7 +296,7 @@ func createGrafanaDashboard() (string, error) {
 		time.Sleep(SleepDuration * time.Second)
 	}
 
-	ret, err := uploadDashboard(serviceAccountTokenKey, *grafanaWorkspace.Endpoint, datasourceName, dashboardName, databaseName)
+	ret, err := uploadDashboard(serviceAccountTokenKey, *grafanaWorkspace.Endpoint, datasourceName, dashboardName, dbInstanceNames)
 	if err != nil {
 		return "", err
 	}
@@ -447,50 +325,12 @@ func main() {
 }
 
 type panelField struct {
-	gridPosition map[string]interface{}
-	title        string
-	panelType    string
-	refId        string
-	query        string
-}
-
-func generateBucketedGaugePanelQuery(instanceName string, databaseName string, tableName string) string {
-	return fmt.Sprintf(`SELECT CONCAT('ID: ', %s), CONCAT('bucket: ', bucket), gauge FROM "%s"."%s"
-  WHERE time = (
-    SELECT MAX(time)
-      FROM "%s"."%s" as subquery
-  	  WHERE subquery.%s = "%s".%s
-  	AND subquery.bucket = "%s".bucket
-)
-ORDER BY %s, bucket LIMIT 25`, instanceName, databaseName, tableName, databaseName, tableName, instanceName, tableName, instanceName, tableName, instanceName)
-}
-
-func generateGaugePanelQuery(instanceName string, databaseName string, tableName string) string {
-	return fmt.Sprintf(`SELECT CONCAT('ID: ', %s), gauge FROM "%s"."%s"
-  WHERE time = (
-    SELECT MAX(time)
-      FROM "%s"."%s" as subquery
-  	  WHERE subquery.%s = "%s".%s
-)
-ORDER BY %s LIMIT 25`, instanceName, databaseName, tableName, databaseName, tableName, instanceName, tableName, instanceName, instanceName)
-}
-
-func generateCloudWatchGaugePanelQuery(instanceName string, databaseName string, tableName string, metricName string) string {
-	return fmt.Sprintf(`SELECT CONCAT('ID: ', %s), %s FROM "%s"."%s"
-  WHERE time = (
-    SELECT MAX(time)
-      FROM "%s"."%s" as subquery
-  	  WHERE subquery.%s = "%s".%s
-)
-ORDER BY %s LIMIT 25`, instanceName, metricName, databaseName, tableName, databaseName, tableName, instanceName, tableName, instanceName, instanceName)
-}
-
-func generateCounterStatPanelQuery(instanceName string, databaseName string, tableName string) string {
-	return fmt.Sprintf("SELECT CONCAT('ID: ', %s), MAX(counter) FROM \"%s\".\"%s\" GROUP BY %s ORDER BY %s DESC LIMIT 25", instanceName, databaseName, tableName, instanceName, instanceName)
-}
-
-func generateEndpointCounterStatPanelQuery(instanceName string, databaseName string, tableName string, endpoint string) string {
-	return fmt.Sprintf("SELECT CONCAT('ID: ', %s), MAX(counter) FROM \"%s\".\"%s\" WHERE endpoint LIKE '%s' GROUP BY %s ORDER BY %s DESC LIMIT 25", instanceName, databaseName, tableName, endpoint, instanceName, instanceName)
+	gridPosition  map[string]interface{}
+	title         string
+	panelType     string
+	refId         string
+	statisticType string
+	metricName    string
 }
 
 func generatePanelOptions(panelType string) map[string]interface{} {
@@ -506,7 +346,7 @@ func generatePanelOptions(panelType string) map[string]interface{} {
 					"lastNotNull",
 				},
 				"fields": "",
-				"values": true,
+				"values": false,
 			},
 			"showPercentChange": false,
 			"textMode":          "auto",
@@ -543,7 +383,7 @@ func generatePanelOptions(panelType string) map[string]interface{} {
 					"lastNotNull",
 				},
 				"fields": "",
-				"values": true,
+				"values": false,
 			},
 			"showThresholdLabels":  false,
 			"showThresholdMarkers": true,
@@ -682,20 +522,20 @@ func generatePanelFieldConfig(panelType string, panelTitle string) map[string]in
 	}
 }
 
-func generatePanels(datasourceName string, databaseName string) []interface{} {
+func generatePanels(datasourceName string) []interface{} {
 
 	panelFields := []panelField{
-		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 0}, "Query execution duration in seconds", "bargauge", "A", fmt.Sprintf("SELECT * FROM \"%s\".\"qc_executing_duration_seconds\" ORDER BY time desc", databaseName)},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 0}, "Memory utilization", "gauge", "B", generateCloudWatchGaugePanelQuery("influxDBInstance", databaseName, "cloudwatch_aws_timestream_influx_db", "memory_utilization_average")},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 8}, "CPU utilization", "gauge", "C", generateCloudWatchGaugePanelQuery("influxDBInstance", databaseName, "cloudwatch_aws_timestream_influx_db", "cpu_utilization_average")},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 8}, "Disk utilization", "gauge", "D", generateCloudWatchGaugePanelQuery("influxDBInstance", databaseName, "cloudwatch_aws_timestream_influx_db", "disk_utilization_average")},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 16}, "Total available memory from system", "stat", "E", generateGaugePanelQuery("influxDBInstance", databaseName, "go_memstats_sys_bytes")},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 16}, "Bucket cardinality", "stat", "F", generateBucketedGaugePanelQuery("influxDBInstance", databaseName, "storage_bucket_series_num")},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 24}, "Memory cache usage", "stat", "G", generateGaugePanelQuery("influxDBInstance", databaseName, "go_memstats_mcache_inuse_bytes")},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 24}, "BoltDb writes", "stat", "H", generateCounterStatPanelQuery("influxDBInstance", databaseName, "boltdb_writes_total")},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 32}, "Allocated memory", "stat", "I", generateGaugePanelQuery("influxDBInstance", databaseName, "go_memstats_alloc_bytes")},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 32}, "HTTP write requests count", "stat", "J", generateEndpointCounterStatPanelQuery("influxDBInstance", databaseName, "http_write_request_count", "%write%")},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 40}, "HTTP query requests count", "stat", "K", generateEndpointCounterStatPanelQuery("influxDBInstance", databaseName, "http_query_request_count", "%query%")},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 0}, "Query execution duration in seconds", "bargauge", "A", "Sum", "qc_executing_duration_seconds_0.025"},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 0}, "Memory utilization", "gauge", "B", "Average", "MemoryUtilization"},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 8}, "CPU utilization", "gauge", "C", "Average", "CPUUtilization"},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 8}, "Disk utilization", "gauge", "D", "Average", "DiskUtilization"},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 16}, "Total available memory from system", "stat", "E", "Maximum", "go_memstats_sys_bytes_gauge"},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 16}, "Bucket cardinality", "stat", "F", "Maximum", "storage_bucket_series_num_gauge"},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 24}, "Memory cache usage", "stat", "G", "Maximum", "go_memstats_mcache_inuse_bytes_gauge"},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 24}, "BoltDb writes", "stat", "H", "Maximum", "boltdb_writes_total_counter"},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 32}, "Allocated memory", "stat", "I", "Maximum", "go_memstats_alloc_bytes_gauge"},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 32}, "HTTP write requests count", "stat", "J", "Maximum", "http_write_request_count_counter"},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 40}, "HTTP query requests count", "stat", "K", "Maximum", "http_query_request_count_counter"},
 	}
 
 	var panelConfig []interface{}
@@ -707,9 +547,24 @@ func generatePanels(datasourceName string, databaseName string) []interface{} {
 				"targets": []interface{}{
 					map[string]interface{}{
 						"datasource": datasourceName,
-						"format":     0,
-						"rawQuery":   panel.query,
-						"refId":      panel.refId,
+						"region":     "default",
+						"logGroups":  []interface{}{},
+						"queryMode":  "Metrics",
+						"namespace":  "AWS/Timestream/InfluxDB",
+						"metricName": panel.metricName,
+						"expression": "",
+						"dimensions": map[string]interface{}{
+							"DbInstanceName": "$instanceName",
+						},
+						"statistic":        panel.statisticType,
+						"period":           "",
+						"metricQueryType":  0,
+						"metricEditorMode": 0,
+						"sqlExpression":    "",
+						"matchExact":       true,
+						"refId":            panel.refId,
+						"hide":             false,
+						"label":            "",
 					},
 				},
 				"title":       panel.title,
@@ -723,13 +578,54 @@ func generatePanels(datasourceName string, databaseName string) []interface{} {
 	return panelConfig
 }
 
-func generateDashboard(datasourceName string, dashboardName string, databaseName string) map[string]interface{} {
+func generateDashboard(datasourceName string, dashboardName string, dbInstanceNames string) map[string]interface{} {
+
+	currentTemplateOptions := map[string]interface{}{}
+	templateOptions := []interface{}{}
+	firstOption := true
+	for _, dbInstanceName := range strings.Split(dbInstanceNames, ",") {
+
+		templateOptions = append(
+			templateOptions, map[string]interface{}{
+				"selected": firstOption,
+				"text":     dbInstanceName,
+				"value":    dbInstanceName,
+			},
+		)
+
+		if firstOption {
+			currentTemplateOptions["current"] = map[string]interface{}{
+				"selected": false,
+				"text":     dbInstanceName,
+				"value":    dbInstanceName,
+			}
+			firstOption = false
+		}
+	}
+
 	dashboardConfig := map[string]interface{}{
 		"overwrite": true,
 		"folder":    0,
 		"dashboard": map[string]interface{}{
-			"panels": generatePanels(datasourceName, databaseName),
+			"panels": generatePanels(datasourceName),
 			"title":  dashboardName,
+			"templating": map[string]interface{}{
+				"list": []interface{}{
+					map[string]interface{}{
+						"current":     currentTemplateOptions["current"],
+						"hide":        0,
+						"includeAll":  false,
+						"label":       "",
+						"multi":       false,
+						"name":        "instanceName", // Variable name used in Grafana
+						"options":     templateOptions,
+						"query":       dbInstanceNames,
+						"queryValue":  "",
+						"skipUrlSync": false,
+						"type":        "custom",
+					},
+				},
+			},
 		},
 		"time": map[string]interface{}{
 			"from": "now-15m",
