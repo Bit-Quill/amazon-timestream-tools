@@ -2,7 +2,7 @@
 
 ## Overview
 
-The InfluxDB Metrics Dashboard creates a Grafana dashboard to visualize existing Timestream for InfluxDB instance performance metrics. The application deploys an EC2 instance running Telegraf to scrape the `/metrics` endpoint of a Timestream for InfluxDB instance, and ingest the scraped metrics to Timestream for LiveAnalytics. After the CloudFormation stack has been deployed, a Lambda function creates a Grafana workspace, and uploads the performance metrics dashboard. The Lambda function is run only once during CDK app initialization.
+The InfluxDB Metrics Dashboard creates a Grafana dashboard to visualize existing Timestream for InfluxDB instance performance metrics. The application deploys an EC2 instance running Telegraf to scrape the `/metrics` endpoint of one or more Timestream for InfluxDB instances in a VPC, and ingests the scraped metrics to CloudWatch. After the CloudFormation stack has been deployed, a Lambda function creates a Grafana workspace, and uploads the performance metrics dashboard. The Lambda function is run only once during CDK app initialization and uploads the JSON configuration for your Grafana dashboard.
 
 <img src="./images/architecture.png" alt="drawing" width="800"/>
 
@@ -22,9 +22,9 @@ The following context options are required when deploying the CDK application:
 The following context options are optional when deploying the CDK application:
 
 1. **GrafanaWorkspaceName**: The name used for the Grafana worspace. The context defaults to `InfluxDBMetricDashboardWorkspace`.
-2. **TimestreamDatasourceName**: The name of the data source used for populating the dashboard. The context defaults to `Amazon Timestream for LiveAnalytics Sample Data Source`.
+2. **CloudWatchDatasourceName**: The name of the data source used for populating the dashboard. The context defaults to `Amazon CloudWatch Data Source`.
 3. **DashboardName**: The name used for the Grafana dashboard. The context defaults to `InfluxDB Performance Dashboard`.
-4. **DatabaseName**: The name of the Timestream database where the InfluxDB metrics are stored. The context defaults to `InfluxDBMetrics`.
+4. **TelegrafSshCidr**: The CIDR IP address used in a rule to allow SSH access to the EC2 instance running Telegraf. If the context is not used when deploying the application, no SSH rule will be added to the EC2 instance security group.
 
 ## Getting started
 
