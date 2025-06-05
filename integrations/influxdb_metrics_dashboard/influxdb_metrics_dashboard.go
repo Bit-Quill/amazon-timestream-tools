@@ -441,12 +441,11 @@ func createLambdaResource(stack awscdk.Stack, stackProps awscdk.StackProps, graf
 			}),
 			awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
 				Actions: &[]*string{
-					//					jsii.String("grafana:CreateWorkspaceServiceAccount"),
-					//					jsii.String("grafana:CreateWorkspaceServiceAccountToken"),
-					//					jsii.String("grafana:DeleteWorkspaceServiceAccountToken"),
-					//					jsii.String("grafana:ListWorkspaceServiceAccounts"),
-					//					jsii.String("grafana:ListWorkspaceServiceAccountTokens"),
-					jsii.String("grafana:*"),
+					jsii.String("grafana:CreateWorkspaceServiceAccount"),
+					jsii.String("grafana:CreateWorkspaceServiceAccountToken"),
+					jsii.String("grafana:DeleteWorkspaceServiceAccountToken"),
+					jsii.String("grafana:ListWorkspaceServiceAccounts"),
+					jsii.String("grafana:ListWorkspaceServiceAccountTokens"),
 				},
 				Resources: &[]*string{
 					jsii.String(fmt.Sprintf("arn:aws:grafana:%s:%s:/workspaces/*", *stackProps.Env.Region, *stackProps.Env.Account)),
