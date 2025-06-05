@@ -328,9 +328,8 @@ type panelField struct {
 	gridPosition  map[string]interface{}
 	title         string
 	panelType     string
-	refId         string
 	statisticType string
-	metricName    string
+	metricNames   []string
 }
 
 func generatePanelOptions(panelType string) map[string]interface{} {
@@ -525,48 +524,67 @@ func generatePanelFieldConfig(panelType string, panelTitle string) map[string]in
 func generatePanels(datasourceName string) []interface{} {
 
 	panelFields := []panelField{
-		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 0}, "Query execution duration in seconds", "bargauge", "A", "Sum", "qc_executing_duration_seconds_0.025"},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 0}, "Memory utilization", "gauge", "B", "Average", "MemoryUtilization"},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 8}, "CPU utilization", "gauge", "C", "Average", "CPUUtilization"},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 8}, "Disk utilization", "gauge", "D", "Average", "DiskUtilization"},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 16}, "Total available memory from system", "stat", "E", "Maximum", "go_memstats_sys_bytes_gauge"},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 16}, "Bucket cardinality", "stat", "F", "Maximum", "storage_bucket_series_num_gauge"},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 24}, "Memory cache usage", "stat", "G", "Maximum", "go_memstats_mcache_inuse_bytes_gauge"},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 24}, "BoltDb writes", "stat", "H", "Maximum", "boltdb_writes_total_counter"},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 32}, "Allocated memory", "stat", "I", "Maximum", "go_memstats_alloc_bytes_gauge"},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 32}, "HTTP write requests count", "stat", "J", "Maximum", "http_write_request_count_counter"},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 40}, "HTTP query requests count", "stat", "K", "Maximum", "http_query_request_count_counter"},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 0}, "Query execution duration in seconds", "bargauge", "Sum",
+			[]string{
+				"qc_executing_duration_seconds_3.125",
+				"qc_executing_duration_seconds_0.625",
+				"qc_executing_duration_seconds_0.125",
+				"qc_executing_duration_seconds_0.025",
+				"qc_executing_duration_seconds_0.005",
+				"qc_executing_duration_seconds_0.001",
+			},
+		},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 0}, "Memory utilization", "gauge", "Average", []string{"MemoryUtilization"}},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 8}, "CPU utilization", "gauge", "Average", []string{"CPUUtilization"}},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 8}, "Disk utilization", "gauge", "Average", []string{"DiskUtilization"}},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 16}, "Total Go system memory usage", "stat", "Maximum", []string{"go_memstats_sys_bytes_gauge"}},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 16}, "Bucket cardinality", "stat", "Maximum", []string{"storage_bucket_series_num_gauge"}},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 24}, "Memory cache usage", "stat", "Maximum", []string{"go_memstats_mcache_inuse_bytes_gauge"}},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 24}, "BoltDb writes", "stat", "Maximum", []string{"boltdb_writes_total_counter"}},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 32}, "Allocated memory", "stat", "Maximum", []string{"go_memstats_alloc_bytes_gauge"}},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 32}, "HTTP write requests count", "stat", "Maximum", []string{"http_write_request_count_counter"}},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 40}, "HTTP query requests count", "stat", "Maximum", []string{"http_query_request_count_counter"}},
 	}
 
 	var panelConfig []interface{}
 	for _, panel := range panelFields {
+
+		var panelTargets []interface{}
+		var refId byte = 'A'
+		for _, metricName := range panel.metricNames {
+			panelTargets = append(
+				panelTargets,
+				map[string]interface{}{
+					"datasource": datasourceName,
+					"region":     "default",
+					"logGroups":  []interface{}{},
+					"queryMode":  "Metrics",
+					"namespace":  "AWS/Timestream/InfluxDB",
+					"metricName": metricName,
+					"expression": "",
+					"dimensions": map[string]interface{}{
+						"DbInstanceName": "$instanceName",
+					},
+					"statistic":        panel.statisticType,
+					"period":           "",
+					"metricQueryType":  0,
+					"metricEditorMode": 0,
+					"sqlExpression":    "",
+					"matchExact":       true,
+					"refId":            string(refId),
+					"hide":             false,
+					"label":            "",
+				},
+			)
+			// Up one letter in alphabet
+			refId += byte(2)
+		}
+
 		panelConfig = append(
 			panelConfig,
 			map[string]interface{}{
-				"gridPos": panel.gridPosition,
-				"targets": []interface{}{
-					map[string]interface{}{
-						"datasource": datasourceName,
-						"region":     "default",
-						"logGroups":  []interface{}{},
-						"queryMode":  "Metrics",
-						"namespace":  "AWS/Timestream/InfluxDB",
-						"metricName": panel.metricName,
-						"expression": "",
-						"dimensions": map[string]interface{}{
-							"DbInstanceName": "$instanceName",
-						},
-						"statistic":        panel.statisticType,
-						"period":           "",
-						"metricQueryType":  0,
-						"metricEditorMode": 0,
-						"sqlExpression":    "",
-						"matchExact":       true,
-						"refId":            panel.refId,
-						"hide":             false,
-						"label":            "",
-					},
-				},
+				"gridPos":     panel.gridPosition,
+				"targets":     panelTargets,
 				"title":       panel.title,
 				"type":        panel.panelType,
 				"options":     generatePanelOptions(panel.panelType),
