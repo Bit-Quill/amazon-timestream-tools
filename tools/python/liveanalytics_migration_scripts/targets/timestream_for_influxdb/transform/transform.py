@@ -152,6 +152,42 @@ def get_timestream_to_athena_ddl_type_mapping(timestream_type: str) -> str:
         )
     return athena_type
 
+def get_parquet_column_details(s3_uri: str):
+    s3, path = fs.FileSystem.from_uri(s3_uri)
+    with s3.open_input_file(path) as file:
+        parquet_file = pq.ParquetFile(file)
+        schema = parquet_file.schema_arrow
+        all_field_names = {field.name for field in schema}
+
+        formatted_columns = []
+        processed_fields = set()
+
+        for field in schema:
+            field_name = field.name
+            if field_name in processed_fields:
+                continue
+
+            column_type = str(field.type).upper()
+
+            if column_type == "TIMESTAMP[NS]":
+                ns_field_name = f"{field_name}_ns"
+                # Check if corresponding _ns field exists
+                if ns_field_name in all_field_names:
+                    # Use the _ns field instead and mark both as processed
+                    formatted_columns.append(f"`{ns_field_name}` STRING")
+                    processed_fields.add(field_name)
+                    processed_fields.add(ns_field_name)
+                else:
+                    # No _ns field exists, use the original field
+                    formatted_columns.append(f"`{field_name}` TIMESTAMP")
+                    processed_fields.add(field_name)
+            elif column_type == "INT64":
+                formatted_columns.append(f"`{field_name}` BIGINT")
+                processed_fields.add(field_name)
+            else:
+                formatted_columns.append(f"`{field_name}` {column_type}")
+                processed_fields.add(field_name)
+        return formatted_columns
 
 def get_arrow_to_athena_ddl_type_mapping(arrow_type: str) -> str:
     athena_type = arrow_to_athena_ddl_type_mappings.get(arrow_type.upper(), "")
@@ -232,7 +268,7 @@ def create_and_load_athena_table(
             create. Defaults to <timestream_database_name>_<timestream_table_name>.
 
     Returns:
-        None
+        List(str): Columns from loaded athena table
     """
 
     # Timestream database and table names are passed directly into a Timestream
