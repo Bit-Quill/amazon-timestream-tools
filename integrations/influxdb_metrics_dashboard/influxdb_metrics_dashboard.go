@@ -72,7 +72,7 @@ func getTelegrafPluginsConfig(configVars map[string]string) string {
 `
 	telegrafTmpl, err := template.New("telegrafConfigTemplate").Parse(telegrafPluginConf)
 	if err != nil {
-		log.Printf("Failed creating new template for Telegraf plugin config")
+		log.Printf("Failed creating new template for Telegraf plugin config: " + err.Error())
 		os.Exit(1)
 	}
 
@@ -438,6 +438,11 @@ func createLambdaResource(stack awscdk.Stack, stackProps awscdk.StackProps, graf
 				Resources: &[]*string{
 					jsii.String("*"),
 				},
+				Conditions: &map[string]interface{}{
+					"StringEquals": map[string]*string{
+						"cloudwatch:namespace": jsii.String("AWS/Timestream/InfluxDB"),
+					},
+        },
 			}),
 			awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
 				Actions: &[]*string{
