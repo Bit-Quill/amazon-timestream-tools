@@ -577,7 +577,7 @@ func generatePanels(datasourceName string) []interface{} {
 				},
 			)
 			// Up one letter in alphabet
-			refId += byte(2)
+			refId += byte(1)
 		}
 
 		panelConfig = append(
