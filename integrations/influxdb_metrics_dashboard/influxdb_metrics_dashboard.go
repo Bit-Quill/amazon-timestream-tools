@@ -17,11 +17,9 @@ import (
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
 	"github.com/aws/aws-cdk-go/awscdk/v2/customresources"
-	//	"github.com/aws/aws-cdk-go/awscdk/v2/awstimestream"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
-	//	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/aws-sdk-go-v2/service/timestreaminfluxdb"
 	"github.com/aws/jsii-runtime-go"
 )
@@ -214,23 +212,20 @@ service telegraf start
 	return ec2InitScriptBuf.String()
 }
 
-type InfluxDBSecurityGroupRule struct {
-	InfluxDBInstanceVisibility bool
-	InfluxDBInstancePort       int32
-	InfluxDBSecurityGroupId    string
+type influxDBSecurityGroupRule struct {
+	influxDBInstanceVisibility bool
+	influxDBInstancePort       int32
+	influxDBSecurityGroupId    string
 }
 
-type InfluxDBVpcInfo struct {
-	VpcRule map[string]InfluxDBSecurityGroupRule
-}
-
-func addInfluxDBVpcRuleInfo(vpcInfo *InfluxDBVpcInfo, publiclyAccessible bool, port int32, securityGroupId string) {
+func addInfluxDBVpcRuleInfo(influxDBVpcRules map[string]influxDBSecurityGroupRule, publiclyAccessible bool, port int32, securityGroupId string) {
+	// We only need on rule for each unique combination of port and publicly accessible per InfluxDB instance
 	mapKey := fmt.Sprintf("%t:%d", publiclyAccessible, port)
-	if _, exists := vpcInfo.VpcRule[mapKey]; !exists {
-		vpcInfo.VpcRule[mapKey] = InfluxDBSecurityGroupRule{
-			InfluxDBInstanceVisibility: publiclyAccessible,
-			InfluxDBInstancePort:       port,
-			InfluxDBSecurityGroupId:    securityGroupId,
+	if _, exists := influxDBVpcRules[mapKey]; !exists {
+		influxDBVpcRules[mapKey] = influxDBSecurityGroupRule{
+			influxDBInstanceVisibility: publiclyAccessible,
+			influxDBInstancePort:       port,
+			influxDBSecurityGroupId:    securityGroupId,
 		}
 	}
 }
@@ -262,7 +257,7 @@ func addTelegrafEC2InstanceToStack(stack awscdk.Stack, stackProps awscdk.StackPr
 
 	cloudwatchPolicy.AttachToRole(instanceRole)
 
-	vpcInfo := InfluxDBVpcInfo{VpcRule: make(map[string]InfluxDBSecurityGroupRule)}
+	influxDBVpcRules := make(map[string]influxDBSecurityGroupRule)
 	influxDBInstanceNames := ""
 	instanceEndpoint := ""
 	vpcId := ""
@@ -322,7 +317,7 @@ func addTelegrafEC2InstanceToStack(stack awscdk.Stack, stackProps awscdk.StackPr
 			os.Exit(1)
 		}
 
-		addInfluxDBVpcRuleInfo(&vpcInfo, *influxDBInstance.PubliclyAccessible, *influxDBInstance.Port, influxDBInstance.VpcSecurityGroupIds[0])
+		addInfluxDBVpcRuleInfo(influxDBVpcRules, *influxDBInstance.PubliclyAccessible, *influxDBInstance.Port, influxDBInstance.VpcSecurityGroupIds[0])
 
 		telegrafPluginConfigTemplateVars := map[string]string{
 			"InstanceName":                *influxDBInstance.Name,
@@ -364,10 +359,10 @@ func addTelegrafEC2InstanceToStack(stack awscdk.Stack, stackProps awscdk.StackPr
 	})
 
 	// Add a rule for each InfluxDB instance in the EC2 security group
-	for _, rule := range vpcInfo.VpcRule {
+	for _, rule := range influxDBVpcRules {
 		ec2SecurityGroup.AddIngressRule(
 			awsec2.Peer_Ipv4(jsii.String(*vpc.VpcCidrBlock())),
-			awsec2.Port_Tcp(jsii.Number(rule.InfluxDBInstancePort)),
+			awsec2.Port_Tcp(jsii.Number(rule.influxDBInstancePort)),
 			jsii.String("Allow open access to InfluxDB /metrics endpoint"),
 			jsii.Bool(false),
 		)
@@ -396,9 +391,9 @@ func addTelegrafEC2InstanceToStack(stack awscdk.Stack, stackProps awscdk.StackPr
 	})
 
 	// Add a rule for each InfluxDB instance with EC2 access
-	for i, rule := range vpcInfo.VpcRule {
+	for i, rule := range influxDBVpcRules {
 		var targetIp *string
-		if rule.InfluxDBInstanceVisibility {
+		if rule.influxDBInstanceVisibility {
 			targetIp = ec2Instance.InstancePublicIp()
 		} else {
 			targetIp = ec2Instance.InstancePrivateIp()
@@ -407,7 +402,7 @@ func addTelegrafEC2InstanceToStack(stack awscdk.Stack, stackProps awscdk.StackPr
 		influxDBSecurityGroup := awsec2.SecurityGroup_FromSecurityGroupId(
 			stack,
 			jsii.String("InfluxDBSG"+i),
-			jsii.String(rule.InfluxDBSecurityGroupId),
+			jsii.String(rule.influxDBSecurityGroupId),
 			&awsec2.SecurityGroupImportOptions{
 				Mutable: jsii.Bool(true),
 			},
@@ -415,7 +410,7 @@ func addTelegrafEC2InstanceToStack(stack awscdk.Stack, stackProps awscdk.StackPr
 
 		influxDBSecurityGroup.AddIngressRule(
 			awsec2.Peer_Ipv4(jsii.String(*targetIp+"/32")),
-			awsec2.Port_Tcp(jsii.Number(rule.InfluxDBInstancePort)),
+			awsec2.Port_Tcp(jsii.Number(rule.influxDBInstancePort)),
 			jsii.String("Allow EC2 instance access to InfluxDB instances"),
 			jsii.Bool(false),
 		)
