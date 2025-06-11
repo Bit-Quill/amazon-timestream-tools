@@ -19,6 +19,17 @@ import (
 	grafanaTypes "github.com/aws/aws-sdk-go-v2/service/grafana/types"
 )
 
+// getWorkspaceByName retrieves a Grafana workspace by its name.
+// It lists all workspaces and finds the one matching the provided name.
+// If the workspace is not immediately available, it will retry with a backoff strategy.
+//
+// Parameters:
+//   - grafanaClient: The Grafana client used to make API calls
+//   - workspaceName: The name of the workspace to find
+//
+// Returns:
+//   - *grafanaTypes.WorkspaceSummary: The workspace summary if found
+//   - error: An error if the workspace cannot be found or if there's an API error
 func getWorkspaceByName(grafanaClient *grafana.Client, workspaceName string) (*grafanaTypes.WorkspaceSummary, error) {
 	const SleepDuration = 5
 	const MaxWaitIntervals = 200
@@ -56,6 +67,18 @@ func getWorkspaceByName(grafanaClient *grafana.Client, workspaceName string) (*g
 	return nil, fmt.Errorf("failed to find workspace %s in workspaces", workspaceName)
 }
 
+// getGrafanaHttpReq creates an HTTP request for Grafana API calls.
+// It sets up the necessary headers including content type and authorization.
+//
+// Parameters:
+//   - requestType: The HTTP method (GET, POST, etc.)
+//   - urlWithEndpoint: The full URL with endpoint for the request
+//   - payload: The request body
+//   - serviceAccountTokenKey: The service account token for authorization
+//
+// Returns:
+//   - *http.Request: The prepared HTTP request
+//   - error: An error if the request creation fails
 func getGrafanaHttpReq(requestType string, urlWithEndpoint string, payload io.Reader, serviceAccountTokenKey string) (*http.Request, error) {
 	req, err := http.NewRequest(requestType, "https://"+urlWithEndpoint, payload)
 	if err != nil {
@@ -68,6 +91,15 @@ func getGrafanaHttpReq(requestType string, urlWithEndpoint string, payload io.Re
 	return req, nil
 }
 
+// sendGrafanaHttpReq executes an HTTP request against the Grafana API.
+//
+// Parameters:
+//   - httpClient: The HTTP client to use for the request
+//   - req: The prepared HTTP request to send
+//
+// Returns:
+//   - *http.Response: The HTTP response
+//   - error: An error if the request execution fails
 func sendGrafanaHttpReq(httpClient http.Client, req *http.Request) (*http.Response, error) {
 	resp, err := httpClient.Do(req)
 	if err != nil {
@@ -77,6 +109,20 @@ func sendGrafanaHttpReq(httpClient http.Client, req *http.Request) (*http.Respon
 	return resp, nil
 }
 
+// uploadDashboard uploads a dashboard to a Grafana workspace.
+// It first configures a CloudWatch data source if it doesn't exist,
+// then creates and uploads the dashboard.
+//
+// Parameters:
+//   - serviceAccountTokenKey: The service account token for authorization
+//   - workspaceUrl: The URL of the Grafana workspace
+//   - datasourceName: The name to give to the CloudWatch data source
+//   - dashboardName: The name for the dashboard
+//   - dbInstanceNames: Comma-separated list of database instance names
+//
+// Returns:
+//   - string: A success message if the dashboard was created successfully
+//   - error: An error if any step fails
 func uploadDashboard(serviceAccountTokenKey string, workspaceUrl string, datasourceName string, dashboardName string, dbInstanceNames string) (string, error) {
 	httpClient := &http.Client{
 		Timeout: 30 * time.Second,
@@ -148,6 +194,14 @@ func uploadDashboard(serviceAccountTokenKey string, workspaceUrl string, datasou
 	return "Dashboard created successfully", nil
 }
 
+// createGrafanaDashboard orchestrates the creation of a Grafana dashboard.
+// It retrieves environment variables, sets up the Grafana client,
+// creates or retrieves a service account, generates a token,
+// and calls uploadDashboard to create the actual dashboard.
+//
+// Returns:
+//   - string: A success message if the dashboard was created successfully
+//   - error: An error if any step fails
 func createGrafanaDashboard() (string, error) {
 	const SleepDuration = 5
 	const MaxWaitIntervals = 200
@@ -304,6 +358,15 @@ func createGrafanaDashboard() (string, error) {
 	return ret, nil
 }
 
+// Entry point for the Lambda function. Calls createGrafanaDashboard and returns API Gateway response.
+//
+// Parameters:
+//   - ctx: The Lambda context
+//   - event: The Lambda event data
+//
+// Returns:
+//   - events.APIGatewayProxyResponse: The API Gateway response
+//   - error: An error if the function execution fails
 func lambdaHandler(ctx context.Context, event map[string]interface{}) (events.APIGatewayProxyResponse, error) {
 	resp, err := createGrafanaDashboard()
 	if err != nil {
@@ -320,10 +383,14 @@ func lambdaHandler(ctx context.Context, event map[string]interface{}) (events.AP
 	}, nil
 }
 
+// Start the Lambda handler.
 func main() {
 	lambda.Start(lambdaHandler)
 }
 
+// panelField represents the configuration for a dashboard panel.
+// It contains information about the panel's position, title, type,
+// statistic type, and the metrics to display.
 type panelField struct {
 	gridPosition  map[string]interface{}
 	title         string
@@ -332,6 +399,14 @@ type panelField struct {
 	metricNames   []string
 }
 
+// generatePanelOptions creates the options configuration for a dashboard panel
+// based on the panel type.
+//
+// Parameters:
+//   - panelType: The type of panel (stat, bargauge, gauge, etc.)
+//
+// Returns:
+//   - map[string]interface{}: The panel options configuration
 func generatePanelOptions(panelType string) map[string]interface{} {
 	switch panelType {
 	case "stat":
@@ -393,6 +468,15 @@ func generatePanelOptions(panelType string) map[string]interface{} {
 	}
 }
 
+// generatePanelFieldConfig creates the field configuration for a dashboard panel
+// based on the panel type and title.
+//
+// Parameters:
+//   - panelType: The type of panel (stat, bargauge, gauge, etc.)
+//   - panelTitle: The title of the panel
+//
+// Returns:
+//   - map[string]interface{}: The panel field configuration
 func generatePanelFieldConfig(panelType string, panelTitle string) map[string]interface{} {
 	switch panelType {
 	case "stat":
@@ -521,6 +605,14 @@ func generatePanelFieldConfig(panelType string, panelTitle string) map[string]in
 	}
 }
 
+// generatePanels creates all the panels for the dashboard.
+// It defines the panel fields and generates the configuration for each panel.
+//
+// Parameters:
+//   - datasourceName: The name of the data source to use for the panels
+//
+// Returns:
+//   - []interface{}: An array of panel configurations
 func generatePanels(datasourceName string) []interface{} {
 
 	panelFields := []panelField{
@@ -596,6 +688,17 @@ func generatePanels(datasourceName string) []interface{} {
 	return panelConfig
 }
 
+// generateDashboard creates the complete dashboard configuration.
+// It sets up the dashboard with panels, templates for instance selection,
+// and time range settings.
+//
+// Parameters:
+//   - datasourceName: The name of the data source to use for the dashboard
+//   - dashboardName: The name of the dashboard
+//   - dbInstanceNames: Comma-separated list of database instance names
+//
+// Returns:
+//   - map[string]interface{}: The complete dashboard configuration
 func generateDashboard(datasourceName string, dashboardName string, dbInstanceNames string) map[string]interface{} {
 
 	currentTemplateOptions := map[string]interface{}{}

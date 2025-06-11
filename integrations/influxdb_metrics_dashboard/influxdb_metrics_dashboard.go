@@ -24,6 +24,15 @@ import (
 	"github.com/aws/jsii-runtime-go"
 )
 
+// getBaseTelegrafConfig generates the base Telegraf configuration with agent settings
+// and processors for metric conversion and filtering.
+//
+// Parameters:
+//   - configVars: A map containing template variables for the configuration,
+//     including the interval for metric collection and flushing
+//
+// Returns:
+//   - A string containing the rendered Telegraf base configuration
 func getBaseTelegrafConfig(configVars map[string]string) string {
 	telegrafBaseConf := `[agent]
   interval = "{{.Interval}}"
@@ -69,6 +78,15 @@ def apply(metric):
 	return templateBuf.String()
 }
 
+// getTelegrafPluginsConfig generates the Telegraf plugin configuration for CloudWatch output
+// and Prometheus input (metrics endpoint format) to collect metrics from InfluxDB instances.
+//
+// Parameters:
+//   - configVars: A map containing template variables for the configuration,
+//     including region, instance name, endpoint, and high resolution metrics flag
+//
+// Returns:
+//   - A string containing the rendered Telegraf plugin configuration
 func getTelegrafPluginsConfig(configVars map[string]string) string {
 	telegrafPluginConf := `[[outputs.cloudwatch]]
   region = "{{.Region}}"
@@ -96,6 +114,14 @@ func getTelegrafPluginsConfig(configVars map[string]string) string {
 	return templateBuf.String()
 }
 
+// getEc2InitScript generates a bash script that will be used as the EC2 user data
+// to set up and configure Telegraf on the instance at launch time.
+//
+// Parameters:
+//   - telegrafConfig: A map containing the complete Telegraf configuration and initialization timestamp
+//
+// Returns:
+//   - A string containing the rendered EC2 initialization script
 func getEc2InitScript(telegrafConfig map[string]string) string {
 
 	ec2InitScript := `#!/bin/bash
@@ -212,17 +238,27 @@ service telegraf start
 	return ec2InitScriptBuf.String()
 }
 
+// influxDBSecurityGroupRule represents the security group rule configuration
+// for an InfluxDB instance, including visibility, port, and security group ID
 type influxDBSecurityGroupRule struct {
 	influxDBInstanceVisibility bool
 	influxDBInstancePort       int32
 	influxDBSecurityGroupId    string
 }
 
-func addInfluxDBVpcRuleInfo(influxDBVpcRules map[string]influxDBSecurityGroupRule, publiclyAccessible bool, port int32, securityGroupId string) {
+// addInfluxDBSgRuleInfo adds a security group rule for an InfluxDB instance to a map of rules,
+// ensuring that only one rule exists for each unique combination of port and visibility.
+//
+// Parameters:
+//   - influxDBSgRules: A map to store unique security group rules
+//   - publiclyAccessible: Whether the InfluxDB instance is publicly accessible
+//   - port: The port number of the InfluxDB instance
+//   - securityGroupId: The security group ID of the InfluxDB instance
+func addInfluxDBSgRuleInfo(influxDBSgRules map[string]influxDBSecurityGroupRule, publiclyAccessible bool, port int32, securityGroupId string) {
 	// We only need on rule for each unique combination of port and publicly accessible per InfluxDB instance
 	mapKey := fmt.Sprintf("%t:%d", publiclyAccessible, port)
-	if _, exists := influxDBVpcRules[mapKey]; !exists {
-		influxDBVpcRules[mapKey] = influxDBSecurityGroupRule{
+	if _, exists := influxDBSgRules[mapKey]; !exists {
+		influxDBSgRules[mapKey] = influxDBSecurityGroupRule{
 			influxDBInstanceVisibility: publiclyAccessible,
 			influxDBInstancePort:       port,
 			influxDBSecurityGroupId:    securityGroupId,
@@ -230,6 +266,19 @@ func addInfluxDBVpcRuleInfo(influxDBVpcRules map[string]influxDBSecurityGroupRul
 	}
 }
 
+// addTelegrafEC2InstanceToStack creates and configures an EC2 instance with Telegraf
+// to collect metrics from the specified InfluxDB instances.
+//
+// Parameters:
+//   - stack: The CDK stack to add resources to
+//   - stackProps: Properties of the CDK stack
+//   - influxDBIds: Comma-separated list of InfluxDB instance IDs
+//   - telegrafSshCidr: CIDR range for SSH access to the EC2 instance (optional)
+//   - enableHighResolutionMetrics: Whether to enable high resolution metrics collection
+//
+// Returns:
+//   - A comma-separated string of InfluxDB instance names
+//   - An error if any operation fails
 func addTelegrafEC2InstanceToStack(stack awscdk.Stack, stackProps awscdk.StackProps, influxDBIds string, telegrafSshCidr string, enableHighResolutionMetrics bool) (string, error) {
 	instanceRole := awsiam.NewRole(stack, jsii.String("influxdb-dashboard-ec2-role"), &awsiam.RoleProps{
 		AssumedBy: awsiam.NewServicePrincipal(jsii.String("ec2.amazonaws.com"), nil),
@@ -257,7 +306,7 @@ func addTelegrafEC2InstanceToStack(stack awscdk.Stack, stackProps awscdk.StackPr
 
 	cloudwatchPolicy.AttachToRole(instanceRole)
 
-	influxDBVpcRules := make(map[string]influxDBSecurityGroupRule)
+	influxDBSgRules := make(map[string]influxDBSecurityGroupRule)
 	influxDBInstanceNames := ""
 	instanceEndpoint := ""
 	vpcId := ""
@@ -317,7 +366,7 @@ func addTelegrafEC2InstanceToStack(stack awscdk.Stack, stackProps awscdk.StackPr
 			os.Exit(1)
 		}
 
-		addInfluxDBVpcRuleInfo(influxDBVpcRules, *influxDBInstance.PubliclyAccessible, *influxDBInstance.Port, influxDBInstance.VpcSecurityGroupIds[0])
+		addInfluxDBSgRuleInfo(influxDBSgRules, *influxDBInstance.PubliclyAccessible, *influxDBInstance.Port, influxDBInstance.VpcSecurityGroupIds[0])
 
 		telegrafPluginConfigTemplateVars := map[string]string{
 			"InstanceName":                *influxDBInstance.Name,
@@ -359,7 +408,7 @@ func addTelegrafEC2InstanceToStack(stack awscdk.Stack, stackProps awscdk.StackPr
 	})
 
 	// Add a rule for each InfluxDB instance in the EC2 security group
-	for _, rule := range influxDBVpcRules {
+	for _, rule := range influxDBSgRules {
 		ec2SecurityGroup.AddIngressRule(
 			awsec2.Peer_Ipv4(jsii.String(*vpc.VpcCidrBlock())),
 			awsec2.Port_Tcp(jsii.Number(rule.influxDBInstancePort)),
@@ -391,7 +440,7 @@ func addTelegrafEC2InstanceToStack(stack awscdk.Stack, stackProps awscdk.StackPr
 	})
 
 	// Add a rule for each InfluxDB instance with EC2 access
-	for i, rule := range influxDBVpcRules {
+	for i, rule := range influxDBSgRules {
 		var targetIp *string
 		if rule.influxDBInstanceVisibility {
 			targetIp = ec2Instance.InstancePublicIp()
@@ -424,6 +473,17 @@ func addTelegrafEC2InstanceToStack(stack awscdk.Stack, stackProps awscdk.StackPr
 	return influxDBInstanceNames, nil
 }
 
+// addGrafanaWorkspaceToStack creates and configures an Amazon Managed Grafana workspace
+// with the necessary permissions to access CloudWatch metrics.
+//
+// Parameters:
+//   - stack: The CDK stack to add resources to
+//   - stackProps: Properties of the CDK stack
+//   - grafanaWorkspaceName: The name for the Grafana workspace
+//
+// Returns:
+//   - The updated CDK stack
+//   - An error if any operation fails
 func addGrafanaWorkspaceToStack(stack awscdk.Stack, stackProps awscdk.StackProps, grafanaWorkspaceName string) (awscdk.Stack, error) {
 	workspacePolicy := awsiam.NewPolicy(stack, jsii.String("influxdb-dashboard-workspace-policy"), &awsiam.PolicyProps{
 		Statements: &[]awsiam.PolicyStatement{
@@ -464,6 +524,20 @@ func addGrafanaWorkspaceToStack(stack awscdk.Stack, stackProps awscdk.StackProps
 	return stack, nil
 }
 
+// createLambdaResource creates a Lambda function and custom resource to deploy
+// a Grafana dashboard for InfluxDB metrics after stack creation.
+//
+// Parameters:
+//   - stack: The CDK stack to add resources to
+//   - stackProps: Properties of the CDK stack
+//   - grafanaWorkspaceName: The name of the Grafana workspace
+//   - dashboardName: The name for the Grafana dashboard
+//   - cloudwatchDatasourceName: The name of the CloudWatch data source in Grafana
+//   - dbInstanceNames: Comma-separated list of InfluxDB instance names
+//
+// Returns:
+//   - The updated CDK stack
+//   - An error if any operation fails
 func createLambdaResource(stack awscdk.Stack, stackProps awscdk.StackProps, grafanaWorkspaceName string, dashboardName string, cloudwatchDatasourceName string, dbInstanceNames string) (awscdk.Stack, error) {
 	var lambdaTimeout float64 = 200.0
 
@@ -527,6 +601,7 @@ func createLambdaResource(stack awscdk.Stack, stackProps awscdk.StackProps, graf
 	return stack, nil
 }
 
+// Create and configures the CDK stack for monitoring InfluxDB instances with Telegraf, CloudWatch, and Grafana.
 func main() {
 	defer jsii.Close()
 
@@ -595,6 +670,10 @@ func main() {
 	app.Synth(nil)
 }
 
+// env returns the AWS environment (account and region) for the CDK stack
+//
+// Returns:
+//   - A pointer to an awscdk.Environment with account and region information
 func env() *awscdk.Environment {
 	return &awscdk.Environment{
 		Account: jsii.String(os.Getenv("CDK_DEFAULT_ACCOUNT")),
