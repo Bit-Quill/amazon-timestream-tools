@@ -25,6 +25,7 @@ The following context options are optional when deploying the CDK application:
 2. **CloudWatchDatasourceName**: The name of the data source used for populating the dashboard. This context option defaults to `Amazon CloudWatch Data Source`.
 3. **DashboardName**: The name used for the Grafana dashboard. The context defaults to `InfluxDB Performance Dashboard`.
 4. **TelegrafSshCidr**: The CIDR IP address used in a rule to allow SSH access to the EC2 instance running Telegraf. If the context is not used when deploying the application, no SSH rule will be added to the EC2 instance security group.
+5. **EnableHighResolutionMetrics**: Set to `true` to ingest metrics to CloudWatch with an interval of every 10 seconds. The default ingestion rate is set to 1 minute when this context is not enabled.
 
 ## Getting started
 
