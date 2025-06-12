@@ -279,7 +279,7 @@ func addInfluxDBSgRuleInfo(influxDBSgRules map[string]influxDBSecurityGroupRule,
 // Returns:
 //   - A comma-separated string of InfluxDB instance names
 //   - An error if any operation fails
-func addTelegrafEC2InstanceToStack(stack awscdk.Stack, stackProps awscdk.StackProps, influxDBIds string, telegrafSshCidr string, enableHighResolutionMetrics bool) (string, error) {
+func addTelegrafEC2InstanceToStack(stack awscdk.Stack, stackProps awscdk.StackProps, influxDBIds string, telegrafSshCidr string, ec2Tags map[string]string, enableHighResolutionMetrics bool) (string, error) {
 	instanceRole := awsiam.NewRole(stack, jsii.String("influxdb-dashboard-ec2-role"), &awsiam.RoleProps{
 		AssumedBy: awsiam.NewServicePrincipal(jsii.String("ec2.amazonaws.com"), nil),
 	})
@@ -313,9 +313,9 @@ func addTelegrafEC2InstanceToStack(stack awscdk.Stack, stackProps awscdk.StackPr
 
 	var telegrafBaseConfigTemplateVars map[string]string = make(map[string]string)
 	if enableHighResolutionMetrics {
-		telegrafBaseConfigTemplateVars["Interval"] = "1m"
-	} else {
 		telegrafBaseConfigTemplateVars["Interval"] = "10s"
+	} else {
+		telegrafBaseConfigTemplateVars["Interval"] = "1m"
 	}
 
 	telegrafConfig := getBaseTelegrafConfig(telegrafBaseConfigTemplateVars)
@@ -438,6 +438,15 @@ func addTelegrafEC2InstanceToStack(stack awscdk.Stack, stackProps awscdk.StackPr
 		SecurityGroup:             ec2SecurityGroup,
 		UserDataCausesReplacement: jsii.Bool(true),
 	})
+
+	// Add any provided context tags to the EC2 instance
+	for tagKey, tagVal := range ec2Tags {
+		awscdk.Tags_Of(ec2Instance).Add(
+			jsii.String(tagKey),
+			jsii.String(tagVal),
+			&awscdk.TagProps{},
+		)
+	}
 
 	// Add a rule for each InfluxDB instance with EC2 access
 	for i, rule := range influxDBSgRules {
@@ -644,13 +653,30 @@ func main() {
 			os.Exit(1)
 		}
 	}
+	// EC2 instance tags are in the format "key1:val1,Key2:val2"
+	ec2InstanceTagsContext := stack.Node().TryGetContext(jsii.String("TelegrafEc2Tags"))
+	ec2InstanceTags := make(map[string]string)
+	if ec2InstanceTagsContext != nil {
+		tagPairs := strings.Split(ec2InstanceTagsContext.(string), ",")
+		for _, pair := range tagPairs {
+			keyVal := strings.SplitN(pair, ":", 2)
+			if len(keyVal) == 2 {
+				tagKey := strings.TrimSpace(keyVal[0])
+				tagValue := strings.TrimSpace(keyVal[1])
+				ec2InstanceTags[tagKey] = tagValue
+			} else {
+				log.Printf("Failed to parse EC2 instance tags, ensure you are using the format \"key1:val1,Key2:val2\"")
+				os.Exit(1)
+			}
+		}
+	}
 	enableHighResolutionMetricsContext := stack.Node().TryGetContext(jsii.String("EnableHighResolutionMetrics"))
 	enableHighResolutionMetrics := false
 	if enableHighResolutionMetricsContext != nil && enableHighResolutionMetricsContext.(string) == "true" {
 		enableHighResolutionMetrics = true
 	}
 
-	influxDBInstanceNames, err := addTelegrafEC2InstanceToStack(stack, stackProps, influxDBIdContext.(string), telegrafSshCidr, enableHighResolutionMetrics)
+	influxDBInstanceNames, err := addTelegrafEC2InstanceToStack(stack, stackProps, influxDBIdContext.(string), telegrafSshCidr, ec2InstanceTags, enableHighResolutionMetrics)
 	if err != nil {
 		log.Printf("Error adding Telegraf instance to stack: %s", err)
 		return
