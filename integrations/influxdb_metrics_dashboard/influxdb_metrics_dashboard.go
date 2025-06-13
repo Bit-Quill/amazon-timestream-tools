@@ -274,6 +274,7 @@ func addInfluxDBSgRuleInfo(influxDBSgRules map[string]influxDBSecurityGroupRule,
 //   - stackProps: Properties of the CDK stack
 //   - influxDBIds: Comma-separated list of InfluxDB instance IDs
 //   - telegrafSshCidr: CIDR range for SSH access to the EC2 instance (optional)
+//   - ec2Tags: Map of tags for the EC2 instance running Telegraf (optional)
 //   - enableHighResolutionMetrics: Whether to enable high resolution metrics collection
 //
 // Returns:
@@ -489,11 +490,12 @@ func addTelegrafEC2InstanceToStack(stack awscdk.Stack, stackProps awscdk.StackPr
 //   - stack: The CDK stack to add resources to
 //   - stackProps: Properties of the CDK stack
 //   - grafanaWorkspaceName: The name for the Grafana workspace
+//   - grafanaWorkspaceTags: Map of tags for the Grafana workspace
 //
 // Returns:
 //   - The updated CDK stack
 //   - An error if any operation fails
-func addGrafanaWorkspaceToStack(stack awscdk.Stack, stackProps awscdk.StackProps, grafanaWorkspaceName string) (awscdk.Stack, error) {
+func addGrafanaWorkspaceToStack(stack awscdk.Stack, stackProps awscdk.StackProps, grafanaWorkspaceName string, grafanaWorkspaceTags map[string]string) (awscdk.Stack, error) {
 	workspacePolicy := awsiam.NewPolicy(stack, jsii.String("influxdb-dashboard-workspace-policy"), &awsiam.PolicyProps{
 		Statements: &[]awsiam.PolicyStatement{
 			awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
@@ -523,6 +525,15 @@ func addGrafanaWorkspaceToStack(stack awscdk.Stack, stackProps awscdk.StackProps
 		RoleArn:                 workspaceRole.RoleArn(),
 		Name:                    jsii.String(grafanaWorkspaceName),
 	})
+
+	// Add any provided context tags to the Grafana workspace
+	for tagKey, tagVal := range grafanaWorkspaceTags {
+		awscdk.Tags_Of(grafanaWorkspace).Add(
+			jsii.String(tagKey),
+			jsii.String(tagVal),
+			&awscdk.TagProps{},
+		)
+	}
 
 	workspaceUri := "https://" + *grafanaWorkspace.AttrEndpoint()
 	awscdk.NewCfnOutput(stack, jsii.String("Grafana Workspace URL"), &awscdk.CfnOutputProps{
@@ -610,6 +621,30 @@ func createLambdaResource(stack awscdk.Stack, stackProps awscdk.StackProps, graf
 	return stack, nil
 }
 
+// parseTagsContext parses tags in the format "key1:val1,Key2:val2" and returns the associated map.
+//
+// Parameters:
+//   - contextStr: String map to parse
+//
+// Returns:
+//   - Map of parsed tags
+func parseTagsContext(contextStr string) map[string]string {
+	tagsMap := make(map[string]string)
+	tagPairs := strings.Split(contextStr, ",")
+	for _, pair := range tagPairs {
+		keyVal := strings.SplitN(pair, ":", 2)
+		if len(keyVal) == 2 {
+			tagKey := strings.TrimSpace(keyVal[0])
+			tagValue := strings.TrimSpace(keyVal[1])
+			tagsMap[tagKey] = tagValue
+		} else {
+			log.Printf("Failed to parse context tags, ensure you are using the format \"key1:val1,Key2:val2\". Failed tags string: %s", contextStr)
+			os.Exit(1)
+		}
+	}
+	return tagsMap
+}
+
 // Create and configures the CDK stack for monitoring InfluxDB instances with Telegraf, CloudWatch, and Grafana.
 func main() {
 	defer jsii.Close()
@@ -653,27 +688,20 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	// EC2 instance tags are in the format "key1:val1,Key2:val2"
-	ec2InstanceTagsContext := stack.Node().TryGetContext(jsii.String("TelegrafEc2Tags"))
-	ec2InstanceTags := make(map[string]string)
-	if ec2InstanceTagsContext != nil {
-		tagPairs := strings.Split(ec2InstanceTagsContext.(string), ",")
-		for _, pair := range tagPairs {
-			keyVal := strings.SplitN(pair, ":", 2)
-			if len(keyVal) == 2 {
-				tagKey := strings.TrimSpace(keyVal[0])
-				tagValue := strings.TrimSpace(keyVal[1])
-				ec2InstanceTags[tagKey] = tagValue
-			} else {
-				log.Printf("Failed to parse EC2 instance tags, ensure you are using the format \"key1:val1,Key2:val2\"")
-				os.Exit(1)
-			}
-		}
-	}
 	enableHighResolutionMetricsContext := stack.Node().TryGetContext(jsii.String("EnableHighResolutionMetrics"))
 	enableHighResolutionMetrics := false
 	if enableHighResolutionMetricsContext != nil && enableHighResolutionMetricsContext.(string) == "true" {
 		enableHighResolutionMetrics = true
+	}
+	ec2InstanceTagsContext := stack.Node().TryGetContext(jsii.String("TelegrafEc2Tags"))
+	var ec2InstanceTags map[string]string
+	if ec2InstanceTagsContext != nil {
+		ec2InstanceTags = parseTagsContext(ec2InstanceTagsContext.(string))
+	}
+	grafanaWorkspaceTagsContext := stack.Node().TryGetContext(jsii.String("GrafanaWorkspaceTags"))
+	var grafanaWorkspaceTags map[string]string = nil
+	if grafanaWorkspaceTagsContext != nil {
+		grafanaWorkspaceTags = parseTagsContext(grafanaWorkspaceTagsContext.(string))
 	}
 
 	influxDBInstanceNames, err := addTelegrafEC2InstanceToStack(stack, stackProps, influxDBIdContext.(string), telegrafSshCidr, ec2InstanceTags, enableHighResolutionMetrics)
@@ -682,7 +710,7 @@ func main() {
 		return
 	}
 
-	_, err = addGrafanaWorkspaceToStack(stack, stackProps, grafanaWorkspaceName)
+	_, err = addGrafanaWorkspaceToStack(stack, stackProps, grafanaWorkspaceName, grafanaWorkspaceTags)
 	if err != nil {
 		log.Printf("Error adding Grafana workspace to stack: %s", err)
 		return
