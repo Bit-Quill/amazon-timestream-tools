@@ -123,7 +123,7 @@ func sendGrafanaHttpReq(httpClient http.Client, req *http.Request) (*http.Respon
 // Returns:
 //   - string: A success message if the dashboard was created successfully
 //   - error: An error if any step fails
-func uploadDashboard(serviceAccountTokenKey string, workspaceUrl string, datasourceName string, dashboardName string, dbInstanceNames string) (string, error) {
+func uploadDashboard(serviceAccountTokenKey string, workspaceUrl string, datasourceName string, dashboardName string, dbInstanceNames string, dashboardDataGranularity string) (string, error) {
 	httpClient := &http.Client{
 		Timeout: 30 * time.Second,
 	}
@@ -167,7 +167,7 @@ func uploadDashboard(serviceAccountTokenKey string, workspaceUrl string, datasou
 		return "", fmt.Errorf("failed to add CloudWatch data source: %d", configureGrafanaDatasourceResp.StatusCode)
 	}
 
-	jsonDashboard, err := json.Marshal(generateDashboard(datasourceName, dashboardName, dbInstanceNames))
+	jsonDashboard, err := json.Marshal(generateDashboard(datasourceName, dashboardName, dbInstanceNames, dashboardDataGranularity))
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal JSON: %v", err)
 	}
@@ -221,6 +221,10 @@ func createGrafanaDashboard() (string, error) {
 	dbInstanceNames := os.Getenv("DbInstanceNames")
 	if dbInstanceNames == "" {
 		return "", fmt.Errorf("Failed to get DbInstanceNames environment variable")
+	}
+	dashboardDataGranularity := os.Getenv("dashboardDataGranularity")
+	if dashboardDataGranularity == "" {
+		return "", fmt.Errorf("Failed to get dashboardDataGranularity environment variable")
 	}
 
 	awsConfig, err := config.LoadDefaultConfig(context.TODO())
@@ -350,7 +354,7 @@ func createGrafanaDashboard() (string, error) {
 		time.Sleep(SleepDuration * time.Second)
 	}
 
-	ret, err := uploadDashboard(serviceAccountTokenKey, *grafanaWorkspace.Endpoint, datasourceName, dashboardName, dbInstanceNames)
+	ret, err := uploadDashboard(serviceAccountTokenKey, *grafanaWorkspace.Endpoint, datasourceName, dashboardName, dbInstanceNames, dashboardDataGranularity)
 	if err != nil {
 		return "", err
 	}
@@ -610,10 +614,11 @@ func generatePanelFieldConfig(panelType string, panelTitle string) map[string]in
 //
 // Parameters:
 //   - datasourceName: The name of the data source to use for the panels
+//   - dashboardDataGranularity: Granularity of data to use in dashboard 60s by default and 5s for high granularity.
 //
 // Returns:
 //   - []interface{}: An array of panel configurations
-func generatePanels(datasourceName string) []interface{} {
+func generatePanels(datasourceName string, dashboardDataGranularity string) []interface{} {
 
 	panelFields := []panelField{
 		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 0}, "Query execution duration in seconds", "bargauge", "Sum",
@@ -658,7 +663,7 @@ func generatePanels(datasourceName string) []interface{} {
 						"DbInstanceName": "$instanceName",
 					},
 					"statistic":        panel.statisticType,
-					"period":           "",
+					"period":           dashboardDataGranularity,
 					"metricQueryType":  0,
 					"metricEditorMode": 0,
 					"sqlExpression":    "",
@@ -696,10 +701,11 @@ func generatePanels(datasourceName string) []interface{} {
 //   - datasourceName: The name of the data source to use for the dashboard
 //   - dashboardName: The name of the dashboard
 //   - dbInstanceNames: Comma-separated list of database instance names
+//   - dashboardDataGranularity: Granularity of data to use in dashboard 60s by default and 5s for high granularity.
 //
 // Returns:
 //   - map[string]interface{}: The complete dashboard configuration
-func generateDashboard(datasourceName string, dashboardName string, dbInstanceNames string) map[string]interface{} {
+func generateDashboard(datasourceName string, dashboardName string, dbInstanceNames string, dashboardDataGranularity string) map[string]interface{} {
 
 	currentTemplateOptions := map[string]interface{}{}
 	templateOptions := []interface{}{}
@@ -728,7 +734,7 @@ func generateDashboard(datasourceName string, dashboardName string, dbInstanceNa
 		"overwrite": true,
 		"folder":    0,
 		"dashboard": map[string]interface{}{
-			"panels": generatePanels(datasourceName),
+			"panels": generatePanels(datasourceName, dashboardDataGranularity),
 			"title":  dashboardName,
 			"templating": map[string]interface{}{
 				"list": []interface{}{

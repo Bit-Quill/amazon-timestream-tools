@@ -554,11 +554,12 @@ func addGrafanaWorkspaceToStack(stack awscdk.Stack, stackProps awscdk.StackProps
 //   - dashboardName: The name for the Grafana dashboard
 //   - cloudwatchDatasourceName: The name of the CloudWatch data source in Grafana
 //   - dbInstanceNames: Comma-separated list of InfluxDB instance names
+//   - dashboardDataGranularity: The granularity of the dashboard used, default is 60s and fine granularity is 5s
 //
 // Returns:
 //   - The updated CDK stack
 //   - An error if any operation fails
-func createLambdaResource(stack awscdk.Stack, stackProps awscdk.StackProps, grafanaWorkspaceName string, dashboardName string, cloudwatchDatasourceName string, dbInstanceNames string) (awscdk.Stack, error) {
+func createLambdaResource(stack awscdk.Stack, stackProps awscdk.StackProps, grafanaWorkspaceName string, dashboardName string, cloudwatchDatasourceName string, dbInstanceNames string, dashboardDataGranularity string) (awscdk.Stack, error) {
 	var lambdaTimeout float64 = 200.0
 
 	lambdaHandler := awslambda.NewFunction(stack, jsii.String("influxDBMetricDashboardLambdaHandler"), &awslambda.FunctionProps{
@@ -572,6 +573,7 @@ func createLambdaResource(stack awscdk.Stack, stackProps awscdk.StackProps, graf
 			"CloudWatchDatasourceName": jsii.String(cloudwatchDatasourceName),
 			"DashboardName":            jsii.String(dashboardName),
 			"DbInstanceNames":          jsii.String(dbInstanceNames),
+			"dashboardDataGranularity": jsii.String(dashboardDataGranularity),
 		},
 		Code: awslambda.Code_FromCustomCommand(jsii.String("lambda/upload_dashboard/lambda.zip"), &[]*string{
 			jsii.String("go"),
@@ -688,10 +690,12 @@ func main() {
 			os.Exit(1)
 		}
 	}
+	dashboardDataGranularity := "60s"
 	enableHighResolutionMetricsContext := stack.Node().TryGetContext(jsii.String("EnableHighResolutionMetrics"))
 	enableHighResolutionMetrics := false
 	if enableHighResolutionMetricsContext != nil && enableHighResolutionMetricsContext.(string) == "true" {
 		enableHighResolutionMetrics = true
+		dashboardDataGranularity = "10s"
 	}
 	ec2InstanceTagsContext := stack.Node().TryGetContext(jsii.String("TelegrafEc2Tags"))
 	var ec2InstanceTags map[string]string
@@ -715,7 +719,7 @@ func main() {
 		log.Printf("Error adding Grafana workspace to stack: %s", err)
 		return
 	}
-	_, err = createLambdaResource(stack, stackProps, grafanaWorkspaceName, dashboardName, cloudwatchDatasourceName, influxDBInstanceNames)
+	_, err = createLambdaResource(stack, stackProps, grafanaWorkspaceName, dashboardName, cloudwatchDatasourceName, influxDBInstanceNames, dashboardDataGranularity)
 	if err != nil {
 		log.Printf("Error adding Lambda function to stack: %s", err)
 		return
