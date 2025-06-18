@@ -19,6 +19,47 @@ import (
 	grafanaTypes "github.com/aws/aws-sdk-go-v2/service/grafana/types"
 )
 
+type influxDBClusterInfo int
+
+const (
+	InfluxDBInstanceNameIndex	influxDBClusterInfo = iota
+	InfluxDBInstanceSizeIndex
+	InfluxDBInstanceStorageTypeIndex
+)
+
+type influxDBInstanceSize int
+
+const (
+  Medium influxDBInstanceSize = iota
+  Large
+	TwoXL
+	FourXL
+	EightXL
+	TwelveXL
+	SixteenXL
+)
+
+type influxDBInstanceInfo struct {
+	vCPU 													int32
+	memoryGB											int32
+	networkBandwidthGB 						int32
+	seriesThreshold								int32
+	lineWritesPerSecondThreshold	int32
+	queriesPerSecondThreshold			int32
+}
+
+// Estimates based off developer documentation: https://docs.aws.amazon.com/timestream/latest/developerguide/timestream-for-influxdb.html#timestream-for-influx-dbi-classt-hw
+// Additional factors are not included for IOPS with options: InfluxIOIncludedT1, InfluxIOIncludedT2, InfluxIOIncludedT3
+var influxDBInstanceTypes = map[influxDBInstanceSize]influxDBInstanceInfo{
+	Medium:			influxDBInstanceInfo{ vCPU: 1, 	memoryGB: 8, 		networkBandwidthGB: 10, seriesThreshold: 10000, 		lineWritesPerSecondThreshold: 5000, 		queriesPerSecondThreshold: 5  },
+	Large:			influxDBInstanceInfo{ vCPU: 2, 	memoryGB: 16, 	networkBandwidthGB: 10, seriesThreshold: 100000, 		lineWritesPerSecondThreshold: 50000, 		queriesPerSecondThreshold: 10 },
+	TwoXL:			influxDBInstanceInfo{ vCPU: 4, 	memoryGB: 32, 	networkBandwidthGB: 10, seriesThreshold: 1000000, 	lineWritesPerSecondThreshold: 150000, 	queriesPerSecondThreshold: 25 },
+	FourXL:			influxDBInstanceInfo{ vCPU: 8, 	memoryGB: 64, 	networkBandwidthGB: 10, seriesThreshold: 5000000, 	lineWritesPerSecondThreshold: 250000, 	queriesPerSecondThreshold: 35 },
+	EightXL:		influxDBInstanceInfo{ vCPU: 16, memoryGB: 128, 	networkBandwidthGB: 12, seriesThreshold: 7500000, 	lineWritesPerSecondThreshold: 500000, 	queriesPerSecondThreshold: 50 },
+	TwelveXL:		influxDBInstanceInfo{ vCPU: 32, memoryGB: 256, 	networkBandwidthGB: 20, seriesThreshold: 10000000, 	lineWritesPerSecondThreshold: 750000, 	queriesPerSecondThreshold: 55 },
+	SixteenXL:	influxDBInstanceInfo{ vCPU: 64, memoryGB: 512, 	networkBandwidthGB: 25, seriesThreshold: 10000000, 	lineWritesPerSecondThreshold: 1000000, 	queriesPerSecondThreshold: 60 },
+}
+
 // getWorkspaceByName retrieves a Grafana workspace by its name.
 // It lists all workspaces and finds the one matching the provided name.
 // If the workspace is not immediately available, it will retry with a backoff strategy.
@@ -118,12 +159,12 @@ func sendGrafanaHttpReq(httpClient http.Client, req *http.Request) (*http.Respon
 //   - workspaceUrl: The URL of the Grafana workspace
 //   - datasourceName: The name to give to the CloudWatch data source
 //   - dashboardName: The name for the dashboard
-//   - dbInstanceNames: Comma-separated list of database instance names
+//   - dbClusterInfo: Comma-separated list of database instance name, instance size, and instance storage type
 //
 // Returns:
 //   - string: A success message if the dashboard was created successfully
 //   - error: An error if any step fails
-func uploadDashboard(serviceAccountTokenKey string, workspaceUrl string, datasourceName string, dashboardName string, dbInstanceNames string, dashboardDataGranularity string) (string, error) {
+func uploadDashboard(serviceAccountTokenKey string, workspaceUrl string, datasourceName string, dashboardName string, dbClusterInfo string, dashboardDataGranularity string) (string, error) {
 	httpClient := &http.Client{
 		Timeout: 30 * time.Second,
 	}
@@ -167,7 +208,7 @@ func uploadDashboard(serviceAccountTokenKey string, workspaceUrl string, datasou
 		return "", fmt.Errorf("failed to add CloudWatch data source: %d", configureGrafanaDatasourceResp.StatusCode)
 	}
 
-	jsonDashboard, err := json.Marshal(generateDashboard(datasourceName, dashboardName, dbInstanceNames, dashboardDataGranularity))
+	jsonDashboard, err := json.Marshal(generateDashboard(datasourceName, dashboardName, dbClusterInfo, dashboardDataGranularity))
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal JSON: %v", err)
 	}
@@ -218,10 +259,17 @@ func createGrafanaDashboard() (string, error) {
 	if dashboardName == "" {
 		return "", fmt.Errorf("Failed to get DashboardName environment variable")
 	}
-	dbInstanceNames := os.Getenv("DbInstanceNames")
-	if dbInstanceNames == "" {
-		return "", fmt.Errorf("Failed to get DbInstanceNames environment variable")
+	dbClusterInfo := os.Getenv("DbClusterInfo")
+	if dbClusterInfo == "" {
+		return "", fmt.Errorf("Failed to get DbClusterInfo environment variable")
 	}
+	for _, instanceInfo := range strings.Split(dbClusterInfo, ",") {
+		dbInfo := strings.Split(instanceInfo, ":")
+		if len(dbInfo) != 3 {
+			return "", fmt.Errorf("DbInstanceInfo variable not in the correct format db-name:db-size:db-storage-type: %s", dbInfo)
+		}
+	}
+
 	dashboardDataGranularity := os.Getenv("dashboardDataGranularity")
 	if dashboardDataGranularity == "" {
 		return "", fmt.Errorf("Failed to get dashboardDataGranularity environment variable")
@@ -354,7 +402,7 @@ func createGrafanaDashboard() (string, error) {
 		time.Sleep(SleepDuration * time.Second)
 	}
 
-	ret, err := uploadDashboard(serviceAccountTokenKey, *grafanaWorkspace.Endpoint, datasourceName, dashboardName, dbInstanceNames, dashboardDataGranularity)
+	ret, err := uploadDashboard(serviceAccountTokenKey, *grafanaWorkspace.Endpoint, datasourceName, dashboardName, dbClusterInfo, dashboardDataGranularity)
 	if err != nil {
 		return "", err
 	}
@@ -700,31 +748,32 @@ func generatePanels(datasourceName string, dashboardDataGranularity string) []in
 // Parameters:
 //   - datasourceName: The name of the data source to use for the dashboard
 //   - dashboardName: The name of the dashboard
-//   - dbInstanceNames: Comma-separated list of database instance names
+//   - dbClusterInfo: Comma-separated list of database instance name, instance size, and instance storage type
 //   - dashboardDataGranularity: Granularity of data to use in dashboard 60s by default and 5s for high granularity.
 //
 // Returns:
 //   - map[string]interface{}: The complete dashboard configuration
-func generateDashboard(datasourceName string, dashboardName string, dbInstanceNames string, dashboardDataGranularity string) map[string]interface{} {
+func generateDashboard(datasourceName string, dashboardName string, dbClusterInfo string, dashboardDataGranularity string) map[string]interface{} {
 
 	currentTemplateOptions := map[string]interface{}{}
 	templateOptions := []interface{}{}
 	firstOption := true
-	for _, dbInstanceName := range strings.Split(dbInstanceNames, ",") {
+	for _, dbInstanceInfo := range strings.Split(dbClusterInfo, ",") {
+		dbInfo := strings.Split(dbInstanceInfo, ":")
 
 		templateOptions = append(
 			templateOptions, map[string]interface{}{
 				"selected": firstOption,
-				"text":     dbInstanceName,
-				"value":    dbInstanceName,
+				"text":			dbInfo[InfluxDBInstanceNameIndex],
+				"value":    dbInfo[InfluxDBInstanceNameIndex],
 			},
 		)
 
 		if firstOption {
 			currentTemplateOptions["current"] = map[string]interface{}{
 				"selected": false,
-				"text":     dbInstanceName,
-				"value":    dbInstanceName,
+				"text":    dbInfo[InfluxDBInstanceNameIndex],
+				"value":   dbInfo[InfluxDBInstanceNameIndex],
 			}
 			firstOption = false
 		}
@@ -746,7 +795,7 @@ func generateDashboard(datasourceName string, dashboardName string, dbInstanceNa
 						"multi":       false,
 						"name":        "instanceName", // Variable name used in Grafana
 						"options":     templateOptions,
-						"query":       dbInstanceNames,
+						"query":       dbInstanceInfo, // TODO: Update
 						"queryValue":  "",
 						"skipUrlSync": false,
 						"type":        "custom",
