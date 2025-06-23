@@ -554,14 +554,13 @@ func addGrafanaWorkspaceToStack(stack awscdk.Stack, stackProps awscdk.StackProps
 //   - stackProps: Properties of the CDK stack
 //   - grafanaWorkspaceName: The name of the Grafana workspace
 //   - dashboardName: The name for the Grafana dashboard
-//   - cloudwatchDatasourceName: The name of the CloudWatch data source in Grafana
 //   - dbClusterInfo: Comma-separated list of InfluxDB instance name, instance size, and instance storage type
 //   - dashboardDataGranularity: The granularity of the dashboard used, default is 60s and fine granularity is 5s
 //
 // Returns:
 //   - The updated CDK stack
 //   - An error if any operation fails
-func createLambdaResource(stack awscdk.Stack, stackProps awscdk.StackProps, grafanaWorkspaceName string, dashboardName string, cloudwatchDatasourceName string, dbClusterInfo string, dashboardDataGranularity string) (awscdk.Stack, error) {
+func createLambdaResource(stack awscdk.Stack, stackProps awscdk.StackProps, grafanaWorkspaceName string, dashboardName string, dbClusterInfo string, dashboardDataGranularity string) (awscdk.Stack, error) {
 	var lambdaTimeout float64 = 200.0
 
 	lambdaHandler := awslambda.NewFunction(stack, jsii.String("influxDBMetricDashboardLambdaHandler"), &awslambda.FunctionProps{
@@ -572,7 +571,6 @@ func createLambdaResource(stack awscdk.Stack, stackProps awscdk.StackProps, graf
 			"GOARCH":                   jsii.String("arm64"),
 			"GOOS":                     jsii.String("linux"),
 			"GrafanaWorkspaceName":     jsii.String(grafanaWorkspaceName),
-			"CloudWatchDatasourceName": jsii.String(cloudwatchDatasourceName),
 			"DashboardName":            jsii.String(dashboardName),
 			"DbClusterInfo":          	jsii.String(dbClusterInfo),
 			"dashboardDataGranularity": jsii.String(dashboardDataGranularity),
@@ -672,11 +670,6 @@ func main() {
 	if grafanaWorkspaceNameContext != nil {
 		grafanaWorkspaceName = grafanaWorkspaceNameContext.(string)
 	}
-	cloudwatchDatasourceNameContext := stack.Node().TryGetContext(jsii.String("CloudWatchDatasourceName"))
-	cloudwatchDatasourceName := "Amazon CloudWatch Data Source"
-	if cloudwatchDatasourceNameContext != nil {
-		cloudwatchDatasourceName = cloudwatchDatasourceNameContext.(string)
-	}
 	dashboardNameContext := stack.Node().TryGetContext(jsii.String("DashboardName"))
 	dashboardName := "InfluxDB Performance Dashboard"
 	if dashboardNameContext != nil {
@@ -721,7 +714,7 @@ func main() {
 		log.Printf("Error adding Grafana workspace to stack: %s", err)
 		return
 	}
-	_, err = createLambdaResource(stack, stackProps, grafanaWorkspaceName, dashboardName, cloudwatchDatasourceName, influxDBClusterInfo, dashboardDataGranularity)
+	_, err = createLambdaResource(stack, stackProps, grafanaWorkspaceName, dashboardName, influxDBClusterInfo, dashboardDataGranularity)
 	if err != nil {
 		log.Printf("Error adding Lambda function to stack: %s", err)
 		return
