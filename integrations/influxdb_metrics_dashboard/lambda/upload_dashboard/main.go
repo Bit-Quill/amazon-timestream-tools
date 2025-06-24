@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -21,6 +22,7 @@ import (
 
 // Each InfluxDB instance info is set as environment variable in the format instance-name:instance-size:instance-storage-type
 type influxDBClusterInfoIndex int
+
 const (
 	InstanceNameIdx influxDBClusterInfoIndex = iota
 	InstanceSizeIdx
@@ -29,9 +31,10 @@ const (
 
 // InfluxDB instance sizing
 type influxDBInstanceSize int
+
 const (
-  Medium influxDBInstanceSize = iota
-  Large
+	Medium influxDBInstanceSize = iota
+	Large
 	XLarge
 	TwoXL
 	FourXL
@@ -40,18 +43,20 @@ const (
 	SixteenXL
 	InstanceSizeUnknown
 )
+
 var (
 	influxDBInstanceSizes = map[string]influxDBInstanceSize{
-		"db.influx.medium":		Medium,
-		"db.influx.large": 		Large,
-		"db.influx.xlarge": 	XLarge,
-		"db.influx.2xlarge": 	TwoXL,
-		"db.influx.4xlarge": 	FourXL,
-		"db.influx.8xlarge": 	EightXL,
-		"db.influx.12large": 	TwelveXL,
+		"db.influx.medium":   Medium,
+		"db.influx.large":    Large,
+		"db.influx.xlarge":   XLarge,
+		"db.influx.2xlarge":  TwoXL,
+		"db.influx.4xlarge":  FourXL,
+		"db.influx.8xlarge":  EightXL,
+		"db.influx.12large":  TwelveXL,
 		"db.influx.16xlarge": SixteenXL,
 	}
 )
+
 func ParseInstanceSizes(instanceSize string) influxDBInstanceSize {
 	parsedSize, ok := influxDBInstanceSizes[instanceSize]
 	if !ok {
@@ -63,19 +68,22 @@ func ParseInstanceSizes(instanceSize string) influxDBInstanceSize {
 
 // InfluxDB instance storage types
 type influxDBStorageType int
+
 const (
 	InfluxIOIncludedT1 influxDBStorageType = iota
 	InfluxIOIncludedT2
 	InfluxIOIncludedT3
 	StorageTypeUnknown
 )
+
 var (
 	influxDBStorageTypes = map[string]influxDBStorageType{
-		"InfluxIOIncludedT1": 	InfluxIOIncludedT1,
-		"InfluxIOIncludedT2": 	InfluxIOIncludedT2,
-		"InfluxIOIncludedT3": 	InfluxIOIncludedT3,
+		"InfluxIOIncludedT1": InfluxIOIncludedT1,
+		"InfluxIOIncludedT2": InfluxIOIncludedT2,
+		"InfluxIOIncludedT3": InfluxIOIncludedT3,
 	}
 )
+
 func ParseStorageTypes(storageType string) influxDBStorageType {
 	parsedType, ok := influxDBStorageTypes[storageType]
 	if !ok {
@@ -97,8 +105,8 @@ func ParseStorageTypes(storageType string) influxDBStorageType {
 
 // Struct for instance specific info
 type influxDBInstanceInfo struct {
-	instanceName				string
-	instanceSize 				influxDBInstanceSize
+	instanceName        string
+	instanceSize        influxDBInstanceSize
 	instanceStorageType influxDBStorageType
 }
 
@@ -220,7 +228,7 @@ func installInfinityPlugin(workspaceUrl string, serviceAccountTokenKey string, h
 		Id   string `json:"id"`
 		Name string `json:"name"`
 	}
-	
+
 	installInfinityPluginReq, err := getGrafanaHttpReq(
 		"POST",
 		workspaceUrl+"/api/plugins/yesoreyeram-infinity-datasource/install",
@@ -343,7 +351,6 @@ func addDataSourceToWorkspace(datasourceConfig map[string]interface{}, workspace
 	return nil
 }
 
-
 // uploadDashboard uploads a dashboard to a Grafana workspace.
 // It first configures a CloudWatch data source if it doesn't exist,
 // then creates and uploads the dashboard.
@@ -368,8 +375,8 @@ func uploadDashboard(serviceAccountTokenKey string, workspaceUrl string, dashboa
 	}
 
 	cloudWatchDataSourceConfig := map[string]interface{}{
-		"name":		"Amazon CloudWatch DataSource",
-		"type":		"cloudwatch",
+		"name":   "Amazon CloudWatch DataSource",
+		"type":   "cloudwatch",
 		"access": "proxy",
 		"jsonData": map[string]interface{}{
 			"authType":      "default",
@@ -384,7 +391,7 @@ func uploadDashboard(serviceAccountTokenKey string, workspaceUrl string, dashboa
 
 	infinityDataSourceConfig := map[string]interface{}{
 		"name":   "yesoreyeram-infinity-datasource",
-		"type":  	"yesoreyeram-infinity-datasource",
+		"type":   "yesoreyeram-infinity-datasource",
 		"access": "proxy",
 		"jsonData": map[string]interface{}{
 			"global_queries": false,
@@ -455,8 +462,8 @@ func createGrafanaDashboard() (string, error) {
 		}
 		clusterInfo = append(clusterInfo,
 			influxDBInstanceInfo{
-				instanceName: dbInfo[InstanceNameIdx],
-				instanceSize: ParseInstanceSizes(dbInfo[InstanceSizeIdx]),
+				instanceName:        dbInfo[InstanceNameIdx],
+				instanceSize:        ParseInstanceSizes(dbInfo[InstanceSizeIdx]),
 				instanceStorageType: ParseStorageTypes(dbInfo[InstanceStorageTypeIdx]),
 			},
 		)
@@ -627,9 +634,51 @@ func lambdaHandler(ctx context.Context, event map[string]interface{}) (events.AP
 	}, nil
 }
 
+// debugDashboard generates and pretty prints the dashboard JSON for local debugging
+//
+// Returns:
+//   - error: on failure to create JSON dashboard
+func debugDashboard() error {
+	dashboardName := "debugDashboard"
+	dbClusterInfo := "dbInstance1:db.influx.16xlarge:InfluxIOIncludedT3,dbInstance2:db.influx.12large:InfluxIOIncludedT2"
+
+	clusterInfo := []influxDBInstanceInfo{}
+	for _, instanceInfo := range strings.Split(dbClusterInfo, ",") {
+		dbInfo := strings.Split(instanceInfo, ":")
+		if len(dbInfo) != 3 {
+			return fmt.Errorf("DbInstanceInfo variable not in the correct format db-name:db-size:db-storage-type: %s", dbInfo)
+		}
+		clusterInfo = append(clusterInfo,
+			influxDBInstanceInfo{
+				instanceName:        dbInfo[InstanceNameIdx],
+				instanceSize:        ParseInstanceSizes(dbInfo[InstanceSizeIdx]),
+				instanceStorageType: ParseStorageTypes(dbInfo[InstanceStorageTypeIdx]),
+			},
+		)
+	}
+
+	dashboardDataGranularity := "10s"
+	dashboard := generateDashboard(dashboardName, clusterInfo, dashboardDataGranularity)
+	prettyJSON, err := json.MarshalIndent(dashboard, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal JSON: %v", err)
+	}
+	fmt.Println(string(prettyJSON))
+	return nil
+}
+
 // Start the Lambda handler.
 func main() {
-	lambda.Start(lambdaHandler)
+	debugMode := flag.Bool("debug", false, "Run in debug mode to pretty print the dashboard JSON")
+	flag.Parse()
+
+	if *debugMode {
+		if err := debugDashboard(); err != nil {
+			log.Fatalf("Error in debug mode: %v", err)
+		}
+	} else {
+		lambda.Start(lambdaHandler)
+	}
 }
 
 // panelField represents the configuration for a dashboard panel.
@@ -640,7 +689,7 @@ type panelField struct {
 	title         string
 	panelType     string
 	statisticType string
-	unit			string
+	unit          string
 	metricNames   []string
 }
 
@@ -876,7 +925,7 @@ func generatePanels(dashboardDataGranularity string) []interface{} {
 		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 0}, "Memory utilization", "gauge", "Average", "percent", []string{"MemoryUtilization"}},
 		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 8}, "CPU utilization", "gauge", "Average", "percent", []string{"CPUUtilization"}},
 		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 8}, "Disk utilization", "gauge", "Average", "percent", []string{"DiskUtilization"}},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 16}, "Total Go system memory usage", "stat", "bytes", "Maximum", []string{"go_memstats_sys_bytes_gauge"}},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 16}, "Total Go system memory usage", "stat", "Maximum", "bytes", []string{"go_memstats_sys_bytes_gauge"}},
 		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 16}, "Bucket cardinality", "stat", "Maximum", "none", []string{"storage_bucket_series_num_gauge"}},
 		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 24}, "Memory cache usage", "stat", "Maximum", "bytes", []string{"go_memstats_mcache_inuse_bytes_gauge"}},
 		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 24}, "BoltDb writes", "stat", "Maximum", "none", []string{"boltdb_writes_total_counter"}},
@@ -902,7 +951,7 @@ func generatePanels(dashboardDataGranularity string) []interface{} {
 					"metricName": metricName,
 					"expression": "",
 					"dimensions": map[string]interface{}{
-						"DbInstanceName": 	"$instanceName",
+						"DbInstanceName": "$instanceName",
 					},
 					"statistic":        panel.statisticType,
 					"period":           dashboardDataGranularity,
@@ -950,6 +999,7 @@ func generateDashboard(dashboardName string, dbClusterInfo []influxDBInstanceInf
 
 	currentTemplateOptions := map[string]interface{}{}
 	templateOptions := []interface{}{}
+	infinityVariables := []interface{}{}
 	firstOption := true
 	queryString := ""
 	for _, dbInstanceInfo := range dbClusterInfo {
@@ -961,7 +1011,7 @@ func generateDashboard(dashboardName string, dbClusterInfo []influxDBInstanceInf
 		templateOptions = append(
 			templateOptions, map[string]interface{}{
 				"selected": firstOption,
-				"text":			dbInstanceInfo.instanceName,
+				"text":     dbInstanceInfo.instanceName,
 				"value":    dbInstanceInfo.instanceName,
 			},
 		)
@@ -969,12 +1019,59 @@ func generateDashboard(dashboardName string, dbClusterInfo []influxDBInstanceInf
 		if firstOption {
 			currentTemplateOptions["current"] = map[string]interface{}{
 				"selected": false,
-				"text":    dbInstanceInfo.instanceName,
-				"value":   dbInstanceInfo.instanceName,
+				"text":     dbInstanceInfo.instanceName,
+				"value":    dbInstanceInfo.instanceName,
 			}
 			firstOption = false
 		}
 	}
+
+	//	for _, instanceName := range strings.Split(queryString, ",") {
+	infinityVariable := map[string]interface{}{}
+	infinityVariable["current"] = map[string]interface{}{
+		"selected": false, //TODO: Can I remove selected all together?
+		"text":     "99",
+		"value":    "99",
+	}
+	infinityVariable["datasource"] = map[string]interface{}{
+		"type": "yesoreyeram-infinity-datasource",
+		"uid":  "yesoreyeram-infinity-datasource",
+	}
+	infinityVariable["definition"] = "yesoreyeram-infinity-datasource- (infinity) json"
+	infinityVariable["description"] = ""
+	infinityVariable["hide"] = 2
+	infinityVariable["includeAll"] = false
+	infinityVariable["multi"] = false
+	infinityVariable["name"] = "instanceStorageType"
+	infinityVariable["options"] = []interface{}{}
+	infinityVariable["query"] = map[string]interface{}{
+		"infinityQuery": map[string]interface{}{
+			"columns":       []interface{}{},
+			"data":          "{\n  \"influx-monitoring-primary\": [\n    99\n   ],\n  \"tmp-metrics-dashboard-thresholds\": [\n   66\n  ]\n}",
+			"filters":       []interface{}{},
+			"format":        "table",
+			"parser":        "backend",
+			"refId":         "variable",
+			"root_selector": "$instanceName.0",
+			"source":        "inline",
+			"type":          "json",
+			"url":           "",
+			"url_options": map[string]interface{}{
+				"data":   "",
+				"method": "GET",
+			},
+		},
+		"query":     "",
+		"queryType": "infinity",
+	}
+	infinityVariable["refresh"] = 1
+	infinityVariable["regex"] = ""
+	infinityVariable["skipUrlSync"] = false
+	infinityVariable["sort"] = 0
+	infinityVariable["type"] = "query"
+
+	infinityVariables = append(infinityVariables, infinityVariable)
+	//	}
 
 	dashboardConfig := map[string]interface{}{
 		"overwrite": true,
@@ -983,7 +1080,7 @@ func generateDashboard(dashboardName string, dbClusterInfo []influxDBInstanceInf
 			"panels": generatePanels(dashboardDataGranularity),
 			"title":  dashboardName,
 			"templating": map[string]interface{}{
-				"list": []interface{}{
+				"list": append([]interface{}{
 					map[string]interface{}{
 						"current":     currentTemplateOptions["current"],
 						"hide":        0,
@@ -997,7 +1094,7 @@ func generateDashboard(dashboardName string, dbClusterInfo []influxDBInstanceInf
 						"skipUrlSync": false,
 						"type":        "custom",
 					},
-				},
+				}, infinityVariables...),
 			},
 		},
 		"time": map[string]interface{}{
