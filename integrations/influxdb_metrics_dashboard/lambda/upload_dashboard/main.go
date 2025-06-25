@@ -41,6 +41,7 @@ const (
 	EightXL
 	TwelveXL
 	SixteenXL
+	TwentyFourXL
 	InstanceSizeUnknown
 )
 
@@ -54,10 +55,11 @@ var (
 		"db.influx.8xlarge":  EightXL,
 		"db.influx.12large":  TwelveXL,
 		"db.influx.16xlarge": SixteenXL,
+		"db.influx.24xlarge": TwentyFourXL,
 	}
 )
 
-func ParseInstanceSizes(instanceSize string) influxDBInstanceSize {
+func parseInstanceSizes(instanceSize string) influxDBInstanceSize {
 	parsedSize, ok := influxDBInstanceSizes[instanceSize]
 	if !ok {
 		log.Printf("Failed to parse string for InfluxDB instance size: %s", instanceSize)
@@ -84,7 +86,7 @@ var (
 	}
 )
 
-func ParseStorageTypes(storageType string) influxDBStorageType {
+func parseStorageTypes(storageType string) influxDBStorageType {
 	parsedType, ok := influxDBStorageTypes[storageType]
 	if !ok {
 		log.Printf("Failed to parse string for InfluxDB storage type: %s", storageType)
@@ -94,14 +96,14 @@ func ParseStorageTypes(storageType string) influxDBStorageType {
 }
 
 // Struct for specifications related to InfluxDB instance size
-//type influxDBInstanceSpecs struct {
-//	vCPU 													int32
-//	memoryGB											int32
-//	networkBandwidthGB 						int32
-//	seriesThreshold								int32
-//	lineWritesPerSecondThreshold	int32
-//	queriesPerSecondThreshold			int32
-//}
+type influxDBInstanceSpecs struct {
+	vCpu                         int
+	memory                       int
+	networkBandwidth             int
+	seriesThreshold              int
+	lineWritesPerSecondThreshold int
+	queriesPerSecondThreshold    int
+}
 
 // Struct for instance specific info
 type influxDBInstanceInfo struct {
@@ -112,15 +114,16 @@ type influxDBInstanceInfo struct {
 
 // Estimates based off developer documentation: https://docs.aws.amazon.com/timestream/latest/developerguide/timestream-for-influxdb.html#timestream-for-influx-dbi-classt-hw
 // Additional factors are not included for IOPS with options: InfluxIOIncludedT1, InfluxIOIncludedT2, InfluxIOIncludedT3
-//var influxDBInstanceTypes = map[influxDBInstanceSize]influxDBInstanceSpecs{
-//	Medium:			influxDBInstanceSpecs{ vCPU: 1, 	memoryGB: 8, 		networkBandwidthGB: 10, seriesThreshold: 10000, 		lineWritesPerSecondThreshold: 5000, 		queriesPerSecondThreshold: 5  },
-//	Large:			influxDBInstanceSpecs{ vCPU: 2, 	memoryGB: 16, 	networkBandwidthGB: 10, seriesThreshold: 100000, 		lineWritesPerSecondThreshold: 50000, 		queriesPerSecondThreshold: 10 },
-//	TwoXL:			influxDBInstanceSpecs{ vCPU: 4, 	memoryGB: 32, 	networkBandwidthGB: 10, seriesThreshold: 1000000, 	lineWritesPerSecondThreshold: 150000, 	queriesPerSecondThreshold: 25 },
-//	FourXL:			influxDBInstanceSpecs{ vCPU: 8, 	memoryGB: 64, 	networkBandwidthGB: 10, seriesThreshold: 5000000, 	lineWritesPerSecondThreshold: 250000, 	queriesPerSecondThreshold: 35 },
-//	EightXL:		influxDBInstanceSpecs{ vCPU: 16, memoryGB: 128, 	networkBandwidthGB: 12, seriesThreshold: 7500000, 	lineWritesPerSecondThreshold: 500000, 	queriesPerSecondThreshold: 50 },
-//	TwelveXL:		influxDBInstanceSpecs{ vCPU: 32, memoryGB: 256, 	networkBandwidthGB: 20, seriesThreshold: 10000000, 	lineWritesPerSecondThreshold: 750000, 	queriesPerSecondThreshold: 55 },
-//	SixteenXL:	influxDBInstanceSpecs{ vCPU: 64, memoryGB: 512, 	networkBandwidthGB: 25, seriesThreshold: 10000000, 	lineWritesPerSecondThreshold: 1000000, 	queriesPerSecondThreshold: 60 },
-//}
+var influxDBInstanceTypes = map[influxDBInstanceSize]influxDBInstanceSpecs{
+	Medium:       influxDBInstanceSpecs{vCpu: 1, memory: 8589934592, networkBandwidth: 10737418240, seriesThreshold: 10000, lineWritesPerSecondThreshold: 5000, queriesPerSecondThreshold: 5},
+	Large:        influxDBInstanceSpecs{vCpu: 2, memory: 17179869184, networkBandwidth: 10737418240, seriesThreshold: 100000, lineWritesPerSecondThreshold: 50000, queriesPerSecondThreshold: 10},
+	TwoXL:        influxDBInstanceSpecs{vCpu: 4, memory: 34359738368, networkBandwidth: 10737418240, seriesThreshold: 1000000, lineWritesPerSecondThreshold: 150000, queriesPerSecondThreshold: 25},
+	FourXL:       influxDBInstanceSpecs{vCpu: 8, memory: 68719476736, networkBandwidth: 10737418240, seriesThreshold: 5000000, lineWritesPerSecondThreshold: 250000, queriesPerSecondThreshold: 35},
+	EightXL:      influxDBInstanceSpecs{vCpu: 16, memory: 137438953472, networkBandwidth: 12884901888, seriesThreshold: 7500000, lineWritesPerSecondThreshold: 500000, queriesPerSecondThreshold: 50},
+	TwelveXL:     influxDBInstanceSpecs{vCpu: 32, memory: 274877906944, networkBandwidth: 21474836480, seriesThreshold: 10000000, lineWritesPerSecondThreshold: 750000, queriesPerSecondThreshold: 55},
+	SixteenXL:    influxDBInstanceSpecs{vCpu: 64, memory: 549755813888, networkBandwidth: 26843545600, seriesThreshold: 10000000, lineWritesPerSecondThreshold: 1000000, queriesPerSecondThreshold: 60},
+	TwentyFourXL: influxDBInstanceSpecs{vCpu: 96, memory: 824633720832, networkBandwidth: 42949672960, seriesThreshold: 12000000, lineWritesPerSecondThreshold: 1200000, queriesPerSecondThreshold: 65},
+}
 
 // getWorkspaceByName retrieves a Grafana workspace by its name.
 // It lists all workspaces and finds the one matching the provided name.
@@ -463,8 +466,8 @@ func createGrafanaDashboard() (string, error) {
 		clusterInfo = append(clusterInfo,
 			influxDBInstanceInfo{
 				instanceName:        dbInfo[InstanceNameIdx],
-				instanceSize:        ParseInstanceSizes(dbInfo[InstanceSizeIdx]),
-				instanceStorageType: ParseStorageTypes(dbInfo[InstanceStorageTypeIdx]),
+				instanceSize:        parseInstanceSizes(dbInfo[InstanceSizeIdx]),
+				instanceStorageType: parseStorageTypes(dbInfo[InstanceStorageTypeIdx]),
 			},
 		)
 	}
@@ -634,7 +637,7 @@ func lambdaHandler(ctx context.Context, event map[string]interface{}) (events.AP
 	}, nil
 }
 
-// debugDashboard generates and pretty prints the dashboard JSON for local debugging
+// debugDashboard generates and pretty prints the dashboard JSON for local debugging.
 //
 // Returns:
 //   - error: on failure to create JSON dashboard
@@ -651,8 +654,8 @@ func debugDashboard() error {
 		clusterInfo = append(clusterInfo,
 			influxDBInstanceInfo{
 				instanceName:        dbInfo[InstanceNameIdx],
-				instanceSize:        ParseInstanceSizes(dbInfo[InstanceSizeIdx]),
-				instanceStorageType: ParseStorageTypes(dbInfo[InstanceStorageTypeIdx]),
+				instanceSize:        parseInstanceSizes(dbInfo[InstanceSizeIdx]),
+				instanceStorageType: parseStorageTypes(dbInfo[InstanceStorageTypeIdx]),
 			},
 		)
 	}
@@ -905,7 +908,6 @@ func generatePanelFieldConfig(panelType string, panelTitle string, panelUnit str
 //
 // Parameters:
 //   - dashboardDataGranularity: Granularity of data to use in dashboard 60s by default and 5s for high granularity
-//   - dbInstanceSize: The size of the database instance TODO: Complete parameters and panel logic
 //
 // Returns:
 //   - []interface{}: An array of panel configurations
@@ -984,55 +986,15 @@ func generatePanels(dashboardDataGranularity string) []interface{} {
 	return panelConfig
 }
 
-// generateDashboard creates the complete dashboard configuration.
-// It sets up the dashboard with panels, templates for instance selection,
-// and time range settings.
-//
-// Parameters:
-//   - dashboardName: The name of the dashboard
-//   - dbClusterInfo: An array of influxDBInstanceInfo
-//   - dashboardDataGranularity: Granularity of data to use in dashboard 60s by default and 5s for high granularity.
-//
-// Returns:
-//   - map[string]interface{}: The complete dashboard configuration
-func generateDashboard(dashboardName string, dbClusterInfo []influxDBInstanceInfo, dashboardDataGranularity string) map[string]interface{} {
+func getInfinityVariableConfig(instanceSpec map[string]interface{}, variableName string) map[string]interface{} {
 
-	currentTemplateOptions := map[string]interface{}{}
-	templateOptions := []interface{}{}
-	infinityVariables := []interface{}{}
-	firstOption := true
-	queryString := ""
-	for _, dbInstanceInfo := range dbClusterInfo {
-		if queryString != "" {
-			queryString += ","
-		}
-		queryString += dbInstanceInfo.instanceName
-
-		templateOptions = append(
-			templateOptions, map[string]interface{}{
-				"selected": firstOption,
-				"text":     dbInstanceInfo.instanceName,
-				"value":    dbInstanceInfo.instanceName,
-			},
-		)
-
-		if firstOption {
-			currentTemplateOptions["current"] = map[string]interface{}{
-				"selected": false,
-				"text":     dbInstanceInfo.instanceName,
-				"value":    dbInstanceInfo.instanceName,
-			}
-			firstOption = false
-		}
-	}
-
-	//	for _, instanceName := range strings.Split(queryString, ",") {
+	infinityQuery, _ := json.Marshal(instanceSpec)
 	infinityVariable := map[string]interface{}{}
-	infinityVariable["current"] = map[string]interface{}{
-		"selected": false, //TODO: Can I remove selected all together?
-		"text":     "99",
-		"value":    "99",
-	}
+	//	infinityVariable["current"] = map[string]interface{}{
+	//		"selected": false,
+	//		"text":			strconv.Itoa(instanceSpc[].memory),
+	//		"value":    strconv.Itoa(influxDBInstanceTypes[dbInstanceInfo.instanceSize].memory),
+	//	}
 	infinityVariable["datasource"] = map[string]interface{}{
 		"type": "yesoreyeram-infinity-datasource",
 		"uid":  "yesoreyeram-infinity-datasource",
@@ -1042,12 +1004,12 @@ func generateDashboard(dashboardName string, dbClusterInfo []influxDBInstanceInf
 	infinityVariable["hide"] = 2
 	infinityVariable["includeAll"] = false
 	infinityVariable["multi"] = false
-	infinityVariable["name"] = "instanceStorageType"
+	infinityVariable["name"] = variableName
 	infinityVariable["options"] = []interface{}{}
 	infinityVariable["query"] = map[string]interface{}{
 		"infinityQuery": map[string]interface{}{
 			"columns":       []interface{}{},
-			"data":          "{\n  \"influx-monitoring-primary\": [\n    99\n   ],\n  \"tmp-metrics-dashboard-thresholds\": [\n   66\n  ]\n}",
+			"data":          string(infinityQuery),
 			"filters":       []interface{}{},
 			"format":        "table",
 			"parser":        "backend",
@@ -1070,8 +1032,71 @@ func generateDashboard(dashboardName string, dbClusterInfo []influxDBInstanceInf
 	infinityVariable["sort"] = 0
 	infinityVariable["type"] = "query"
 
-	infinityVariables = append(infinityVariables, infinityVariable)
-	//	}
+	return infinityVariable
+}
+
+// generateDashboard creates the complete dashboard configuration.
+// It sets up the dashboard with panels, templates for instance selection,
+// and time range settings.
+//
+// Parameters:
+//   - dashboardName: The name of the dashboard
+//   - dbClusterInfo: An array of influxDBInstanceInfo
+//   - dashboardDataGranularity: Granularity of data to use in dashboard 60s by default and 5s for high granularity.
+//
+// Returns:
+//   - map[string]interface{}: The complete dashboard configuration
+func generateDashboard(dashboardName string, dbClusterInfo []influxDBInstanceInfo, dashboardDataGranularity string) map[string]interface{} {
+
+	currentTemplateOptions := map[string]interface{}{}
+	templateOptions := []interface{}{}
+	infinityVariables := []interface{}{}
+	firstOption := true
+	queryString := ""
+	infinityClusterCpu := map[string]interface{}{}
+	infinityClusterMemory := map[string]interface{}{}
+	infinityClusterNetwork := map[string]interface{}{}
+	infinityClusterSeries := map[string]interface{}{}
+	infinityClusterLineWrites := map[string]interface{}{}
+	infinityClusterQueries := map[string]interface{}{}
+
+	for _, dbInstanceInfo := range dbClusterInfo {
+		if queryString != "" {
+			queryString += ","
+		}
+		queryString += dbInstanceInfo.instanceName
+
+		templateOptions = append(
+			templateOptions, map[string]interface{}{
+				"selected": firstOption,
+				"text":     dbInstanceInfo.instanceName,
+				"value":    dbInstanceInfo.instanceName,
+			},
+		)
+
+		if firstOption {
+			currentTemplateOptions["current"] = map[string]interface{}{
+				"selected": false,
+				"text":     dbInstanceInfo.instanceName,
+				"value":    dbInstanceInfo.instanceName,
+			}
+			firstOption = false
+		}
+
+		infinityClusterCpu[dbInstanceInfo.instanceName] = []int{influxDBInstanceTypes[dbInstanceInfo.instanceSize].vCpu}
+		infinityClusterMemory[dbInstanceInfo.instanceName] = []int{influxDBInstanceTypes[dbInstanceInfo.instanceSize].memory}
+		infinityClusterNetwork[dbInstanceInfo.instanceName] = []int{influxDBInstanceTypes[dbInstanceInfo.instanceSize].networkBandwidth}
+		infinityClusterSeries[dbInstanceInfo.instanceName] = []int{influxDBInstanceTypes[dbInstanceInfo.instanceSize].seriesThreshold}
+		infinityClusterLineWrites[dbInstanceInfo.instanceName] = []int{influxDBInstanceTypes[dbInstanceInfo.instanceSize].lineWritesPerSecondThreshold}
+		infinityClusterQueries[dbInstanceInfo.instanceName] = []int{influxDBInstanceTypes[dbInstanceInfo.instanceSize].queriesPerSecondThreshold}
+	}
+
+	infinityVariables = append(infinityVariables, getInfinityVariableConfig(infinityClusterCpu, "instanceCpu"))
+	infinityVariables = append(infinityVariables, getInfinityVariableConfig(infinityClusterMemory, "instanceMemory"))
+	infinityVariables = append(infinityVariables, getInfinityVariableConfig(infinityClusterNetwork, "instanceNetwork"))
+	infinityVariables = append(infinityVariables, getInfinityVariableConfig(infinityClusterSeries, "instanceSeries"))
+	infinityVariables = append(infinityVariables, getInfinityVariableConfig(infinityClusterLineWrites, "instanceLineWrites"))
+	infinityVariables = append(infinityVariables, getInfinityVariableConfig(infinityClusterQueries, "instanceQueries"))
 
 	dashboardConfig := map[string]interface{}{
 		"overwrite": true,
