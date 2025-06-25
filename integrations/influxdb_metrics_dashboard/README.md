@@ -201,18 +201,18 @@ With your AWS IAM Identify user added to the InfluxDB Metrics Dashboard workspac
 
 The InfluxDB Metrics Dashboard exposes variables for InfluxDB sizing specifications found on the [developer guide](https://docs.aws.amazon.com/timestream/latest/developerguide/timestream-for-influxdb.html#timestream-for-influx-dbi-classt-hw). The variable names and values used with the Infinity data source in the Grafana dashboard are as follows:
 
-| instanceCpu | instanceMemory | instanceNetwork | instanceSeries | instanceLineWrites | instanceQueries |
-|--|--|--|--|--|--|
-| 1  | 8589934592   | 1250000000 | 10000      | 5000      | 5  |
-| 2  | 17179869184  | 1250000000 | 100000     | 50000     | 10 |
-| 4  | 34359738368  | 1250000000 | 1000000    | 150000    | 25 |
-| 8  | 68719476736  | 1250000000 | 5000000    | 250000    | 35 |
-| 16 | 137438953472 | 1500000000 | 7500000    | 500000    | 50 |
-| 32 | 274877906944 | 2500000000 | 10000000   | 750000    | 55 |
-| 64 | 549755813888 | 3125000000 | 10000000   | 1000000   | 60 |
-| 96 | 824633720832 | 5000000000 | 12000000   | 1200000   | 65 |
+| Instance size (Not a variable) | instanceCpu | instanceMemory | instanceNetwork | instanceSeries | instanceLineWrites | instanceQueries |
+|--|--|--|--|--|--|--|
+| db.influx.medium    | 1   | 8589934592   | 1250000000 | 10000      | 5000      | 5  |
+| db.influx.large     | 2   | 17179869184  | 1250000000 | 100000     | 50000     | 10 |
+| db.influx.xlarge    | 4   | 34359738368  | 1250000000 | 1000000    | 150000    | 25 |
+| db.influx.2xlarge   | 8   | 68719476736  | 1250000000 | 5000000    | 250000    | 35 |
+| db.influx.4xlarge   | 16  | 137438953472 | 1500000000 | 7500000    | 500000    | 50 |
+| db.influx.8xlarge   | 32  | 274877906944 | 2500000000 | 10000000   | 750000    | 55 |
+| db.influx.16xlarge  | 64  | 549755813888 | 3125000000 | 10000000   | 1000000   | 60 |
+| db.influx.24xlarge  | 96  | 824633720832 | 5000000000 | 12000000   | 1200000   | 65 |
 
-Use these variables in math expressions or transformations to customize the panels with any of the metrics that are scraped from the [InfluxDB OSS metrics endpoint](https://docs.influxdata.com/influxdb/v2/reference/internals/metrics/).
+Use these variables in math expressions or transformations to customize the panels with any of the metrics that are scraped from the [InfluxDB OSS metrics endpoint](https://docs.influxdata.com/influxdb/v2/reference/internals/metrics/). For an example of how to use variables in math expressions, you can view the math expressions in the "Bucket cardinality" or "Total Go system memory usage" panels.
 
 ## Cleanup
 
