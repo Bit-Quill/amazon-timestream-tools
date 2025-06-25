@@ -42,7 +42,6 @@ const (
 	TwelveXL
 	SixteenXL
 	TwentyFourXL
-	InstanceSizeUnknown
 )
 
 var (
@@ -59,11 +58,11 @@ var (
 	}
 )
 
-func parseInstanceSizes(instanceSize string) influxDBInstanceSize {
+func parseInstanceSize(instanceSize string) influxDBInstanceSize {
 	parsedSize, ok := influxDBInstanceSizes[instanceSize]
 	if !ok {
 		log.Printf("Failed to parse string for InfluxDB instance size: %s", instanceSize)
-		return InstanceSizeUnknown
+		return Large
 	}
 	return parsedSize
 }
@@ -75,7 +74,6 @@ const (
 	InfluxIOIncludedT1 influxDBStorageType = iota
 	InfluxIOIncludedT2
 	InfluxIOIncludedT3
-	StorageTypeUnknown
 )
 
 var (
@@ -86,11 +84,11 @@ var (
 	}
 )
 
-func parseStorageTypes(storageType string) influxDBStorageType {
+func parseStorageType(storageType string) influxDBStorageType {
 	parsedType, ok := influxDBStorageTypes[storageType]
 	if !ok {
 		log.Printf("Failed to parse string for InfluxDB storage type: %s", storageType)
-		return StorageTypeUnknown
+		return InfluxIOIncludedT1
 	}
 	return parsedType
 }
@@ -466,8 +464,8 @@ func createGrafanaDashboard() (string, error) {
 		clusterInfo = append(clusterInfo,
 			influxDBInstanceInfo{
 				instanceName:        dbInfo[InstanceNameIdx],
-				instanceSize:        parseInstanceSizes(dbInfo[InstanceSizeIdx]),
-				instanceStorageType: parseStorageTypes(dbInfo[InstanceStorageTypeIdx]),
+				instanceSize:        parseInstanceSize(dbInfo[InstanceSizeIdx]),
+				instanceStorageType: parseStorageType(dbInfo[InstanceStorageTypeIdx]),
 			},
 		)
 	}
@@ -654,8 +652,8 @@ func debugDashboard() error {
 		clusterInfo = append(clusterInfo,
 			influxDBInstanceInfo{
 				instanceName:        dbInfo[InstanceNameIdx],
-				instanceSize:        parseInstanceSizes(dbInfo[InstanceSizeIdx]),
-				instanceStorageType: parseStorageTypes(dbInfo[InstanceStorageTypeIdx]),
+				instanceSize:        parseInstanceSize(dbInfo[InstanceSizeIdx]),
+				instanceStorageType: parseStorageType(dbInfo[InstanceStorageTypeIdx]),
 			},
 		)
 	}
@@ -694,6 +692,7 @@ type panelField struct {
 	statisticType string
 	unit          string
 	metricNames   []string
+	mathQuery     string
 }
 
 // generatePanelOptions creates the options configuration for a dashboard panel
@@ -923,17 +922,18 @@ func generatePanels(dashboardDataGranularity string) []interface{} {
 				"qc_executing_duration_seconds_0.005",
 				"qc_executing_duration_seconds_0.001",
 			},
+			"",
 		},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 0}, "Memory utilization", "gauge", "Average", "percent", []string{"MemoryUtilization"}},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 8}, "CPU utilization", "gauge", "Average", "percent", []string{"CPUUtilization"}},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 8}, "Disk utilization", "gauge", "Average", "percent", []string{"DiskUtilization"}},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 16}, "Total Go system memory usage", "stat", "Maximum", "bytes", []string{"go_memstats_sys_bytes_gauge"}},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 16}, "Bucket cardinality", "stat", "Maximum", "none", []string{"storage_bucket_series_num_gauge"}},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 24}, "Memory cache usage", "stat", "Maximum", "bytes", []string{"go_memstats_mcache_inuse_bytes_gauge"}},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 24}, "BoltDb writes", "stat", "Maximum", "none", []string{"boltdb_writes_total_counter"}},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 32}, "Allocated memory", "stat", "Maximum", "bytes", []string{"go_memstats_alloc_bytes_gauge"}},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 32}, "HTTP write requests count", "stat", "Maximum", "none", []string{"http_write_request_count_counter"}},
-		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 40}, "HTTP query requests count", "stat", "Maximum", "none", []string{"http_query_request_count_counter"}},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 0}, "Memory utilization", "gauge", "Average", "percent", []string{"MemoryUtilization"}, ""},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 8}, "CPU utilization", "gauge", "Average", "percent", []string{"CPUUtilization"}, ""},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 8}, "Disk utilization", "gauge", "Average", "percent", []string{"DiskUtilization"}, ""},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 16}, "Total Go system memory usage", "gauge", "Maximum", "bytes", []string{"go_memstats_sys_bytes_gauge"}, "($A / ${instanceMemory}) * 100"},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 16}, "Bucket cardinality", "gauge", "Maximum", "none", []string{"storage_bucket_series_num_gauge"}, "($A / ${instanceSeries}) * 100"},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 24}, "Memory cache usage", "stat", "Maximum", "bytes", []string{"go_memstats_mcache_inuse_bytes_gauge"}, ""},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 24}, "BoltDb writes", "stat", "Maximum", "none", []string{"boltdb_writes_total_counter"}, ""},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 32}, "System bytes in-use", "stat", "Maximum", "bytes", []string{"go_memstats_alloc_bytes_gauge"}, ""},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 12, "y": 32}, "HTTP write requests count", "stat", "Maximum", "none", []string{"http_write_request_count_counter"}, ""},
+		{map[string]interface{}{"h": 8, "w": 12, "x": 0, "y": 40}, "HTTP query requests count", "stat", "Maximum", "none", []string{"http_query_request_count_counter"}, ""},
 	}
 
 	var panelConfig []interface{}
@@ -942,6 +942,10 @@ func generatePanels(dashboardDataGranularity string) []interface{} {
 		var panelTargets []interface{}
 		var refId byte = 'A'
 		for _, metricName := range panel.metricNames {
+			hidePanel := false
+			if panel.mathQuery != "" {
+				hidePanel = true
+			}
 			panelTargets = append(
 				panelTargets,
 				map[string]interface{}{
@@ -962,10 +966,28 @@ func generatePanels(dashboardDataGranularity string) []interface{} {
 					"sqlExpression":    "",
 					"matchExact":       true,
 					"refId":            string(refId),
-					"hide":             false,
+					"hide":             hidePanel,
 					"label":            "",
 				},
 			)
+			// Optional additional math query for using instance specifications
+			if panel.mathQuery != "" {
+				refId += byte(1)
+				panelTargets = append(
+					panelTargets,
+					map[string]interface{}{
+						"datasource": map[string]interface{}{
+							"name": "Expression",
+							"type": "__expr__",
+							"uid":  "__expr__",
+						},
+						"expression": panel.mathQuery,
+						"hide":       false,
+						"refId":      string(refId),
+						"type":       "math",
+					},
+				)
+			}
 			// Up one letter in alphabet
 			refId += byte(1)
 		}
@@ -986,15 +1008,18 @@ func generatePanels(dashboardDataGranularity string) []interface{} {
 	return panelConfig
 }
 
+// getInfinityVariableConfig retrieves the cluster variable configuration for a specific instance specification.
+//
+// Parameters:
+//   - instanceSpec: The instance specification for the cluster
+//   - variableName: The variable name to use with Infinity data source and the dashboard
+//
+// Returns:
+//   - map[string]interface{}: The Infinity data source config
 func getInfinityVariableConfig(instanceSpec map[string]interface{}, variableName string) map[string]interface{} {
 
 	infinityQuery, _ := json.Marshal(instanceSpec)
 	infinityVariable := map[string]interface{}{}
-	//	infinityVariable["current"] = map[string]interface{}{
-	//		"selected": false,
-	//		"text":			strconv.Itoa(instanceSpc[].memory),
-	//		"value":    strconv.Itoa(influxDBInstanceTypes[dbInstanceInfo.instanceSize].memory),
-	//	}
 	infinityVariable["datasource"] = map[string]interface{}{
 		"type": "yesoreyeram-infinity-datasource",
 		"uid":  "yesoreyeram-infinity-datasource",

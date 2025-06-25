@@ -572,7 +572,7 @@ func createLambdaResource(stack awscdk.Stack, stackProps awscdk.StackProps, graf
 			"GOOS":                     jsii.String("linux"),
 			"GrafanaWorkspaceName":     jsii.String(grafanaWorkspaceName),
 			"DashboardName":            jsii.String(dashboardName),
-			"DbClusterInfo":          	jsii.String(dbClusterInfo),
+			"DbClusterInfo":            jsii.String(dbClusterInfo),
 			"dashboardDataGranularity": jsii.String(dashboardDataGranularity),
 		},
 		Code: awslambda.Code_FromCustomCommand(jsii.String("lambda/upload_dashboard/lambda.zip"), &[]*string{
