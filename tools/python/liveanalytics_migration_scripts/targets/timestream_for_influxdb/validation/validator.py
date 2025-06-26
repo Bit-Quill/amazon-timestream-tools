@@ -55,7 +55,7 @@ def get_quoted_tags(dimensions: list) -> str:
 
     Args:
         dimensions (list[dict]): A list of dimensions where each dimension
-            is a dict with the key "Name".
+            can be a dict with the key "Name".
 
     Returns:
         str
@@ -63,6 +63,9 @@ def get_quoted_tags(dimensions: list) -> str:
     # measure_name is assumed to always be present as a tag.
     quoted_tags = ["measure_name"]
     for dimension in dimensions:
+        if isinstance(dimension, dict):
+            dimension = dimension["Name"]
+
         if "," in dimension:
             quoted_tags.append(f'"{dimension}"')
         else:
