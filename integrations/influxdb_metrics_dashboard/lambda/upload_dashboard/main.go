@@ -213,7 +213,7 @@ func sendGrafanaHttpReq(httpClient http.Client, req *http.Request) (*http.Respon
 	return resp, nil
 }
 
-// sendGrafanaHttpReq executes an HTTP request against the Grafana API.
+// installInfinityPlugin installs the infinity plugin in the Grafana workspace.
 //
 // Parameters:
 //   - workspaceUrl: The URL of the workspace
@@ -310,7 +310,7 @@ func installInfinityPlugin(workspaceUrl string, serviceAccountTokenKey string, h
 	return nil
 }
 
-// sendGrafanaHttpReq executes an HTTP request against the Grafana API.
+// addDataSourceToWorkspace adds the passed in plugin as a datasource with the Grafana workspace.
 //
 // Parameters:
 //   - datasourceConfig: Configuration options for the data source
@@ -1008,7 +1008,7 @@ func generatePanels(dashboardDataGranularity string) []interface{} {
 	return panelConfig
 }
 
-// getInfinityVariableConfig retrieves the cluster variable configuration for a specific instance specification.
+// getInfinityVariableConfig generates the cluster variable configuration for a specific instance specifications.
 //
 // Parameters:
 //   - instanceSpec: The instance specification for the cluster
