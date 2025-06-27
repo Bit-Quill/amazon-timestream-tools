@@ -1,3 +1,4 @@
+import sys
 import argparse
 import shutil
 import os
@@ -5,15 +6,19 @@ import yaml
 import logging
 from boto3 import Session
 from datetime import datetime, timezone
+from influxdb_client import InfluxDBClient
+from concurrent.futures import ThreadPoolExecutor
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
+
+
 from unload import main as unload_main
 from unload.utils.s3_utils import S3Utility
+from unload.utils.logger_utils import update_logger
 from unload.utils.timestream_utils import TimestreamUtility
 from targets.timestream_for_influxdb.transform import transform
 from targets.timestream_for_influxdb.ingestion import influxdb_ingestion
 from targets.timestream_for_influxdb.validation import validator
-from influxdb_client import InfluxDBClient
-from concurrent.futures import ThreadPoolExecutor
-from unload.utils.logger_utils import update_logger
 
 migration_logger = logging.getLogger("e2e-migration")
 
@@ -122,7 +127,6 @@ def main():
     migration_logger.info("-"*20)
     migration_logger.info(f"Loaded configs from '{args.config}'")
     echo_config(config)
-    migration_logger.info("-"*20)
 
     if not all_databases and not db_table_map:
         migration_logger.error(f"Specify source databases to migrate in {args.config}")
@@ -201,17 +205,6 @@ def main():
     continue_on_error = config["stage"]["ingest"]["continue_on_error"]
     skip_bucket_check = config["stage"]["ingest"]["skip_bucket_check"]
 
-
-    # TODO: rm; here for convenience
-    # InfluxV2
-    # os.environ["INFLUXDB_V2_URL"] = "https://l75mpzejl3-zcipc7m4j2l72o.timestream-influxdb.us-west-2.on.aws:8086"
-    # os.environ["INFLUXDB_V2_ORG"] = "org"
-    # os.environ["INFLUXDB_V2_TOKEN"] = "xx=="
-
-    # InfluxV3
-    # os.environ["INFLUXDB_V2_URL"] = "https://m1xovyvziu-izdmnhd7injid2.timestream-influxdb-alpha.us-west-2.on.aws:8181"
-    # os.environ["INFLUXDB_V2_TOKEN"] = "xx"
-
     influx_args = [
         "-w", str(num_threads),
         "-l", str(lines_per_batch),
@@ -225,6 +218,11 @@ def main():
     if skip_bucket_check:
         influx_args.append("--skip-bucket-check")
 
+    influxdb_url = os.environ["INFLUXDB_V2_URL"]
+    influxdb_token = os.environ["INFLUXDB_V2_TOKEN"]
+    influxdb_org = os.environ["INFLUXDB_V2_ORG"]
+
+    migration_logger.info(f"InfluxDB URL: {influxdb_url}")
 
     # ---------
     # VALIDATION configs
@@ -234,9 +232,9 @@ def main():
     validation_common_args = [
         "--source-engine", "timestream",
         "--athena-output", s3_uri,
-        "--influxdb-v2-url", os.environ["INFLUXDB_V2_URL"],
-        "--influxdb-v2-token", os.environ["INFLUXDB_V2_TOKEN"],
-        "--influxdb-v2-org", os.environ["INFLUXDB_V2_ORG"],
+        "--influxdb-v2-url", influxdb_url,
+        "--influxdb-v2-token", influxdb_token,
+        "--influxdb-v2-org", influxdb_org,
         "--start-time", to_iso_z(unload_start_time),
         "--end-time", to_iso_z(unload_end_time),
         "--logs-dir", validation_logs_dir,
@@ -246,6 +244,7 @@ def main():
     # ---------
     # Setup clients and util classes
     # ---------
+    migration_logger.info("-"*20)
     session = Session()
     timestream_utility = TimestreamUtility(
         aws_region, sns_topic_arn, enable_dynamodb_logger)

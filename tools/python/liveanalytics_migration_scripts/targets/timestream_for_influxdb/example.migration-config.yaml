@@ -2,20 +2,17 @@ version: 1.0
 
 global:
   aws_region: us-west-2
-  # s3_uri: s3://your-bucket
   logs_dir: ./migration-logs
   num_threads: 4
+  # s3_uri: s3://your-existing-bucket
 
 source:
-  # CASE: specific dbs and tables
-  all_databases: False
+  all_databases: false
   databases:
-    benchmark8:
+    database1:
       - cpu
       - memory
-    benchmark7:
-    # benchmark22:
-    #   - cpu
+    benchmark2:
 
 stage:
   #######################################################################
@@ -46,16 +43,11 @@ stage:
   #######################################################################
   transform:
     athena_database_name: default
-    # dimensions_to_fields: {}
-    dimensions_to_fields:
-      benchmark8:
-        cpu:
-          - hostname
-        memory:
-          - region
-      # benchmark7:
-      #   cpu:
-      #     - hostname
+    dimensions_to_fields: {}
+    # dimensions_to_fields:
+    #   database1:
+    #     cpu:
+    #       - hostname
     add_validation_field: true
     logs_dir: transform-logs
 
@@ -68,7 +60,7 @@ stage:
     retries: 20
     precision: ns
     logs_dir: ingestion-logs
-    continue_on_error: false
+    continue_on_error: true
     skip_bucket_check: false
 
   #######################################################################
