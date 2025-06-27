@@ -5,7 +5,6 @@ import yaml
 import logging
 from boto3 import Session
 from datetime import datetime, timezone
-from pathlib import Path
 from unload import main as unload_main
 from unload.utils.s3_utils import S3Utility
 from unload.utils.timestream_utils import TimestreamUtility
@@ -44,14 +43,14 @@ def cleanup_athena(glue, athena_database, timestream_database, timestream_tables
             glue.delete_table(
                 DatabaseName=athena_database, Name=athena_table_name
             )
-        except Exception as e:
+        except Exception:
             migration_logger.error(f"Error deleting {athena_table_name} from {athena_database}")
         try:
             migration_logger.info(f"Deleting {athena_lp_table_name} from {athena_database}")
             glue.delete_table(
                 DatabaseName=athena_database, Name=athena_lp_table_name
             )
-        except Exception as e:
+        except Exception:
             migration_logger.error(f"Error deleting {athena_table_name} from {athena_database}")
 
 def create_athena_db_if_not_exists(boto_session, athena_database_name):
@@ -84,7 +83,8 @@ def load_config(path):
             raise ValueError("Unsupported config format. Use .yaml/.yml")
 
 def main():
-    parser = argparse.ArgumentParser(description="Load config from a given file path.")
+    parser = argparse.ArgumentParser(
+        description="Perform an end-to-end migration from Timestream for LiveAnalytics to InfluxDB V2/V3.")
     parser.add_argument(
         "--config",
         nargs="?",
@@ -101,7 +101,10 @@ def main():
     aws_region = config["global"]["aws_region"]
     os.environ["AWS_DEFAULT_REGION"] = aws_region
 
-    s3_uri = config["global"]["s3_uri"]
+    s3_uri = config["global"].get(
+        "s3_uri",
+        f"s3://influxdb-migration-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}"
+    )
     base_logs_dir = config["global"]["logs_dir"]
     num_threads = config["global"]["num_threads"]
 
@@ -115,7 +118,7 @@ def main():
     all_databases = config['source'].get("all_databases", False)
     db_table_map = config["source"].get("databases", None)
 
-    migration_logger.info(f"Beginning migration to InfluxDB")
+    migration_logger.info("Beginning migration to InfluxDB")
     migration_logger.info("-"*20)
     migration_logger.info(f"Loaded configs from '{args.config}'")
     echo_config(config)
@@ -123,6 +126,7 @@ def main():
 
     if not all_databases and not db_table_map:
         migration_logger.error(f"Specify source databases to migrate in {args.config}")
+        return
     
     # ---------
     # UNLOAD configs
@@ -197,6 +201,7 @@ def main():
     continue_on_error = config["stage"]["ingest"]["continue_on_error"]
     skip_bucket_check = config["stage"]["ingest"]["skip_bucket_check"]
 
+
     # TODO: rm; here for convenience
     # InfluxV2
     # os.environ["INFLUXDB_V2_URL"] = "https://l75mpzejl3-zcipc7m4j2l72o.timestream-influxdb.us-west-2.on.aws:8086"
@@ -227,7 +232,15 @@ def main():
     validation_logs_dir = os.path.join(base_logs_dir, config["stage"]["validation"]["logs_dir"])
 
     validation_common_args = [
+        "--source-engine", "timestream",
+        "--athena-output", s3_uri,
+        "--influxdb-v2-url", os.environ["INFLUXDB_V2_URL"],
+        "--influxdb-v2-token", os.environ["INFLUXDB_V2_TOKEN"],
+        "--influxdb-v2-org", os.environ["INFLUXDB_V2_ORG"],
+        "--start-time", to_iso_z(unload_start_time),
+        "--end-time", to_iso_z(unload_end_time),
         "--logs-dir", validation_logs_dir,
+        "--skip-wal-check",
     ]
 
     # ---------
@@ -236,6 +249,15 @@ def main():
     session = Session()
     timestream_utility = TimestreamUtility(
         aws_region, sns_topic_arn, enable_dynamodb_logger)
+    s3_utility = S3Utility(aws_region)
+
+    # initialize bucket if not exists
+    bucket_name = s3_uri.removeprefix("s3://")
+    managed_bucket = False
+    if not s3_utility.s3_bucket_exists(bucket_name):
+        managed_bucket = True
+        migration_logger.info(f"Creating S3 bucket '{s3_uri}' to store migration artifacts")
+        s3_utility.create_s3_bucket(bucket_name)
  
     # ========================
     # gather runs for unload, transform
@@ -324,13 +346,13 @@ def main():
     # ---------
     # Run unloads
     # ---------
-    migration_logger.info(f"Executing UNLOAD(s)")
+    migration_logger.info("Executing UNLOAD(s)")
     execute_jobs(unload_main, unload_runs, num_threads)
 
     # ---------
     # Run transforms
     # ---------
-    migration_logger.info(f"Executing TRANSFORM(s)")
+    migration_logger.info("Executing TRANSFORM(s)")
     execute_jobs(transform.main, transform_runs, num_threads)
 
 
@@ -339,7 +361,6 @@ def main():
     os.makedirs(lp_base_directory, exist_ok=True)
 
     client = InfluxDBClient.from_env_properties()
-    s3_utility = S3Utility()
     validation_logs_dir = os.path.join(base_logs_dir, config["stage"]["validation"]["logs_dir"])
     for db_name, tables in db_table_map.items():
         lp_directory = f"{lp_base_directory}/{db_name}"
@@ -372,7 +393,7 @@ def main():
             migration_logger.info(f"Begin ingestion to '{db_name}' from {lp_directory}")
             influxdb_ingestion.main(influx_args + [db_name, lp_directory])
 
-            migration_logger.info(f"Ingestion complete.")
+            migration_logger.info("Ingestion complete.")
 
             # make room by clearing LP
             if os.path.exists(lp_directory):
@@ -385,31 +406,15 @@ def main():
         if not skip_bucket_check:
             migration_logger.info(f"Executing validation(s) for {db_name}")
             for table in tables:
-                validator_args = [
-                    "--source-engine",
-                    "timestream",
-                    "--athena-output",
-                    s3_uri,
+                validation_args = validation_common_args + [
                     "--timestream-database-name",
                     db_name,
                     "--timestream-table-name",
                     table,
-                    "--influxdb-v2-url",
-                    os.environ["INFLUXDB_V2_URL"],
-                    "--influxdb-v2-token",
-                    os.environ["INFLUXDB_V2_TOKEN"],
-                    "--influxdb-v2-org",
-                    os.environ["INFLUXDB_V2_ORG"],
                     "--influxdb-v2-bucket",
                     db_name,
                     "--influxdb-v2-measurement",
                     table,
-                    "--start-time",
-                    to_iso_z(unload_start_time),
-                    "--end-time",
-                    to_iso_z(unload_end_time),
-                    "--skip-wal-check",
-                    "--logs-dir", validation_logs_dir,
                 ]
                 if db_name in dimensions_to_fields_map.keys():
                     dims = timestream_utility.list_dimension_columns(db_name, table)
@@ -417,16 +422,18 @@ def main():
                         if table_name == table:
                             schema_tags = [dim for dim in dims if dim not in dimensions]
                             tags = validator.get_quoted_tags(schema_tags)
-                            validator_args += ["--schema-tags", tags]
+                            validation_args += [
 
-                validator.main(validator_args)
+                                "--schema-tags", tags
+                            ]
+                validator.main(validation_args)
 
-    migration_logger.info(f"Validation complete.")
+    migration_logger.info("Validation complete.")
     # ---------
     # Perform clean up
     # ---------
     migration_logger.info("-"*20)
-    migration_logger.info(f"Performing cleanup")
+    migration_logger.info("Performing cleanup")
     if client:
         client.close()
 
@@ -464,6 +471,14 @@ def main():
         migration_logger.error(f"Error deleting Athena tables: {e}")
     finally:
         glue_client.close()
+
+    # Delete managed S3 bucket if exists
+    try:
+        if managed_bucket:
+            s3_utility.delete_bucket_and_contents(bucket_name)
+            migration_logger.info(f"Deleted bucket: {bucket_name}")
+    except Exception as e:
+        migration_logger.error(f"Error deleting {bucket_name}: {e}")
 
     return
 

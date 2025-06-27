@@ -2,7 +2,7 @@ version: 1.0
 
 global:
   aws_region: us-west-2
-  s3_uri: s3://e2e-buk
+  # s3_uri: s3://your-bucket
   logs_dir: ./migration-logs
   num_threads: 4
 
