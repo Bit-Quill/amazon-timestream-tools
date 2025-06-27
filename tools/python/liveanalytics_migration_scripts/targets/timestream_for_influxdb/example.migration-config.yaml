@@ -12,7 +12,7 @@ source:
     database1:
       - cpu
       - memory
-    benchmark2:
+    database2:
 
 stage:
   #######################################################################

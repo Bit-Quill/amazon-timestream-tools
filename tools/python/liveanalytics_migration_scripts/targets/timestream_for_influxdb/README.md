@@ -4,17 +4,15 @@
 
 Migration tooling for Timestream for InfluxDB allows you to easily transform your Timestream for LiveAnalytics data and ingest it to a Timestream for InfluxDB instance. Prior to performing the migration, ensure you have completed a cardinality assessment of the transformed schema to ensure Timestream for InfluxDB is a suitable migration target. See [../../cardinality/README.md](../../cardinality/README.md) for how to perform the cardinality assessment, and any potential schema alterations before starting the transformation process.
 
-See the Influx documentation for [getting started](https://docs.influxdata.com/influxdb/v2/get-started/) with InfluxDB V2 for an overview of the database key concepts, as the data models differ in how the data model is represented.
+See the Influx documentation for [getting started](https://docs.influxdata.com/influxdb/v2/get-started/) with InfluxDB V2 for an overview of the database key concepts, as the data models differ from Timestream for LiveAnalytics in how the data model is represented.
 
 For best practices when designing your Timestream for InfluxDB deployment, see [Applying the AWS Well-Architected Framework for Amazon Timestream for InfluxDB](https://docs.aws.amazon.com/prescriptive-guidance/latest/timestream-for-influxdb-well-architected-framework/introduction.html).
 
-Migration is separated into four stages:
-- [**Unload**](../../unload/README.md): Export your Timestream for LiveAnalytics dataset to S3
-- [**Data transformation**](./transform/README.md): Convert your Timestream for LiveAnalytics data to line protocol format (Based on the schema defined after the cardinality assessment)
-- [**Data ingestion**](./ingestion/README.md): Ingest the line protocol dataset to your Timestream for InfluxDB instance
-- [**Validation**](./validation/README.md): Optionally you can validate that every line protocol point has been ingested (Requires `--add-validation-field true` during transformation)
-
-See [End to end migration](#end-to-end-migration) for additional details on each step, and the migration diagram below for a visual workflow.
+Migration is composed of four stages:
+- [**Unload**](../../unload/README.md): Exports your Timestream for LiveAnalytics dataset to S3
+- [**Data transformation**](./transform/README.md): Converts your Timestream for LiveAnalytics data to line protocol format (Based on the schema defined after the cardinality assessment)
+- [**Data ingestion**](./ingestion/README.md): Ingests the line protocol dataset to your Timestream for InfluxDB instance
+- [**Validation**](./validation/README.md): Validates that line protocol has been ingested
 
 ```mermaid
 stateDiagram-v2
@@ -108,15 +106,13 @@ Refer to [the example config](example.migration-config.yaml) for the full set of
 
 - Migrate all databases and tables (in given region):
 
-    `config.yaml`:
     ```
     source:
       all_databases: true
     ```
 
-- Migrate table `cpu`, `memory` from database `database1` and all tables from `database2`:
+- Migrate tables `cpu`, `memory` from database `database1` and all tables from `database2`:
 
-    `config.yaml`:
     ```
     source:
       all_databases: false
@@ -127,9 +123,8 @@ Refer to [the example config](example.migration-config.yaml) for the full set of
         database2:
     ```
 
-- Transform dimension `hostname` to field in `database1`.`cpu`:
+- Transform dimension `hostname` to field from `database1`.`cpu`:
 
-    `config.yaml`:
     ```
       transform:
         dimensions_to_fields:
@@ -140,7 +135,7 @@ Refer to [the example config](example.migration-config.yaml) for the full set of
 
 ## Sample Workflow for Manual Migrations
 
-The following is a step-by-step example for migrating from a Timestream for LiveAnalytics database `benchmark` and table `cpu` to bucket `benchmark-bucket` in Timestream for InfluxDB.
+The following is a step-by-step workflow for performing a manual migration from a Timestream for LiveAnalytics database `benchmark` and table `cpu` to bucket `benchmark-bucket` in Timestream for InfluxDB V2.
 
 ###  1. Transform data from Timestream
 
@@ -162,6 +157,13 @@ See [transform/README.md](./transform/README.md) for more details.
 Download transformed LP dataset from S3:
 ```
 aws s3 sync s3://<s3_bucket_name>/benchmark/cpu/unload-<%Y-%m-%d-%H-%M-%S>/line-protocol-output ./line-protocol-output
+```
+
+Define required environment variables:
+```
+export INFLUXDB_V2_URL="https://influxdb_v2_url:8086"
+export INFLUXDB_V2_ORG="org"
+export INFLUXDB_V2_TOKEN="xxx"
 ```
 
 Run the ingestion script with the target Timestream for InfluxDB bucket and path to your downloaded LP dataset:
@@ -189,7 +191,7 @@ python3 validation/validator.py
 
 - If any dimensions were converted to fields during transformation to LP, provide the full list of tags from the new schema. Refer to the output of the [transformation](transform/README.md#using-dimensions-as-fields) to retrieve tags from the transformed schema.
 
-- To check current ingestion progress without impacting the migration, use the validator with `--influx-only` and `--skip-wal-check` flags. This provides a real-time count of points in Timestream for InfluxDB without querying the source database (Athena/Timestream for LiveAnalytics) and excludes records still in post-processing.
+- To check current ingestion progress without impacting the migration, run the validator with `--influx-only` and `--skip-wal-check` flags. This provides a real-time count of points in Timestream for InfluxDB without querying the source database (Athena/Timestream for LiveAnalytics) and excludes records still in post-processing.
 
     ```
     python3 validation/validator.py --skip-wal-check --influx-only
