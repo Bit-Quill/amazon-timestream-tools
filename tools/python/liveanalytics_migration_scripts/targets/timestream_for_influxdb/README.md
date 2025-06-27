@@ -71,6 +71,8 @@ direction LR
 
 #### Prerequisites
 
+Ensure you have run the steps in [README.md#Installation](../../README.md#installation).
+
 - Migrating to <b>InfluxDB V2</b>
 
     Define the following environment variables:
