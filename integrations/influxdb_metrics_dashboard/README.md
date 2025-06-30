@@ -39,13 +39,13 @@ To deploy the InfluxDB Metrics Dashboard application, use the following CDK comm
 **note**: To deploy the stack in another region other than the default configured in your `~/.aws/credentials` file, set the environment variable `AWS_REGION` to the target deployment region.
 
   1. Provision AWS environment with the following command (bootstrapping only needs to be done once per account per region):
-```shell
-cdk bootstrap --context InfluxDBIds="{influxdb_ids}"
-```
+      ```shell
+      cdk bootstrap --context InfluxDBIds="{influxdb_ids}"
+      ```
   2. Deploy the application with the following command:
-```shell
-cdk deploy --context InfluxDBIds="{influxdb_ids}"
-```
+      ```shell
+      cdk deploy --context InfluxDBIds="{influxdb_ids}"
+      ```
 
 ## Deploy the CloudFormation stack
 

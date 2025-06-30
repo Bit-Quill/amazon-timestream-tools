@@ -115,10 +115,11 @@ type influxDBInstanceInfo struct {
 var influxDBInstanceTypes = map[influxDBInstanceSize]influxDBInstanceSpecs{
 	Medium:       influxDBInstanceSpecs{vCpu: 1, memory: 8589934592, networkBandwidth: 1250000000, seriesThreshold: 10000, lineWritesPerSecondThreshold: 5000, queriesPerSecondThreshold: 5},
 	Large:        influxDBInstanceSpecs{vCpu: 2, memory: 17179869184, networkBandwidth: 1250000000, seriesThreshold: 100000, lineWritesPerSecondThreshold: 50000, queriesPerSecondThreshold: 10},
-	TwoXL:        influxDBInstanceSpecs{vCpu: 4, memory: 34359738368, networkBandwidth: 1250000000, seriesThreshold: 1000000, lineWritesPerSecondThreshold: 150000, queriesPerSecondThreshold: 25},
-	FourXL:       influxDBInstanceSpecs{vCpu: 8, memory: 68719476736, networkBandwidth: 1250000000, seriesThreshold: 5000000, lineWritesPerSecondThreshold: 250000, queriesPerSecondThreshold: 35},
-	EightXL:      influxDBInstanceSpecs{vCpu: 16, memory: 137438953472, networkBandwidth: 1500000000, seriesThreshold: 7500000, lineWritesPerSecondThreshold: 500000, queriesPerSecondThreshold: 50},
-	TwelveXL:     influxDBInstanceSpecs{vCpu: 32, memory: 274877906944, networkBandwidth: 2500000000, seriesThreshold: 10000000, lineWritesPerSecondThreshold: 750000, queriesPerSecondThreshold: 55},
+	XLarge:       influxDBInstanceSpecs{vCpu: 4, memory: 34359738368, networkBandwidth: 1250000000, seriesThreshold: 500000, lineWritesPerSecondThreshold: 100000, queriesPerSecondThreshold: 15},
+	TwoXL:        influxDBInstanceSpecs{vCpu: 8, memory: 68719476736, networkBandwidth: 1250000000, seriesThreshold: 1000000, lineWritesPerSecondThreshold: 150000, queriesPerSecondThreshold: 25},
+	FourXL:       influxDBInstanceSpecs{vCpu: 16, memory: 137438953472, networkBandwidth: 1250000000, seriesThreshold: 5000000, lineWritesPerSecondThreshold: 250000, queriesPerSecondThreshold: 35},
+	EightXL:      influxDBInstanceSpecs{vCpu: 32, memory: 274877906944, networkBandwidth: 1500000000, seriesThreshold: 7500000, lineWritesPerSecondThreshold: 500000, queriesPerSecondThreshold: 50},
+	TwelveXL:     influxDBInstanceSpecs{vCpu: 48, memory: 412316860416, networkBandwidth: 2500000000, seriesThreshold: 10000000, lineWritesPerSecondThreshold: 750000, queriesPerSecondThreshold: 55},
 	SixteenXL:    influxDBInstanceSpecs{vCpu: 64, memory: 549755813888, networkBandwidth: 3125000000, seriesThreshold: 10000000, lineWritesPerSecondThreshold: 1000000, queriesPerSecondThreshold: 60},
 	TwentyFourXL: influxDBInstanceSpecs{vCpu: 96, memory: 824633720832, networkBandwidth: 5000000000, seriesThreshold: 12000000, lineWritesPerSecondThreshold: 1200000, queriesPerSecondThreshold: 65},
 }
@@ -223,6 +224,7 @@ func sendGrafanaHttpReq(httpClient http.Client, req *http.Request) (*http.Respon
 // Returns:
 //   - error: An error if the request execution fails
 func installInfinityPlugin(workspaceUrl string, serviceAccountTokenKey string, httpClient http.Client) error {
+	startTime := time.Now()
 	const SleepDuration = 10
 	const MaxWaitIntervals = 100
 	var plugins []struct {
@@ -307,6 +309,7 @@ func installInfinityPlugin(workspaceUrl string, serviceAccountTokenKey string, h
 
 	// Grafana still requires additional time after plugin is listed installed
 	time.Sleep(20 * time.Second)
+	log.Printf("Installing infinity plugin took %v seconds to complete", time.Since(startTime).Seconds())
 	return nil
 }
 
@@ -321,6 +324,7 @@ func installInfinityPlugin(workspaceUrl string, serviceAccountTokenKey string, h
 // Returns:
 //   - error: An error if the request execution fails
 func addDataSourceToWorkspace(datasourceConfig map[string]interface{}, workspaceUrl string, serviceAccountTokenKey string, httpClient http.Client) error {
+	startTime := time.Now()
 	jsonDataSourceConfig, err := json.Marshal(datasourceConfig)
 	if err != nil {
 		return fmt.Errorf("failed to marshal JSON: %v", err)
@@ -349,6 +353,7 @@ func addDataSourceToWorkspace(datasourceConfig map[string]interface{}, workspace
 		log.Printf("Failed to add %s to workspace with status code %d", datasourceConfig["name"], configureGrafanaDatasourceResp.StatusCode)
 		return fmt.Errorf("failed to add %s: %d", datasourceConfig["name"], configureGrafanaDatasourceResp.StatusCode)
 	}
+	log.Printf("Adding datasource to workspace took %v seconds to complete", time.Since(startTime).Seconds())
 	return nil
 }
 

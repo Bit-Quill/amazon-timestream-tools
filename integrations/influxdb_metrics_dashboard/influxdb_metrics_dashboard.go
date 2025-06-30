@@ -561,7 +561,7 @@ func addGrafanaWorkspaceToStack(stack awscdk.Stack, stackProps awscdk.StackProps
 //   - The updated CDK stack
 //   - An error if any operation fails
 func createLambdaResource(stack awscdk.Stack, stackProps awscdk.StackProps, grafanaWorkspaceName string, dashboardName string, dbClusterInfo string, dashboardDataGranularity string) (awscdk.Stack, error) {
-	var lambdaTimeout float64 = 200.0
+	var lambdaTimeout float64 = 600.0
 
 	lambdaHandler := awslambda.NewFunction(stack, jsii.String("influxDBMetricDashboardLambdaHandler"), &awslambda.FunctionProps{
 		Runtime:      awslambda.Runtime_PROVIDED_AL2023(),
