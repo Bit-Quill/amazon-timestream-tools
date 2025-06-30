@@ -18,6 +18,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/grafana"
 	grafanaTypes "github.com/aws/aws-sdk-go-v2/service/grafana/types"
+	influxDBTypes "github.com/aws/aws-sdk-go-v2/service/timestreaminfluxdb/types"
 )
 
 // Each InfluxDB instance info is set as environment variable in the format instance-name:instance-size:instance-storage-type
@@ -28,70 +29,6 @@ const (
 	InstanceSizeIdx
 	InstanceStorageTypeIdx
 )
-
-// InfluxDB instance sizing
-type influxDBInstanceSize int
-
-const (
-	Medium influxDBInstanceSize = iota
-	Large
-	XLarge
-	TwoXL
-	FourXL
-	EightXL
-	TwelveXL
-	SixteenXL
-	TwentyFourXL
-)
-
-var (
-	influxDBInstanceSizes = map[string]influxDBInstanceSize{
-		"db.influx.medium":   Medium,
-		"db.influx.large":    Large,
-		"db.influx.xlarge":   XLarge,
-		"db.influx.2xlarge":  TwoXL,
-		"db.influx.4xlarge":  FourXL,
-		"db.influx.8xlarge":  EightXL,
-		"db.influx.12large":  TwelveXL,
-		"db.influx.16xlarge": SixteenXL,
-		"db.influx.24xlarge": TwentyFourXL,
-	}
-)
-
-func parseInstanceSize(instanceSize string) influxDBInstanceSize {
-	parsedSize, ok := influxDBInstanceSizes[instanceSize]
-	if !ok {
-		log.Printf("Failed to parse string for InfluxDB instance size: %s", instanceSize)
-		return Large
-	}
-	return parsedSize
-}
-
-// InfluxDB instance storage types
-type influxDBStorageType int
-
-const (
-	InfluxIOIncludedT1 influxDBStorageType = iota
-	InfluxIOIncludedT2
-	InfluxIOIncludedT3
-)
-
-var (
-	influxDBStorageTypes = map[string]influxDBStorageType{
-		"InfluxIOIncludedT1": InfluxIOIncludedT1,
-		"InfluxIOIncludedT2": InfluxIOIncludedT2,
-		"InfluxIOIncludedT3": InfluxIOIncludedT3,
-	}
-)
-
-func parseStorageType(storageType string) influxDBStorageType {
-	parsedType, ok := influxDBStorageTypes[storageType]
-	if !ok {
-		log.Printf("Failed to parse string for InfluxDB storage type: %s", storageType)
-		return InfluxIOIncludedT1
-	}
-	return parsedType
-}
 
 // Struct for specifications related to InfluxDB instance size
 type influxDBInstanceSpecs struct {
@@ -106,22 +43,21 @@ type influxDBInstanceSpecs struct {
 // Struct for instance specific info
 type influxDBInstanceInfo struct {
 	instanceName        string
-	instanceSize        influxDBInstanceSize
-	instanceStorageType influxDBStorageType
+	instanceSize        influxDBTypes.DbInstanceType
+	instanceStorageType influxDBTypes.DbStorageType
 }
 
 // Estimates based off developer documentation: https://docs.aws.amazon.com/timestream/latest/developerguide/timestream-for-influxdb.html#timestream-for-influx-dbi-classt-hw
 // Additional factors are not included for IOPS with options: InfluxIOIncludedT1, InfluxIOIncludedT2, InfluxIOIncludedT3
-var influxDBInstanceTypes = map[influxDBInstanceSize]influxDBInstanceSpecs{
-	Medium:       influxDBInstanceSpecs{vCpu: 1, memory: 8589934592, networkBandwidth: 1250000000, seriesThreshold: 10000, lineWritesPerSecondThreshold: 5000, queriesPerSecondThreshold: 5},
-	Large:        influxDBInstanceSpecs{vCpu: 2, memory: 17179869184, networkBandwidth: 1250000000, seriesThreshold: 100000, lineWritesPerSecondThreshold: 50000, queriesPerSecondThreshold: 10},
-	XLarge:       influxDBInstanceSpecs{vCpu: 4, memory: 34359738368, networkBandwidth: 1250000000, seriesThreshold: 500000, lineWritesPerSecondThreshold: 100000, queriesPerSecondThreshold: 15},
-	TwoXL:        influxDBInstanceSpecs{vCpu: 8, memory: 68719476736, networkBandwidth: 1250000000, seriesThreshold: 1000000, lineWritesPerSecondThreshold: 150000, queriesPerSecondThreshold: 25},
-	FourXL:       influxDBInstanceSpecs{vCpu: 16, memory: 137438953472, networkBandwidth: 1250000000, seriesThreshold: 5000000, lineWritesPerSecondThreshold: 250000, queriesPerSecondThreshold: 35},
-	EightXL:      influxDBInstanceSpecs{vCpu: 32, memory: 274877906944, networkBandwidth: 1500000000, seriesThreshold: 7500000, lineWritesPerSecondThreshold: 500000, queriesPerSecondThreshold: 50},
-	TwelveXL:     influxDBInstanceSpecs{vCpu: 48, memory: 412316860416, networkBandwidth: 2500000000, seriesThreshold: 10000000, lineWritesPerSecondThreshold: 750000, queriesPerSecondThreshold: 55},
-	SixteenXL:    influxDBInstanceSpecs{vCpu: 64, memory: 549755813888, networkBandwidth: 3125000000, seriesThreshold: 10000000, lineWritesPerSecondThreshold: 1000000, queriesPerSecondThreshold: 60},
-	TwentyFourXL: influxDBInstanceSpecs{vCpu: 96, memory: 824633720832, networkBandwidth: 5000000000, seriesThreshold: 12000000, lineWritesPerSecondThreshold: 1200000, queriesPerSecondThreshold: 65},
+var influxDBInstanceTypes = map[influxDBTypes.DbInstanceType]influxDBInstanceSpecs{
+	influxDBTypes.DbInstanceTypeDbInfluxMedium:		influxDBInstanceSpecs{vCpu: 1, memory: 8589934592, networkBandwidth: 1250000000, seriesThreshold: 10000, lineWritesPerSecondThreshold: 5000, queriesPerSecondThreshold: 5},
+	influxDBTypes.DbInstanceTypeDbInfluxLarge:    influxDBInstanceSpecs{vCpu: 2, memory: 17179869184, networkBandwidth: 1250000000, seriesThreshold: 100000, lineWritesPerSecondThreshold: 50000, queriesPerSecondThreshold: 10},
+	influxDBTypes.DbInstanceTypeDbInfluxXlarge:   influxDBInstanceSpecs{vCpu: 4, memory: 34359738368, networkBandwidth: 1250000000, seriesThreshold: 500000, lineWritesPerSecondThreshold: 100000, queriesPerSecondThreshold: 15},
+	influxDBTypes.DbInstanceTypeDbInflux2xlarge:  influxDBInstanceSpecs{vCpu: 8, memory: 68719476736, networkBandwidth: 1250000000, seriesThreshold: 1000000, lineWritesPerSecondThreshold: 150000, queriesPerSecondThreshold: 25},
+	influxDBTypes.DbInstanceTypeDbInflux4xlarge:  influxDBInstanceSpecs{vCpu: 16, memory: 137438953472, networkBandwidth: 1250000000, seriesThreshold: 5000000, lineWritesPerSecondThreshold: 250000, queriesPerSecondThreshold: 35},
+	influxDBTypes.DbInstanceTypeDbInflux8xlarge:  influxDBInstanceSpecs{vCpu: 32, memory: 274877906944, networkBandwidth: 1500000000, seriesThreshold: 7500000, lineWritesPerSecondThreshold: 500000, queriesPerSecondThreshold: 50},
+	influxDBTypes.DbInstanceTypeDbInflux12xlarge: influxDBInstanceSpecs{vCpu: 48, memory: 412316860416, networkBandwidth: 2500000000, seriesThreshold: 10000000, lineWritesPerSecondThreshold: 750000, queriesPerSecondThreshold: 55},
+	influxDBTypes.DbInstanceTypeDbInflux16xlarge: influxDBInstanceSpecs{vCpu: 64, memory: 549755813888, networkBandwidth: 3125000000, seriesThreshold: 10000000, lineWritesPerSecondThreshold: 1000000, queriesPerSecondThreshold: 60},
 }
 
 // getWorkspaceByName retrieves a Grafana workspace by its name.
@@ -469,8 +405,8 @@ func createGrafanaDashboard() (string, error) {
 		clusterInfo = append(clusterInfo,
 			influxDBInstanceInfo{
 				instanceName:        dbInfo[InstanceNameIdx],
-				instanceSize:        parseInstanceSize(dbInfo[InstanceSizeIdx]),
-				instanceStorageType: parseStorageType(dbInfo[InstanceStorageTypeIdx]),
+				instanceSize:        influxDBTypes.DbInstanceType(dbInfo[InstanceSizeIdx]),
+				instanceStorageType: influxDBTypes.DbStorageType(dbInfo[InstanceStorageTypeIdx]),
 			},
 		)
 	}
@@ -657,8 +593,8 @@ func debugDashboard() error {
 		clusterInfo = append(clusterInfo,
 			influxDBInstanceInfo{
 				instanceName:        dbInfo[InstanceNameIdx],
-				instanceSize:        parseInstanceSize(dbInfo[InstanceSizeIdx]),
-				instanceStorageType: parseStorageType(dbInfo[InstanceStorageTypeIdx]),
+				instanceSize:        influxDBTypes.DbInstanceType(dbInfo[InstanceSizeIdx]),
+				instanceStorageType: influxDBTypes.DbStorageType(dbInfo[InstanceStorageTypeIdx]),
 			},
 		)
 	}
