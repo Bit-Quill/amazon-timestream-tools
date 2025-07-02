@@ -4,7 +4,7 @@ global:
   aws_region: us-west-2
   logs_dir: ./migration-logs
   num_threads: 4
-  # s3_uri: s3://your-existing-bucket
+  # s3_uri: s3://amzn-s3-demo-bucket # Must exist
 
 source:
   all_databases: false
