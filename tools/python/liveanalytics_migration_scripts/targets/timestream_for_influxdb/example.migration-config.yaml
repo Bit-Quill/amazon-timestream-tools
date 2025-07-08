@@ -62,7 +62,6 @@ stage:
     precision: ns
     logs_dir: ingestion-logs
     continue_on_error: true
-    skip_bucket_check: false
 
   #######################################################################
   # VALIDATION
