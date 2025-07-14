@@ -84,17 +84,17 @@ Ensure you have run the steps in [README.md#Installation](../../README.md#instal
 
 - Migrating to <b>InfluxDB V3</b>
 
-    InfluxDB V3 supports [backwards compatibility with prior versions (ie. the V2 write API)](https://docs.influxdata.com/influxdb3/enterprise/write-data/compatibility-apis/).
+    InfluxDB V3 supports [V2's write API](https://docs.influxdata.com/influxdb3/enterprise/write-data/compatibility-apis/).
 
-    1. Define the following environment variables, omitting `INFLUXDB_V2_ORG` (concept of organizations do not apply in V3):
+    1. Set `influxdb_version` in your [config](example.migration-config.yaml) to `v3`. Note that *buckets* from V2 are called *databases* in V3.
+
+    2. Define the following environment variables, omitting `INFLUXDB_V2_ORG` (concept of organizations do not apply in V3):
     ```
     export INFLUXDB_V2_URL="https://influxdb_v3_url:8181"
     export INFLUXDB_V2_TOKEN="xxx"
     ```
 
-    2. Set `influxdb_version` in your config to `v3`. Note that *buckets* from V2 are called *databases* in V3.
-
-#### Usage
+### Usage
 
 Run `main.py` with the path to your config file which will handle all 4 stages of the migration:
 
@@ -104,11 +104,46 @@ python main.py --config <path_to_config>
 
 Refer to [the example config](example.migration-config.yaml) for the full set of configurable options.
 
-##### Example Scenarios
+#### Example Scenarios
+
+The migration script supports 2 modes:
+
+1. `batch`: Migrates all specified source databases and tables between `start_time` and `end_time`
+
+2. `live_replication`: Runs the migration as a continuous process (or optionally until specified `cutoff_time`). The first batch migrates all source data from `backfill_start_time` to time of execution, and sleeps for `batch_sleep_min` minutes before submitting the next batch.
+    - `batch_sleep_min`: Number of minutes to sleep between migrations.
+    - `backfill_start_time`: The start datetime of the first batch.
+    - `backfill_min_overlap`: The number of minutes to subtract from a given batch's start time to ensure late-arriving data can be captured if expected.
+
+- Live data synchronization every ~30 minutes with 1 minute backfill overlap
+    ```
+    mode: live_replication
+    live_replication:
+      batch_sleep_min: 30
+      backfill_start_time: "2020-01-01 00:00:00"
+      backfill_min_overlap: 1
+    source:
+      all_databases: true
+    ```
+
+- Live data synchronization with last batch ending on `2026-09-01 00:00:00`
+    ```
+    mode: live_replication
+    live_replication:
+      batch_sleep_min: 30
+      backfill_start_time: "2020-01-01 00:00:00"
+      cutoff_time: "2026-09-01 00:00:00"
+    source:
+      all_databases: true
+    ```
 
 - Migrate all databases and tables (in given region):
 
     ```
+    mode: batch
+    batch:
+      start_time: "2000-01-01 00:00:00"
+      end_time: "2026-07-01 00:00:00"
     source:
       all_databases: true
     ```
@@ -116,6 +151,10 @@ Refer to [the example config](example.migration-config.yaml) for the full set of
 - Migrate tables `cpu`, `memory` from database `database1` and all tables from `database2`:
 
     ```
+    mode: batch
+    batch:
+      start_time: "2000-01-01 00:00:00"
+      end_time: "2026-07-01 00:00:00"
     source:
       all_databases: false
       databases:
@@ -128,6 +167,7 @@ Refer to [the example config](example.migration-config.yaml) for the full set of
 - Transform dimension `hostname` to field from `database1`.`cpu`:
 
     ```
+    stage:
       transform:
         dimensions_to_fields:
           database1:
