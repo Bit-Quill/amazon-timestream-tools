@@ -166,7 +166,7 @@ def main():
         batch_sleep_min = config["global"]["live_replication"]["batch_sleep_min"]
         backfill_start_time = config["global"]["live_replication"]["backfill_start_time"]
         cutoff_time = config["global"]["live_replication"].get("cutoff_time", None)
-        backfill_min_overlap = config["global"]["live_replication"]["backfill_min_overlap"]
+        backfill_min_overlap = config["global"]["live_replication"].get("backfill_min_overlap", 0)
     else:
         migration_logger.warning(f"Unrecognized option for mode: '{migration_mode}'. Should be one of: ['batch', 'live_replication']")
         return
