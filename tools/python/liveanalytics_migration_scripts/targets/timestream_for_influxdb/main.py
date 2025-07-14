@@ -24,8 +24,8 @@ from targets.timestream_for_influxdb.validation import validator
 
 migration_logger = logging.getLogger("e2e-migration")
 
-def init_file(filename):
-    """Create file with headers if it doesn't exist."""
+def initialize_live_repl_logs(filename):
+    """Live replication headers for each batch."""
     HEADERS = [
         "batch_id",
         "executed_at",
@@ -161,7 +161,7 @@ def main():
     elif migration_mode == "live_replication":
         # initialize live replication log file
         live_replication_logfile = os.path.join(base_logs_dir, f"live_replication_{now}.log")
-        init_file(live_replication_logfile)
+        initialize_live_repl_logs(live_replication_logfile)
 
         batch_sleep_min = config["global"]["live_replication"]["batch_sleep_min"]
         backfill_start_time = config["global"]["live_replication"]["backfill_start_time"]
@@ -604,11 +604,8 @@ def main():
                 break
 
             batch_index += 1
-            # print(f"backfill overlap: {backfill_min_overlap}")
             migration_logger.info(f"Sleeping for {batch_sleep_min} minutes..")
             time.sleep(batch_sleep_min * 60)
-            # migration_logger.info(f"Woke up!")
-            # return
 
     migration_logger.info(f"Migration complete.")
 
