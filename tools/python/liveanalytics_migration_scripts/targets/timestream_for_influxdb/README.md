@@ -92,7 +92,7 @@ Ensure you have run the steps in [README.md#Installation](../../README.md#instal
     export INFLUXDB_V2_TOKEN="xxx"
     ```
 
-    2. Set `influxdb_version` in your config to `v3`
+    2. Set `influxdb_version` in your config to `v3`. Note that *buckets* from V2 are called *databases* in V3.
 
 #### Usage
 

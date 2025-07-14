@@ -339,8 +339,7 @@ def count_influx_v3_rows(
     end_time: str | None = None
 ) -> int | None:
     """
-    Count points in an InfluxDB v3 table via the InfluxQL /query
-    endpoint.
+    Count points in an InfluxDB v3 table via the InfluxDB v3 HTTP query API.
 
     Args:
         url: Base URL of the InfluxDB V3 instance.
@@ -366,27 +365,36 @@ def count_influx_v3_rows(
     query = f'SELECT COUNT("{row_identifier}") FROM "{measurement}"{time_filter}'
     validation_logger.info(f"--- InfluxDB v3 ---\n\nRunning query:\n{query}\n")
 
+    payload = {
+        "db": database,
+        "q": query,
+        "format": "jsonl"
+    }
+
     try:
-        resp = requests.get(
-            f"{url.rstrip('/')}/query",
+        resp = requests.post(
+            f"{url.rstrip('/')}/api/v3/query_influxql",
             headers=headers,
-            params={"db": database, "q": query}
+            json=payload
         )
         resp.raise_for_status()
-        data = resp.json()
+        # JSONL streams lines; pick first
+        lines = resp.text.strip().splitlines()
+        first = json.loads(lines[0]) if lines else {}
     except Exception as exc:
         raise RuntimeError(f"InfluxDB v3 request failed: {exc}") from exc
 
     try:
-        # JSON format: results[0].series[0].values[0][1] = count
-        result = data["results"][0]
-        series = result["series"][0]
-        total = int(series["values"][0][1])
-    except (KeyError, IndexError, ValueError) as exc:
-        raise RuntimeError(f"Unexpected v3 response shape: {json.dumps(data)}") from exc
+        # InfluxQL returns 'count' field
+        total = int(first.get("count") or next(iter(first.values())))
+    except Exception as exc:
+        validation_logger.error(f"InfluxDB v3 response does not contain count, likely due to non-existent table.")
+        return 0
+
 
     label = f"{database}.{measurement} ({start_time or 'begin'} - {end_time or 'now'})"
     validation_logger.info(f"[INFLUXDB-v3] Total LP points in {label}: {total}\n")
+
     return total
 
 # ────────────────────── CLI parsing ─────────────────────────
@@ -663,9 +671,6 @@ def main(input_args) -> None:
 
     if infl_count is None:
         validation_logger.error("\n❌ InfluxDB query failed - cannot continue comparison.")
-    elif infl_count == 0:
-        validation_logger.info(f"\n❗ InfluxDB returned 0 points in {args.influxdb_v2_bucket}.")
-        return
 
     if infl_count is not None and args.influx_only:
         validation_logger.info(f"\n⏱ InfluxDB query time: {infl_elapsed:.2f}s")
@@ -682,7 +687,7 @@ def main(input_args) -> None:
 
         if src_count is not None and infl_count is not None:
             if src_count == infl_count:
-                validation_logger.info(f"🎉  {src_label} and InfluxDB row counts match.\n")
+                validation_logger.info(f"🎉  {src_label} and InfluxDB row counts match ({src_count}).\n")
             else:
                 sign = ">" if src_count > infl_count else "<"
                 validation_logger.info(f"⚠️  {src_label} ({src_count}) {sign} InfluxDB ({infl_count})\n")
