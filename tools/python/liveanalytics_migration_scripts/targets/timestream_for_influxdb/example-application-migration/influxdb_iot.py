@@ -201,7 +201,6 @@ def write_line_protocol(client: InfluxDBClient, bucket: str, points: List[Point]
     total_points = len(points)
     points_written = 0
 
-    # Get the write API
     write_api = client.write_api(write_options=SYNCHRONOUS)
 
     # Process points in batches of MAX_BATCH_SIZE
