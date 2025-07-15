@@ -198,13 +198,12 @@ def main():
                     start_dt = datetime.strptime(batch_start_time, no_space_fmt) - timedelta(minutes=backfill_min_overlap)
                     batch_start_time = start_dt.strftime(no_space_fmt)
 
+            batch_end_time = executed_at.strftime(no_space_fmt)
             if cutoff_time: 
                 cutoff_datetime = datetime.strptime(cutoff_time, no_space_fmt).replace(tzinfo=timezone.utc)
                 if executed_at > cutoff_datetime:
                     batch_end_time = cutoff_time
                     is_last_batch = True
-            else:
-                batch_end_time = executed_at.strftime(no_space_fmt)
 
         # in "batch" mode
         else:
