@@ -2,6 +2,46 @@
 
 This guide provides a comprehensive comparison between Amazon Timestream for LiveAnalytics and InfluxDB, focusing on how to migrate an existing LiveAnalytics ingestion workflow implementation to InfluxDB.
 
+Along with the guide are two sample applications which can be used to ingest the same sample dataset to Timestream for LiveAnalytics and Timestream for InfluxDB. 
+
+## Running example apps
+
+Complete the following steps to ingest the sample datasets to Timestream for LiveAnalytics and Timestream for InfluxDB.
+
+### InfluxDB app
+
+Have an InfluxDB instance accessible and define the following environment variables:
+
+```
+export INFLUXDB_V2_URL="https://influxdb_v2_url:8086"
+export INFLUXDB_V2_ORG="org"
+export INFLUXDB_V2_TOKEN="xxx"
+```
+
+Create a virtual environment using venv and install required dependencies.
+
+```bash
+python3 -m venv .env && \
+source .env/bin/activate && \
+python3 -m pip install -r requirements.txt
+```
+
+Run the InfluxDB sample application.
+
+```bash
+python influxdb_iot.py
+```
+
+### Timestream for LiveAnalytics app
+
+Ensure you have your local environment setup with AWS credentials configured with permissions to create Timestream for LiveAnalytics databases and tables.
+
+```bash
+python liveanalytics_iot.py
+```
+
+Continue reading the remainder of the guide in order to understand how the data is stored, accessed, and interpreted in the different time series solutions. The guide is not exhaustive of all options for ingestion and querying but provides a high level overview of the important topics and required research required for a successful workflow migration from LiveAnalytics to InfluxDB.
+
 ## Concept Mapping
 
 | Timestream for LiveAnalytics Concept | InfluxDB Concept | Notes |
@@ -15,6 +55,8 @@ This guide provides a comprehensive comparison between Amazon Timestream for Liv
 | Time unit | Precision | InfluxDB handles precision differently |
 
 ## Function Comparison
+
+In this section we delve into the differences in implementation of the basic examples used to ingest to LiveAnalytics versus InfluxDB.
 
 ### Client Creation and Configuration
 
@@ -62,14 +104,6 @@ def create_database_if_nonexistent(client, database_name):
 
 ```python
 def create_bucket_if_nonexistent(client: InfluxDBClient, bucket_name: str, retention_hours: int) -> None:
-    """
-    Create an InfluxDB bucket if it doesn't already exist.
-
-    Args:
-        client (InfluxDBClient): InfluxDB client
-        bucket_name (str): Name of the bucket to create
-        retention_hours (int): Data retention period in hours (0 for infinite retention)
-    """
     from influxdb_client.domain.bucket_retention_rules import BucketRetentionRules
 
     buckets_api = client.buckets_api()
@@ -365,7 +399,6 @@ def write_line_protocol(client: InfluxDBClient, bucket: str, points: List[Point]
 
 This significant difference in batch sizes can lead to performance improvements when migrating to InfluxDB, as fewer API calls are needed to write the same amount of data.
 
-
 ## Retention Policy Differences
 
 ### Timestream for LiveAnalytics
@@ -523,4 +556,118 @@ influxdb_point = Point("system_metrics") \
 7. **Time Handling**: Adapt timestamp handling to use InfluxDB's approach
 
 By following this guide, you should be able to successfully migrate your Amazon Timestream for LiveAnalytics implementation to InfluxDB while maintaining the same ingestion functionality.
+
+## Querying Data in Grafana
+
+After migrating your data from Amazon Timestream for LiveAnalytics to InfluxDB, you'll need to adapt your queries to work with InfluxDB. Below is an example of a similar query which also highlights how data model differences need to be accounted for when adapting queries. There are fundamental difference in database data models, query languages, and how visualizations function.
+
+### Example 1: Average CPU and Memory Utilization by Region
+
+#### LiveAnalytics SQL Query
+
+![](./images/sql-query.png)
+
+```sql
+SELECT region, 
+       AVG(cpu_utilization) AS avg_cpu, 
+       AVG(memory_utilization) AS avg_memory,
+       BIN(time, 5m) AS time_bin
+FROM "timestream_iot_sample"."iot_data"
+WHERE time BETWEEN '2025-03-18 08:28:29' AND '2025-03-18 10:42:09'
+  AND measure_name = 'system_metrics'
+GROUP BY region, BIN(time, 5m)
+ORDER BY time_bin ASC
+```
+
+#### InfluxDB Flux Query
+
+![](./images/flux-query.png)
+
+```
+from(bucket: "iot_sample")
+  |> range(start: 2025-03-18T08:28:29Z, stop: 2025-03-18T10:42:09Z)
+  |> filter(fn: (r) => r._measurement == "system_metrics")
+  |> filter(fn: (r) => r._field == "cpu_utilization" or r._field == "memory_utilization")
+  |> aggregateWindow(every: 5m, fn: mean, createEmpty: false)
+  |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
+  |> map(fn: (r) => ({
+      region: r.region,
+      avg_cpu: r.cpu_utilization,
+      avg_memory: r.memory_utilization,
+      _time: r._time
+    }))
+  |> group(columns: ["region"])
+  |> sort(columns: ["_time"], desc: false)
+  |> yield(name: "mean")
+```
+
+The key differences in how these queries compare are listed as follows:
+
+1. __Data Model Differences__:
+
+   - In LiveAnalytics, the data is stored with a measure_name of "system_metrics" and multiple measure values (cpu_utilization, memory_utilization) within each record.
+   - In InfluxDB, the data is stored with a measurement name of "system_metrics" and fields for cpu_utilization and memory_utilization.
+
+2. __Query Structure__:
+
+   - The LiveAnalytics query groups by region and time bin, which would result in one series per region with both avg_cpu and avg_memory as fields.
+   - The InfluxDB query uses `group(columns: ["region"])` which creates separate series for each region.
+
+3. __Series Generation in Grafana__:
+
+   - For the LiveAnalytics query, Grafana would create 2 series (one for avg_cpu and one for avg_memory) because the query returns a single result set with these two metrics.
+   - For the InfluxDB query, Grafana would create a series for each region's avg_cpu and avg_memory, resulting in more series if there are multiple regions.
+
+4. __Visualization in Grafana__:
+
+   - The LiveAnalytics query would show 2 lines in a time series chart (one for avg_cpu and one for avg_memory).
+   - The InfluxDB query would show a line for each region's avg_cpu and avg_memory, resulting in more lines if there are multiple regions.
+
+These differences in visualizations and queries highlight the importance of understanding the use-case for querying the data being in LiveAnalytics vs InfluxDB. While migrating ingestion workflows may be fairly simple, there may be limitations in the data model and supported feature of the database.
+
+## Query Language Differences and Limitations
+
+When migrating from Amazon Timestream for LiveAnalytics to InfluxDB, it's important to understand the key differences between SQL and Flux query languages:
+
+### SQL vs. Flux
+
+| Feature | LiveAnalytics (SQL) | InfluxDB (Flux) | Notes |
+|---------|---------------------|-----------------|-------|
+| Query Language | Standard SQL with time series extensions | Functional data scripting language | Flux has a steeper learning curve |
+| Time Functions | `ago()`, `now()`, `BIN()` | `range()`, `aggregateWindow()` | Different time handling paradigms |
+| Aggregations | `AVG()`, `SUM()`, `MIN()`, `MAX()`, etc. | `mean()`, `sum()`, `min()`, `max()`, etc. | Similar functionality, different syntax |
+| Grouping | `GROUP BY` clause | `group()` function | Flux uses functional approach |
+| Filtering | `WHERE` clause | `filter()` function | Flux uses predicates in functions |
+| Joins | SQL joins | `join()` function | Flux joins require explicit column mapping |
+| Sorting | `ORDER BY` clause | `sort()` function | Similar functionality |
+| Limiting | `LIMIT` clause | `limit()` function | Similar functionality |
+
+### Key Limitations and Differences
+
+1. **Data Model Differences**:
+   - LiveAnalytics uses a record-based model with dimensions and measures
+   - InfluxDB uses a series-based model with tags and fields
+   - This affects how you structure queries and join data
+
+2. **Missing Functions**:
+   - LiveAnalytics has specialized time series functions not available in Flux
+   - Flux has functional programming capabilities not available in SQL
+   - Some complex SQL queries may require multiple Flux operations
+
+3. **Query Complexity**:
+   - Simple queries are often more verbose in Flux
+   - Complex data transformations can be more elegant in Flux
+   - SQL's declarative nature vs. Flux's functional pipeline approach
+
+4. **Performance Considerations**:
+   - LiveAnalytics optimizes for large-scale time series analytics
+   - InfluxDB optimizes for high write throughput and real-time queries
+   - Query patterns may need adjustment for optimal performance
+
+5. **Visualization Integration**:
+   - Grafana supports both query languages
+   - SQL queries may be easier to build in Grafana's query editor
+   - Flux offers more flexibility for complex visualizations
+
+Understanding these differences is important for a successful workflow migration. You can effectively translate your LiveAnalytics SQL queries to InfluxDB Flux queries while maintaining similar visualization capabilities in Grafana with some limitations. A thorough investigation into workflows and queries on the underlying data should be done to remove as much uncertainty of compatibility between the two time series solutions.
 
