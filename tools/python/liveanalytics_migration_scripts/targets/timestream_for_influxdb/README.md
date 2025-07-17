@@ -66,9 +66,6 @@ direction LR
     class AddMetadata blue
 ```
 
-
-## End-to-end Migration
-
 #### Prerequisites
 
 Ensure you have run the steps in [README.md#Installation](../../README.md#installation).
@@ -110,10 +107,21 @@ The migration script supports 2 modes:
 
 1. `batch`: Migrates all specified source databases and tables between `start_time` and `end_time`
 
-2. `live_replication`: Runs the migration as a continuous process (or optionally until specified `cutoff_time`). The first batch migrates all source data from `backfill_start_time` to time of execution, and sleeps for `batch_sleep_min` minutes before submitting the next batch.
+2. `live_replication`: Runs the migration as a continuous process with optional hard stop at `cutoff_time`.
     - `batch_sleep_min`: Number of minutes to sleep between batches.
     - `backfill_start_time`: The start datetime of the first batch.
-    - `backfill_min_overlap`: The number of minutes to subtract from a given batch's start time to ensure late-arriving data can be captured if expected.
+    - `backfill_min_overlap`: Minutes to subtract from each batch's start time to capture late-arriving data.
+    - `cutoff_time`: End datetime of the final batch.
+
+- Migrate all records from all databases between `2020-01-01 00:00:00` and `2021-01-01 00:00:00`
+    ```
+    mode: batch
+    batch:
+      start_time: "2020-01-01 00:00:00"
+      end_time:   "2021-01-01 00:00:00"
+    source:
+      all_databases: true
+    ```
 
 - Live replication every ~30 minutes with 1 minute backfill overlap
     ```
@@ -122,30 +130,6 @@ The migration script supports 2 modes:
       batch_sleep_min: 30
       backfill_start_time: "2020-01-01 00:00:00"
       backfill_min_overlap: 1
-    source:
-      all_databases: true
-    ```
-
-- Live replication with last batch ending on `2026-09-01 00:00:00`
-    ```
-    mode: live_replication
-    live_replication:
-      batch_sleep_min: 30
-      backfill_start_time: "2020-01-01 00:00:00"
-      cutoff_time: "2026-09-01 00:00:00"
-    source:
-      all_databases: true
-    ```
-
-- Migrate all databases and tables:
-
-    ```
-    mode: batch
-    batch:
-      start_time: "2000-01-01 00:00:00"
-      end_time: "2026-07-01 00:00:00"
-    source:
-      all_databases: true
     ```
 
 - Migrate tables `cpu`, `memory` from database `database1` and all tables from `database2`:
@@ -175,71 +159,9 @@ The migration script supports 2 modes:
               - hostname
     ```
 
-## Sample Workflow for Manual Migrations
+## Live Migrations
 
-The following is a step-by-step workflow for performing a manual migration from a Timestream for LiveAnalytics database `benchmark` and table `cpu` to bucket `benchmark-bucket` in Timestream for InfluxDB V2.
-
-###  1. Transform data from Timestream
-
-Transform the unloaded data from Timestream for LiveAnalytics to line protocol (LP) using Athena.
-
-```
-cd transform
-python3 transform.py --database-name benchmark --tables cpu --s3-bucket-path <s3_bucket_path> --add-validation-field true
-```
-
-- To transform all tables, use the `--all-tables` flag.
-- If validation (comparing logical row counts between source and destination) is not required, set `--add-validation-field` flag to `false`.
-- To convert dimensions to fields during transformation, use the `--dimensions-to-fields` flag.
-
-See [transform/README.md](./transform/README.md) for more details.
-
-### 2. Ingest line protocol to Timestream for InfluxDB
-
-Download transformed LP dataset from S3:
-```
-aws s3 sync s3://<s3_bucket_name>/benchmark/cpu/unload-<%Y-%m-%d-%H-%M-%S>/line-protocol-output ./line-protocol-output
-```
-
-Define required environment variables:
-```
-export INFLUXDB_V2_URL="https://influxdb_v2_url:8086"
-export INFLUXDB_V2_ORG="org"
-export INFLUXDB_V2_TOKEN="xxx"
-```
-
-Run the ingestion script with the target Timestream for InfluxDB bucket and path to your downloaded LP dataset:
-```
-python3 ingestion/influxdb_ingestion.py benchmark-bucket ./line-protocol-output
-```
-
-- Optionally configure the number of workers (`-w`), batch size (`-l`), and I/O multiplier (`-m`) 
-- Run ingestion with the `--continue-on-error` flag to continue ingesting remaining files even if one fails.
-- On failure or disruption to ingestion, you can resume from a previous run by using the `--resume-from` flag. Specify the path to the tracking directory from a previous run to skip already ingested files.
-    ```
-    python3 ingestion/influxdb_ingestion.py benchmark-bucket ./line-protocol-output --resume-from  ./influxdb-ingestion-logs/tracking_<run_id>
-    ```
-
-See [ingestion/README.md](./ingestion/README.md) for more details.
-
-### 3. Validation
-
-Validate that all records have been ingested to InfluxDB:
-```
-python3 validation/validator.py
-```
-
-- Optionally configure `--start-time` and `--end-time` to validate row counts in time ranges.
-
-- If any dimensions were converted to fields during transformation to LP, provide the full list of tags from the new schema. Refer to the output of the [transformation](transform/README.md#using-dimensions-as-fields) to retrieve tags from the transformed schema.
-
-- To check current ingestion progress without impacting the migration, run the validator with `--influx-only` and `--skip-wal-check` flags. This provides a real-time count of points in Timestream for InfluxDB without querying the source database (Athena/Timestream for LiveAnalytics) and excludes records still in post-processing.
-
-    ```
-    python3 validation/validator.py --skip-wal-check --influx-only
-    ```
-
-See [validation/README.md](./validation/README.md) for more details.
+For performing live migrations, see the [Live Migration Guide](./live_migration_guide.md).
 
 ## Troubleshooting
 
