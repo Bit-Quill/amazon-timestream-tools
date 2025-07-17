@@ -1,8 +1,21 @@
-# Migrating from Amazon Timestream for LiveAnalytics to InfluxDB
+# Migrating from Amazon Timestream for LiveAnalytics to InfluxDB V2
 
-This guide provides a comprehensive comparison between Amazon Timestream for LiveAnalytics and InfluxDB, focusing on how to migrate an existing LiveAnalytics ingestion workflow implementation to InfluxDB.
+This guide provides a comprehensive comparison between Amazon Timestream for LiveAnalytics and InfluxDB V2, focusing on how to migrate an existing LiveAnalytics ingestion workflow implementation to InfluxDB V2.
 
-Along with the guide are two sample applications which can be used to ingest the same sample dataset to Timestream for LiveAnalytics and Timestream for InfluxDB. 
+Along with the guide are two sample applications which can be used to ingest the same sample dataset to Timestream for LiveAnalytics and Timestream for InfluxDB.
+
+## InfluxDB V2 vs InfluxDB V3
+
+Many of the concepts used for InfluxDB V2 are compatible with InfluxDB V3, and the sample application will successfully ingest data to InfluxDB V3 core's [V2 compatibility API](https://docs.influxdata.com/influxdb3/core/write-data/http-api/compatibility-apis/). While InfluxDB V3 supports ingestion through the V2 compatibility API, InfluxDB V2 Flux queries are not supported.
+
+### InfluxDB version differences
+
+| InfluxDB V2 | InfluxDB V3 | Notes |
+|-------------|-------------|-------|
+| Bucket      | Database    | The top-level container for time series data |
+| Table       | Measurement | Defines the data structure |
+| Flux / InfluxQL | SQL / InfluxQL | Supported query languages |
+
 
 ## Running example apps
 
@@ -13,7 +26,7 @@ Complete the following steps to ingest the sample datasets to Timestream for Liv
 Have an InfluxDB instance accessible and define the following environment variables:
 
 ```
-export INFLUXDB_V2_URL="https://influxdb_v2_url:8086"
+export INFLUXDB_V2_URL="https://<InfluxDB V2 endpoint>:8086"
 export INFLUXDB_V2_ORG="org"
 export INFLUXDB_V2_TOKEN="xxx"
 ```
@@ -29,7 +42,7 @@ python3 -m pip install -r requirements.txt
 Run the InfluxDB sample application.
 
 ```bash
-python influxdb_iot.py
+python3 influxdb_iot.py
 ```
 
 ### Timestream for LiveAnalytics app
@@ -37,22 +50,22 @@ python influxdb_iot.py
 Ensure you have your local environment setup with AWS credentials configured with permissions to create Timestream for LiveAnalytics databases and tables.
 
 ```bash
-python liveanalytics_iot.py
+python3 liveanalytics_iot.py
 ```
 
 Continue reading the remainder of the guide in order to understand how the data is stored, accessed, and interpreted in the different time series solutions. The guide is not exhaustive of all options for ingestion and querying but provides a high level overview of the important topics and required research required for a successful workflow migration from LiveAnalytics to InfluxDB.
 
 ## Concept Mapping
 
-| Timestream for LiveAnalytics Concept | InfluxDB Concept | Notes |
-|--------------------------------------|------------------|-------|
-| Database | Bucket | The top-level container for time series data |
-| Table | Measurement | Defines the data structure |
-| Dimensions | Tags | Used for metadata and filtering |
-| Measure name | Tag | In InfluxDB, the measurement name serves a similar purpose |
-| Measures | Fields | The actual data values being stored |
-| Time | Timestamp | Both use timestamps for time series data |
-| Time unit | Precision | InfluxDB handles precision differently |
+| Timestream for LiveAnalytics Concept  | InfluxDB V2 Concept | Notes |
+|---------------------------------------|---------------------|-------|
+| Database                              | Bucket              |The top-level container for time series data |
+| Table                                 | Measurement         |Defines the data structure |
+| Dimensions                            | Tags                |Used for metadata and filtering |
+| Measure name                          | Tag                 |In InfluxDB, the measurement name serves a similar purpose |
+| Measures                              | Fields              |The actual data values being stored |
+| Time                                  | Timestamp           |Both use timestamps for time series data |
+| Time unit                             | Precision           |InfluxDB handles precision differently |
 
 ## Function Comparison
 
@@ -72,7 +85,7 @@ def create_timestream_client():
     return boto3.client('timestream-write', config=config)
 ```
 
-#### InfluxDB
+#### InfluxDB V2
 
 ```python
 def create_influxdb_client():
@@ -100,7 +113,7 @@ def create_database_if_nonexistent(client, database_name):
         raise
 ```
 
-#### InfluxDB
+#### InfluxDB V2
 
 ```python
 def create_bucket_if_nonexistent(client: InfluxDBClient, bucket_name: str, retention_hours: int) -> None:
@@ -127,8 +140,8 @@ def create_bucket_if_nonexistent(client: InfluxDBClient, bucket_name: str, reten
 ```
 
 **Key Differences:**
-- InfluxDB requires organization specification
-- InfluxDB Buckets can define retention rule
+- InfluxDB V2 requires organization specification
+- InfluxDB V2 Buckets can define retention rule
 
 ### Table/Measurement Creation
 
@@ -153,14 +166,14 @@ def create_table_if_nonexistent(client, database_name, table_name):
         raise
 ```
 
-#### InfluxDB
+#### InfluxDB V2
 
 In InfluxDB, measurements are created implicitly when data is written. There's no need to explicitly create a measurement before writing data.
 
 **Key Differences:**
 - Timestream requires explicit table creation with retention properties
 - InfluxDB creates measurements automatically when writing data
-- Retention policies in InfluxDB are set at the bucket level, not the measurement level
+- Retention policies in InfluxDB V2 are set at the bucket level, not the measurement level
 
 ### Record/Point Creation
 
@@ -178,7 +191,7 @@ def create_record():
     }
 ```
 
-#### InfluxDB
+#### InfluxDB V2
 
 ```python
 def create_point(measurement=MEASUREMENT_NAME):
@@ -189,7 +202,7 @@ def create_point(measurement=MEASUREMENT_NAME):
 - Timestream records are dictionaries with specific keys
 - InfluxDB uses Points to define line protocol
 - Timestream requires explicit specification of all components
-- InfluxDB has a more fluent API for building points
+- InfluxDB V2 has a more fluent API for building points
 
 ### Setting Dimensions/Tags
 
@@ -204,7 +217,7 @@ def set_record_dimensions(record, dimensions):
     return record
 ```
 
-#### InfluxDB
+#### InfluxDB V2
 
 ```python
 def set_point_tags(point, tags):
@@ -215,9 +228,6 @@ def set_point_tags(point, tags):
 ```
 
 **Key Differences:**
-- Timestream dimensions are set as a list of name-value dictionaries
-- InfluxDB tags are set using a fluent API with method chaining
-- Both serve the same purpose of adding metadata for filtering and grouping
 - InfluxDB tags increase the cardinality and directly affect DB performance
 
 ### Setting Measures/Fields
@@ -237,7 +247,7 @@ def set_record_measures(record, measures):
     return record
 ```
 
-#### InfluxDB
+#### InfluxDB V2
 
 ```python
 def set_point_fields(point, fields):
@@ -254,9 +264,9 @@ def set_point_fields(point, fields):
 
 **Key Differences:**
 - Timestream requires explicit type specification for each measure
-- InfluxDB infers types
+- InfluxDB V2 infers types
 - Timestream uses a more complex structure for multi-measure records
-- InfluxDB has a simpler field model with a fluent API
+- InfluxDB V2 has a simpler field model
 
 ### Setting Timestamp
 
@@ -286,7 +296,7 @@ def set_record_timestamp(record, timestamp):
     return record
 ```
 
-#### InfluxDB
+#### InfluxDB V2
 
 ```python
 def set_point_timestamp(point: Point, timestamp: str) -> Point:
@@ -314,7 +324,7 @@ def set_point_timestamp(point: Point, timestamp: str) -> Point:
 
 **Key Differences:**
 - Timestream requires explicit time unit specification (separate function)
-- InfluxDB handles precision at the write API level
+- InfluxDB V2 handles precision at the write API level
 
 ### Setting Time Unit
 
@@ -326,13 +336,13 @@ def set_record_time_unit(record, time_unit):
     return record
 ```
 
-#### InfluxDB
+#### InfluxDB V2
 
-InfluxDB doesn't require a separate function for time unit. The precision is specified when writing data.
+InfluxDB V2 specifies the precision when writing data.
 
 **Key Differences:**
 - Timestream requires explicit time unit specification per record
-- InfluxDB handles precision at the write API level
+- InfluxDB V2 handles precision at the write API level
 
 ### Writing Data
 
@@ -364,7 +374,7 @@ def write_records(client, database_name, table_name, records):
     return records_written
 ```
 
-#### InfluxDB
+#### InfluxDB V2
 
 ```python
 def write_line_protocol(client: InfluxDBClient, bucket: str, points: List[Point]) -> int:
@@ -388,16 +398,16 @@ def write_line_protocol(client: InfluxDBClient, bucket: str, points: List[Point]
 
 **Key Differences:**
 - Timestream has a maximum batch size of 100 records
-- InfluxDB has an optimal batch size of 5000 points
+- InfluxDB V2 has an optimal batch size of 5000 points
 - Timestream requires database and table names
-- InfluxDB requires bucket and organization
+- InfluxDB V2 requires bucket and organization
 
 ## Batch Size Differences
 
 - **Timestream for LiveAnalytics**: Maximum batch size of 100 records
-- **InfluxDB**: Optimal batch size of 5000 points
+- **InfluxDB V2**: Optimal batch size of 5000 points
 
-This significant difference in batch sizes can lead to performance improvements when migrating to InfluxDB, as fewer API calls are needed to write the same amount of data.
+This significant difference in batch sizes can lead to performance improvements when migrating to InfluxDB V2, as fewer API calls are needed to write the same amount of data.
 
 ## Retention Policy Differences
 
@@ -429,11 +439,11 @@ client.create_table(
 
 Data automatically moves from Memory Store to Magnetic Store after the Memory Store retention period expires.
 
-### InfluxDB
+### InfluxDB V2
 
-In InfluxDB, retention policies are defined at the bucket level:
+In InfluxDB V2, retention policies are defined at the bucket level:
 
-1. **Single-tier storage**: InfluxDB uses a single storage tier with a unified retention policy
+1. **Single-tier storage**: InfluxDB V2 uses a single storage tier with a unified retention policy
    - Configured in seconds (typically specified in hours or days)
    - Set using `BucketRetentionRules` with an expiration type
    - Can set to infinite retention by not specifying retention rules or setting to 0
@@ -453,11 +463,11 @@ buckets_api.create_bucket(
 
 **Key Differences:**
 - Timestream uses a two-tiered storage model (Memory Store and Magnetic Store)
-- InfluxDB uses a single-tier storage model
+- InfluxDB V2 uses a single-tier storage model
 - Timestream automatically moves data between tiers
-- In Timestream, retention is set at the table level, while in InfluxDB it's set at the bucket level
+- In Timestream, retention is set at the table level, while in InfluxDB V2 it's set at the bucket level
 
-When migrating from Timestream to InfluxDB, you'll need to decide on a single retention period that meets your needs, typically based on your Magnetic Store retention period if you need long-term storage, or a combination of both retention periods depending on your use case.
+When migrating from Timestream to InfluxDB V2, you'll need to decide on a single retention period that meets your needs, typically based on your Magnetic Store retention period if you need long-term storage, or a combination of both retention periods depending on your use case.
 
 ## Dependencies
 
@@ -468,7 +478,7 @@ import boto3
 from botocore.config import Config
 ```
 
-### InfluxDB
+### InfluxDB V2
 
 ```python
 from influxdb_client import InfluxDBClient, Point
@@ -477,7 +487,7 @@ from influxdb_client.client.write_api import SYNCHRONOUS
 
 **Key Differences:**
 - Timestream requires AWS SDK (boto3)
-- InfluxDB requires the influxdb_client package
+- InfluxDB V2 requires the influxdb_client package
 
 ## Authentication and Authorization
 
@@ -495,9 +505,9 @@ Example:
 client = boto3.client('timestream-write')
 ```
 
-### InfluxDB
+### InfluxDB V2
 
-Authentication in InfluxDB is handled through API tokens:
+Authentication in InfluxDB V2 is handled through API tokens:
 
 - Requires a token for authentication
 - Organization membership for authorization
@@ -511,7 +521,7 @@ client = InfluxDBClient.from_env_properties()
 
 **Key Differences:**
 - Timestream uses AWS IAM for authentication and authorization
-- InfluxDB uses API tokens and organizations
+- InfluxDB V2 uses API tokens and organizations
 
 ## Data Conversion Process
 
@@ -548,18 +558,18 @@ influxdb_point = Point("system_metrics") \
 
 ## Summary of Key Migration Considerations
 
-1. **Conceptual Mapping**: Understand how Timestream concepts map to InfluxDB concepts
+1. **Conceptual Mapping**: Understand how Timestream concepts map to InfluxDB V2 concepts
 2. **Client Configuration**: Switch from boto3 to influxdb_client
 3. **Authentication**: Move from AWS IAM to InfluxDB tokens
 4. **Data Structure**: Convert from Timestream records to InfluxDB line protocol
 5. **Batch Sizes**: Adjust batch sizes from 100 to 5000
 7. **Time Handling**: Adapt timestamp handling to use InfluxDB's approach
 
-By following this guide, you should be able to successfully migrate your Amazon Timestream for LiveAnalytics implementation to InfluxDB while maintaining the same ingestion functionality.
+By following this guide, you should be able to successfully migrate your Amazon Timestream for LiveAnalytics implementation to InfluxDB V2 while maintaining the same ingestion functionality.
 
 ## Querying Data in Grafana
 
-After migrating your data from Amazon Timestream for LiveAnalytics to InfluxDB, you'll need to adapt your queries to work with InfluxDB. Below is an example of a similar query which also highlights how data model differences need to be accounted for when adapting queries. There are fundamental difference in database data models, query languages, and how visualizations function.
+After migrating your data from Amazon Timestream for LiveAnalytics to InfluxDB V2, you'll need to adapt your queries to work with InfluxDB V2. Below is an example of a similar query which also highlights how data model differences need to be accounted for when adapting queries. There are fundamental difference in database data models, query languages, and how visualizations function.
 
 ### Example 1: Average CPU and Memory Utilization by Region
 
@@ -579,7 +589,7 @@ GROUP BY region, BIN(time, 5m)
 ORDER BY time_bin ASC
 ```
 
-#### InfluxDB Flux Query
+#### InfluxDB V2 Flux Query
 
 ![](./images/flux-query.png)
 
@@ -606,32 +616,32 @@ The key differences in how these queries compare are listed as follows:
 1. __Data Model Differences__:
 
    - In LiveAnalytics, the data is stored with a measure_name of "system_metrics" and multiple measure values (cpu_utilization, memory_utilization) within each record.
-   - In InfluxDB, the data is stored with a measurement name of "system_metrics" and fields for cpu_utilization and memory_utilization.
+   - In InfluxDB V2, the data is stored with a measurement name of "system_metrics" and fields for cpu_utilization and memory_utilization.
 
 2. __Query Structure__:
 
    - The LiveAnalytics query groups by region and time bin, which would result in one series per region with both avg_cpu and avg_memory as fields.
-   - The InfluxDB query uses `group(columns: ["region"])` which creates separate series for each region.
+   - The InfluxDB V2 query uses `group(columns: ["region"])` which creates separate series for each region.
 
 3. __Series Generation in Grafana__:
 
    - For the LiveAnalytics query, Grafana would create 2 series (one for avg_cpu and one for avg_memory) because the query returns a single result set with these two metrics.
-   - For the InfluxDB query, Grafana would create a series for each region's avg_cpu and avg_memory, resulting in more series if there are multiple regions.
+   - For the InfluxDB V2 query, Grafana would create a series for each region's avg_cpu and avg_memory, resulting in more series if there are multiple regions.
 
 4. __Visualization in Grafana__:
 
    - The LiveAnalytics query would show 2 lines in a time series chart (one for avg_cpu and one for avg_memory).
-   - The InfluxDB query would show a line for each region's avg_cpu and avg_memory, resulting in more lines if there are multiple regions.
+   - The InfluxDB V2 query would show a line for each region's avg_cpu and avg_memory, resulting in more lines if there are multiple regions.
 
-These differences in visualizations and queries highlight the importance of understanding the use-case for querying the data being in LiveAnalytics vs InfluxDB. While migrating ingestion workflows may be fairly simple, there may be limitations in the data model and supported feature of the database.
+These differences in visualizations and queries highlight the importance of understanding the use-case for querying the data being in LiveAnalytics vs InfluxDB V2. While migrating ingestion workflows may be fairly simple, there may be limitations in the data model and supported feature of the database.
 
 ## Query Language Differences and Limitations
 
-When migrating from Amazon Timestream for LiveAnalytics to InfluxDB, it's important to understand the key differences between SQL and Flux query languages:
+When migrating from Amazon Timestream for LiveAnalytics to InfluxDB V2, it's important to understand the key differences between SQL and Flux query languages:
 
 ### SQL vs. Flux
 
-| Feature | LiveAnalytics (SQL) | InfluxDB (Flux) | Notes |
+| Feature | LiveAnalytics (SQL) | InfluxDB V2 (Flux) | Notes |
 |---------|---------------------|-----------------|-------|
 | Query Language | Standard SQL with time series extensions | Functional data scripting language | Flux has a steeper learning curve |
 | Time Functions | `ago()`, `now()`, `BIN()` | `range()`, `aggregateWindow()` | Different time handling paradigms |
@@ -661,7 +671,7 @@ When migrating from Amazon Timestream for LiveAnalytics to InfluxDB, it's import
 
 4. **Performance Considerations**:
    - LiveAnalytics optimizes for large-scale time series analytics
-   - InfluxDB optimizes for high write throughput and real-time queries
+   - InfluxDB V2 optimizes for high write throughput and real-time queries
    - Query patterns may need adjustment for optimal performance
 
 5. **Visualization Integration**:
@@ -669,5 +679,5 @@ When migrating from Amazon Timestream for LiveAnalytics to InfluxDB, it's import
    - SQL queries may be easier to build in Grafana's query editor
    - Flux offers more flexibility for complex visualizations
 
-Understanding these differences is important for a successful workflow migration. You can effectively translate your LiveAnalytics SQL queries to InfluxDB Flux queries while maintaining similar visualization capabilities in Grafana with some limitations. A thorough investigation into workflows and queries on the underlying data should be done to remove as much uncertainty of compatibility between the two time series solutions.
+Understanding these differences is important for a successful workflow migration. You can effectively translate your LiveAnalytics SQL queries to InfluxDB V2 Flux queries while maintaining similar visualization capabilities in Grafana with some limitations. A thorough investigation into workflows and queries on the underlying data should be done to remove as much uncertainty of compatibility between the two time series solutions.
 

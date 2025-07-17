@@ -7,7 +7,6 @@ This application reads a sample JSON dataset and creates Timestream records to i
 import boto3
 from botocore.config import Config
 import json
-import time
 from datetime import datetime
 
 # Constants
@@ -142,24 +141,21 @@ def set_record_timestamp(record, timestamp):
         dict: The modified record
     """
 
-    if isinstance(timestamp, str):
-        # Parse the timestamp string with nanosecond precision
-        # First, split the string into datetime part and nanosecond part
-        datetime_part = timestamp[:26]  # Up to microseconds
-        nanosecond_part = timestamp[26:] if len(timestamp) > 26 else "000"
+    # Parse the timestamp string with nanosecond precision
+    # First, split the string into datetime part and nanosecond part
+    datetime_part = timestamp[:26]  # Up to microseconds
+    nanosecond_part = timestamp[26:] if len(timestamp) > 26 else "000"
 
-        # Parse the datetime part
-        dt = datetime.strptime(datetime_part, "%Y-%m-%d %H:%M:%S.%f")
+    # Parse the datetime part
+    dt = datetime.strptime(datetime_part, "%Y-%m-%d %H:%M:%S.%f")
 
-        # Convert to nanosecond precision timestamp
-        # First convert to seconds since epoch
-        epoch_seconds = dt.timestamp()
-        # Convert to nanoseconds and add the nanosecond part
-        epoch_nanoseconds = int(epoch_seconds * 1_000_000_000) + int(nanosecond_part)
+    # Convert to nanosecond precision timestamp
+    # First convert to seconds since epoch
+    epoch_seconds = dt.timestamp()
+    # Convert to nanoseconds and add the nanosecond part
+    epoch_nanoseconds = int(epoch_seconds * 1_000_000_000) + int(nanosecond_part)
 
-        record['Time'] = str(epoch_nanoseconds)
-    else:
-        record['Time'] = str(timestamp)
+    record['Time'] = str(epoch_nanoseconds)
 
     return record
 
@@ -258,7 +254,7 @@ def write_records(client, database_name, table_name, records):
     for i in range(0, total_records, MAX_BATCH_SIZE):
         batch = records[i:i + MAX_BATCH_SIZE]
         try:
-            result = client.write_records(
+            client.write_records(
                 DatabaseName=database_name,
                 TableName=table_name,
                 Records=batch
@@ -299,7 +295,7 @@ def main():
     records_written = write_records(client, database_name, table_name, timestream_records)
 
     # Print summary
-    print(f"\nSummary:")
+    print("\nSummary:")
     print(f"Total records processed: {len(json_records)}")
     print(f"Records successfully written: {records_written}")
 

@@ -119,24 +119,21 @@ def set_point_timestamp(point: Point, timestamp: str) -> Point:
     Returns:
         Point: The modified point
     """
-    if isinstance(timestamp, str):
-        # Parse the timestamp string with nanosecond precision
-        # First, split the string into datetime part and nanosecond part
-        datetime_part = timestamp[:26]  # Up to microseconds
-        nanosecond_part = timestamp[26:] if len(timestamp) > 26 else "000"
+    # Parse the timestamp string with nanosecond precision
+    # First, split the string into datetime part and nanosecond part
+    datetime_part = timestamp[:26]  # Up to microseconds
+    nanosecond_part = timestamp[26:] if len(timestamp) > 26 else "000"
 
-        # Parse the datetime part
-        dt = datetime.strptime(datetime_part, "%Y-%m-%d %H:%M:%S.%f")
+    # Parse the datetime part
+    dt = datetime.strptime(datetime_part, "%Y-%m-%d %H:%M:%S.%f")
 
-        # Convert to nanosecond precision timestamp
-        # First convert to seconds since epoch
-        epoch_seconds = dt.timestamp()
-        # Convert to nanoseconds and add the nanosecond part
-        epoch_nanoseconds = int(epoch_seconds * 1_000_000_000) + int(nanosecond_part)
+    # Convert to nanosecond precision timestamp
+    # First convert to seconds since epoch
+    epoch_seconds = dt.timestamp()
+    # Convert to nanoseconds and add the nanosecond part
+    epoch_nanoseconds = int(epoch_seconds * 1_000_000_000) + int(nanosecond_part)
 
-        point = point.time(epoch_nanoseconds, write_precision='ns')
-    else:
-        point = point.time(timestamp)
+    point = point.time(epoch_nanoseconds, write_precision='ns')
 
     return point
 
@@ -254,7 +251,7 @@ def main():
     # Write points to InfluxDB
     points_written = write_line_protocol(client, bucket_name, influxdb_points)
 
-    print(f"\nSummary:")
+    print("\nSummary:")
     print(f"Total records processed: {len(json_records)}")
     print(f"Points successfully written: {points_written}")
 
