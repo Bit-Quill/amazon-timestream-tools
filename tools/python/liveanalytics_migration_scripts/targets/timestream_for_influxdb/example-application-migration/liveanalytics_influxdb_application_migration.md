@@ -82,7 +82,7 @@ Ensure you have your local environment setup with AWS credentials configured wit
 python3 liveanalytics_iot.py
 ```
 
-Continue reading the remainder of the guide in order to understand how the data is stored, accessed, and interpreted in the different time series solutions. The guide is not exhaustive of all options for ingestion and querying but provides a high level overview of the important topics and required research required for a successful workflow migration from LiveAnalytics to InfluxDB.
+Continue reading the remainder of the guide in order to understand how the data is stored, accessed, and interpreted in the different time series solutions. The guide is not exhaustive of all options for ingestion and querying but provides a high level overview of the important topics and research required for a successful workflow migration from LiveAnalytics to InfluxDB.
 
 ## Concept Mapping
 
