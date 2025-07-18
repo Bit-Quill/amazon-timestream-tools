@@ -4,6 +4,35 @@ This guide provides a comprehensive comparison between Amazon Timestream for Liv
 
 Along with the guide are two sample applications which can be used to ingest the same sample dataset to Timestream for LiveAnalytics and Timestream for InfluxDB.
 
+## Table of Contents
+
+1. [InfluxDB V2 vs InfluxDB V3](#influxdb-v2-vs-influxdb-v3)
+2. [Running Example Apps](#running-example-apps)
+   - [InfluxDB App](#influxdb-app)
+   - [Timestream for LiveAnalytics App](#timestream-for-liveanalytics-app)
+3. [Concept Mapping](#concept-mapping)
+4. [Function Comparison](#function-comparison)
+   - [Client Creation and Configuration](#client-creation-and-configuration)
+   - [Database/Bucket Creation](#databasebucket-creation)
+   - [Table/Measurement Creation](#tablemeasurement-creation)
+   - [Record/Point Creation](#recordpoint-creation)
+   - [Setting Dimensions/Tags](#setting-dimensionstags)
+   - [Setting Measures/Fields](#setting-measuresfields)
+   - [Setting Timestamp](#setting-timestamp)
+   - [Setting Time Unit](#setting-time-unit)
+   - [Writing Data](#writing-data)
+5. [Batch Size Differences](#batch-size-differences)
+6. [Retention Policy Differences](#retention-policy-differences)
+7. [Dependencies](#dependencies)
+8. [Authentication and Authorization](#authentication-and-authorization)
+9. [Data Conversion Process](#data-conversion-process)
+10. [Summary of Key Migration Considerations](#summary-of-key-migration-considerations)
+11. [Querying Data in Grafana](#querying-data-in-grafana)
+    - [Query example: Average CPU and Memory Utilization by Region](#query-example-average-cpu-and-memory-utilization-by-region)
+12. [Query Language Differences and Limitations](#query-language-differences-and-limitations)
+    - [SQL vs. Flux](#sql-vs-flux)
+    - [Key Limitations and Differences](#key-limitations-and-differences)
+
 ## InfluxDB V2 vs InfluxDB V3
 
 Many of the concepts used for InfluxDB V2 are compatible with InfluxDB V3, and the sample application will successfully ingest data to InfluxDB V3 core's [V2 compatibility API](https://docs.influxdata.com/influxdb3/core/write-data/http-api/compatibility-apis/). While InfluxDB V3 supports ingestion through the V2 compatibility API, InfluxDB V2 Flux queries are not supported.
@@ -36,7 +65,7 @@ Create a virtual environment using venv and install required dependencies.
 ```bash
 python3 -m venv .env && \
 source .env/bin/activate && \
-python3 -m pip install -r requirements.txt
+python3 -m pip install influxdb_client boto3
 ```
 
 Run the InfluxDB sample application.
@@ -69,7 +98,7 @@ Continue reading the remainder of the guide in order to understand how the data 
 
 ## Function Comparison
 
-In this section we delve into the differences in implementation of the basic examples used to ingest to LiveAnalytics versus InfluxDB.
+In this section we delve into the differences in implementation of the basic examples used to ingest to [LiveAnalytics](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/timestream-write.html) versus [InfluxDB](https://influxdb-client.readthedocs.io/en/latest/).
 
 ### Client Creation and Configuration
 
@@ -228,7 +257,7 @@ def set_point_tags(point, tags):
 ```
 
 **Key Differences:**
-- InfluxDB tags increase the cardinality and directly affect DB performance
+- InfluxDB tags increase the cardinality and directly affect DB performance, see [Cardinality Caldulation Script](../../../cardinality/README.md) for an in-depth look into cardinality
 
 ### Setting Measures/Fields
 
@@ -404,8 +433,8 @@ def write_line_protocol(client: InfluxDBClient, bucket: str, points: List[Point]
 
 ## Batch Size Differences
 
-- **Timestream for LiveAnalytics**: Maximum batch size of 100 records
-- **InfluxDB V2**: Optimal batch size of 5000 points
+- **Timestream for LiveAnalytics**: Maximum batch size of 100 records, see [Batch load best practices](https://docs.aws.amazon.com/timestream/latest/developerguide/batch-load-best-practices.html) for more information
+- **InfluxDB V2**: Optimal batch size of 5000 points, see [Optimize writes to InfluxDB](https://docs.influxdata.com/influxdb/v2/write-data/best-practices/optimize-writes/) for additional information
 
 This significant difference in batch sizes can lead to performance improvements when migrating to InfluxDB V2, as fewer API calls are needed to write the same amount of data.
 
@@ -413,7 +442,7 @@ This significant difference in batch sizes can lead to performance improvements 
 
 ### Timestream for LiveAnalytics
 
-In Timestream, retention policies are defined at the table level with two distinct storage tiers:
+In Timestream, [retention policies](https://docs.aws.amazon.com/timestream/latest/developerguide/storage.html) are defined at the table level with two distinct storage tiers:
 
 1. **Memory Store**: High-performance, in-memory storage for recent data
    - Configured in hours (e.g., 24 hours)
@@ -441,7 +470,7 @@ Data automatically moves from Memory Store to Magnetic Store after the Memory St
 
 ### InfluxDB V2
 
-In InfluxDB V2, retention policies are defined at the bucket level:
+In InfluxDB V2, [retention policies](https://docs.influxdata.com/influxdb/v2/reference/internals/data-retention/) are defined at the bucket level:
 
 1. **Single-tier storage**: InfluxDB V2 uses a single storage tier with a unified retention policy
    - Configured in seconds (typically specified in hours or days)
@@ -486,8 +515,8 @@ from influxdb_client.client.write_api import SYNCHRONOUS
 ```
 
 **Key Differences:**
-- Timestream requires AWS SDK (boto3)
-- InfluxDB V2 requires the influxdb_client package
+- Timestream requires [AWS SDK (boto3)](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/timestream-write.html)
+- InfluxDB V2 requires the [influxdb_client package](https://influxdb-client.readthedocs.io/en/latest/)
 
 ## Authentication and Authorization
 
@@ -495,7 +524,7 @@ from influxdb_client.client.write_api import SYNCHRONOUS
 
 Authentication and authorization in Timestream are handled through AWS Identity and Access Management (IAM):
 
-- Uses AWS credentials (access key ID and secret access key)
+- Uses [AWS credentials](https://docs.aws.amazon.com/cli/v1/userguide/cli-configure-files.html) (access key ID and secret access key)
 - Permissions are managed through IAM policies
 - Credentials are typically loaded from environment variables, AWS configuration files, or instance metadata
 
@@ -507,7 +536,7 @@ client = boto3.client('timestream-write')
 
 ### InfluxDB V2
 
-Authentication in InfluxDB V2 is handled through API tokens:
+Authentication in InfluxDB V2 is handled through [API tokens](https://docs.influxdata.com/influxdb/v2/admin/tokens/):
 
 - Requires a token for authentication
 - Organization membership for authorization
@@ -569,9 +598,11 @@ By following this guide, you should be able to successfully migrate your Amazon 
 
 ## Querying Data in Grafana
 
-After migrating your data from Amazon Timestream for LiveAnalytics to InfluxDB V2, you'll need to adapt your queries to work with InfluxDB V2. Below is an example of a similar query which also highlights how data model differences need to be accounted for when adapting queries. There are fundamental difference in database data models, query languages, and how visualizations function.
+After migrating your data from Amazon Timestream for LiveAnalytics to InfluxDB V2, you'll need to adapt your [Timestream SQL queries](https://docs.aws.amazon.com/timestream/latest/developerguide/reference.html) to work with InfluxDB V2 [Flux](https://docs.influxdata.com/influxdb/v2/query-data/flux/) or [InfluxQL](https://docs.influxdata.com/influxdb/v2/query-data/influxql/). Below is an example of a similar query which also highlights how data model differences need to be accounted for when adapting queries. There are fundamental difference in database data models, query languages, and how visualizations function.
 
-### Example 1: Average CPU and Memory Utilization by Region
+See [Get started with Grafana and InfluxDB](https://grafana.com/docs/grafana/latest/getting-started/get-started-grafana-influxdb/) and [Amazon Timestream plugin for Grafana](https://grafana.com/grafana/plugins/grafana-timestream-datasource/) for an overview of working with Grafana and InfluxDB or LiveAnalytics.
+
+### Query example: Average CPU and Memory Utilization by Region
 
 #### LiveAnalytics SQL Query
 
@@ -615,8 +646,8 @@ The key differences in how these queries compare are listed as follows:
 
 1. __Data Model Differences__:
 
-   - In LiveAnalytics, the data is stored with a measure_name of "system_metrics" and multiple measure values (cpu_utilization, memory_utilization) within each record.
-   - In InfluxDB V2, the data is stored with a measurement name of "system_metrics" and fields for cpu_utilization and memory_utilization.
+   - In LiveAnalytics, the data is stored with a measure_name of "system_metrics" and multiple measure values (cpu_utilization, memory_utilization) within each record. See [Data modeling](https://docs.aws.amazon.com/timestream/latest/developerguide/data-modeling.html) for more information on how LiveAnalytics models the time series data.
+   - In InfluxDB V2, the data is stored with a measurement name of "system_metrics" and fields for cpu_utilization and memory_utilization. See [Key concepts](https://docs.influxdata.com/influxdb/v2/get-started/#key-concepts-before-you-get-started) for more information on InfluxDB data modelling.
 
 2. __Query Structure__:
 
