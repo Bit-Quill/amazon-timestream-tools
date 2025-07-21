@@ -670,6 +670,8 @@ These differences in visualizations and queries highlight the importance of unde
 
 When migrating from Amazon Timestream for LiveAnalytics to InfluxDB V2, it's important to understand the key differences between SQL and Flux query languages:
 
+***(note)*** &rarr; InfluxDB V3 supports SQL with minor differences to the time specific functions from LiveAnalytics. See [SQL reference documentation](https://docs.influxdata.com/influxdb3/core/reference/sql/) for more info on SQL with InfluxDB V3.
+
 ### SQL vs. Flux
 
 | Feature | LiveAnalytics (SQL) | InfluxDB V2 (Flux) | Notes |
