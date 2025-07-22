@@ -171,7 +171,7 @@ def main():
         migration_logger.warning(f"Unrecognized option for mode: '{migration_mode}'. Should be one of: ['batch', 'live_replication']")
         return
 
-    no_space_fmt = "%Y-%m-%d %H:%M:%S"
+    space_fmt = "%Y-%m-%d %H:%M:%S"
 
     is_last_batch = False
     batch_index = 0
@@ -195,12 +195,12 @@ def main():
                 batch_start_time = read_latest_row(live_replication_logfile, "batch_end_time")
                 if backfill_min_overlap > 0:
                     # widen the window by the configured overlap
-                    start_dt = datetime.strptime(batch_start_time, no_space_fmt) - timedelta(minutes=backfill_min_overlap)
-                    batch_start_time = start_dt.strftime(no_space_fmt)
+                    start_dt = datetime.strptime(batch_start_time, space_fmt) - timedelta(minutes=backfill_min_overlap)
+                    batch_start_time = start_dt.strftime(space_fmt)
 
-            batch_end_time = executed_at.strftime(no_space_fmt)
+            batch_end_time = executed_at.strftime(space_fmt)
             if cutoff_time: 
-                cutoff_datetime = datetime.strptime(cutoff_time, no_space_fmt).replace(tzinfo=timezone.utc)
+                cutoff_datetime = datetime.strptime(cutoff_time, space_fmt).replace(tzinfo=timezone.utc)
                 if executed_at > cutoff_datetime:
                     batch_end_time = cutoff_time
                     is_last_batch = True
@@ -274,7 +274,7 @@ def main():
         # ---------
         # TRANSFORM configs
         # ---------
-        athena_database_name = config["stage"]["transform"]["athena_database_name"]
+        athena_database_name = config["stage"]["transform"].get("athena_database_name", "default")
         dimensions_to_fields_map = config["stage"]["transform"].get("dimensions_to_fields", {})
         add_validation_field = config["stage"]["transform"]["add_validation_field"]
         transform_logs_dir = os.path.join(batch_base_logs_dir, config["stage"]["transform"]["logs_dir"])
@@ -525,9 +525,9 @@ def main():
                 validation_statuses.append(succeeded)
 
         if all(validation_statuses):
-            migration_logger.info(f"✅ All validations passed for this batch")
+            migration_logger.info("✅ All validations passed for this batch")
         else:
-            migration_logger.error(f"❌ Validation failed for this batch")
+            migration_logger.error("❌ Validation failed for this batch")
 
         migration_logger.info("Validation complete.")
         # ---------
@@ -553,7 +553,7 @@ def main():
                 if tables:
                     cleanup_athena(
                         glue=glue_client,
-                        athena_database="default",
+                        athena_database=athena_database_name,
                         timestream_database=db_name,
                         timestream_tables=tables,
                     )
@@ -562,7 +562,7 @@ def main():
                     all_tables = timestream_utility.get_all_tables(db_name)
                     cleanup_athena(
                         glue=glue_client,
-                        athena_database="default",
+                        athena_database=athena_database_name,
                         timestream_database=db_name,
                         timestream_tables=all_tables,
                     )
@@ -589,7 +589,7 @@ def main():
             # update live replication logfile 
             new_row = [
                 batch_index,
-                executed_at.strftime(no_space_fmt),
+                executed_at.strftime(space_fmt),
                 f"{duration}s",
                 batch_start_time,
                 batch_end_time,
