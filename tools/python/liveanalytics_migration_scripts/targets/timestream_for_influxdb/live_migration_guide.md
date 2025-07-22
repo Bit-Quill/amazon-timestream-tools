@@ -122,19 +122,26 @@ Screenshot:
 
 ![Live Migration Dashboard](./live_migration_dashboard/screenshot.png)
 
-#### Usage
+#### Build Image
 
 ```bash
-# Start the migration monitoring dashboard
+docker build -t migration-dashboard:local ./live_migration_dashboard
+```
+
+#### Run Container
+
+```bash
 docker run -d \
   --name migration-dashboard \
   -p 8501:8501 \
-  -v /path/to/migration-logs:/app/migration-logs:ro \
-  -v /path/to/config:/app/config.yaml:ro \
-  fjpimproving/migration-dashboard:v1.0
+  -v $(pwd)/migration-logs:/app/migration-logs:ro \
+  -v $(pwd)/config.yaml:/app/config.yaml:ro \
+  migration-dashboard:local
 ```
 
 ##### With Docker Compose
+
+Run the following command to build and run with `docker compose`:
 
 ```bash
 docker compose up -d
@@ -144,7 +151,7 @@ Access the dashboard at `http://localhost:8501`.
 
 #### Live Replication Log Format
 
-A `live_replication_<timestamp>.log` file will be created on execution under the specified log directory (default `/migration-logs`).
+A `live_replication_<timestamp>.log` file will be created on execution under the specified log directory (default `./migration-logs`).
 
 Example log:
 ```
@@ -243,7 +250,7 @@ Before beginning application migration, coordinate with stakeholders to:
 
 For a **drop‑in, line‑by‑line walkthrough** of porting an ingestion pipeline, database objects, and queries, follow the companion guide:
 
-➡️ **[Migrating Applications from Amazon Timestream for LiveAnalytics to InfluxDB](Migrating_Timestream_to_InfluxDB.md)**
+➡️ **[Migrating Applications from Amazon Timestream for LiveAnalytics to InfluxDB](./example-application-migration/liveanalytics_influxdb_application_migration.md)**
 
 This document covers:
 
@@ -257,7 +264,7 @@ This document covers:
 
 ## Step 3 · Clean Up
 
-> **Goal:** remove migration infrastructure and de-commission Timestream for LiveAnalytics
+> **Goal:** remove migration infrastructure and de-commission Timestream for LiveAnalytics resources
 
 Once you have successfully migrated your data and traffic to InfluxDB, you are ready to de-commission Timestream for LiveAnalytics.
 
@@ -267,6 +274,50 @@ Once you have successfully migrated your data and traffic to InfluxDB, you are r
 
 - Stop and remove the dashboard container, image and logs directory.
 
+```
+# Stop and delete the container
+docker stop  DASHBOARD_CONTAINER_ID
+docker rm    DASHBOARD_CONTAINER_ID
+
+# Delete the dashboard image
+docker images | grep migration-dashboard
+docker rmi    IMAGE_ID
+
+# Bring down containers if ran with docker compose
+docker compose down
+
+# Remove log directory
+rm -rf ./migration-logs
+```
+
 - All migrated data from Timestream for LiveAnalytics has been <b>backed up to an S3 bucket</b> (in a bucket specified in your config or by default, in `s3://influxdb-migration-<timestamp>`). When this data is no longer needed, delete it to free up space on your AWS account.
 
+```
+# Dry‑run
+aws s3 rm s3://influxdb-migration-<timestamp> --recursive --dryrun
+
+# Then actually delete
+aws s3 rb s3://influxdb-migration-<timestamp> --recursive 
+```
+
+Find more details on Amazon's [documentation for deleting buckets](https://docs.aws.amazon.com/AmazonS3/latest/userguide/delete-bucket.html).
+
 - Delete all Timestream for LiveAnalytics tables and databases. Please note that deleting your Timestream database/table is an <b>irreversible operation</b> - ensure that there are no remaining clients configured to use Timestream for LiveAnalytics.
+
+```
+# List databases (handy sanity check)
+aws timestream-write list-databases
+
+# List all tables in each database
+aws timestream-write list-tables --database-name MY_TS_DB
+
+# Repeat for each table
+aws timestream-write delete-table \
+  --database-name MY_TS_DB \
+  --table-name    MY_TS_TABLE
+
+# When all tables are removed, delete the database itself
+aws timestream-write delete-database --database-name MY_TS_DB
+```
+
+Repeat as necessary for every Timestream database you created for LiveAnalytics.

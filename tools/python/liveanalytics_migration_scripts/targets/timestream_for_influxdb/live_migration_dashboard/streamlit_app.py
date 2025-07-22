@@ -2,14 +2,13 @@
 Live Migration Dashboard
 ========================
 Streamlit application to monitor the migration of data from Amazon Timestream
-(LiveAnalytics) to InfluxDB. The UI surfaces key configuration values, overall
+for LiveAnalytics to InfluxDB. The UI surfaces key configuration values, overall
 progress metrics, detailed batch statistics, and raw log output—all sourced
 from logs written by the migration job.
 """
 from __future__ import annotations
 
 import operator
-import os
 import pathlib
 from collections import defaultdict
 from functools import reduce
@@ -339,20 +338,7 @@ def main() -> None:
     # ── Metrics ───────────────
     total_rows = len(df)
     succ_rows = df[df["validation"] == "succeeded"].shape[0] if not empty else 0
-    fail_rows = total_rows - succ_rows
-
     success_rate = succ_rows / total_rows * 100 if total_rows else 0
-
-    # Latest batch info (if any)
-    if not empty:
-        latest = df.iloc[-1]
-        latest_batch_id = latest.batch_id
-        latest_lines = latest.total_lines_ingested
-        start_str = fmt(latest.batch_start_time)
-        end_str = fmt(latest.batch_end_time) if pd.notna(latest.batch_end_time) else "⏳"
-    else:
-        latest_batch_id = latest_lines = 0
-        start_str = end_str = EMPTY_VALUE
 
     # Display headline metrics
     headline = st.columns(3)

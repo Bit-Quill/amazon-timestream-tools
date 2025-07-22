@@ -1,7 +1,8 @@
 services:
   dashboard:
-    # build: .
-    image: fjpimproving/migration-dashboard:v1.0
+    container_name: migration-dashboard
+    build:
+      context: ./live_migration_dashboard
     ports:
       - "8501:8501"
     volumes:
