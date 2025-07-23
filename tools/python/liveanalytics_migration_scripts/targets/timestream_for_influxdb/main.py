@@ -603,14 +603,14 @@ def main():
 
             if is_last_batch:
                 print("---"*30)
-                migration_logger.info(f"Last batch has been processed.")
+                migration_logger.info("Last batch has been processed.")
                 break
 
             batch_index += 1
             migration_logger.info(f"Sleeping for {batch_sleep_min} minutes..")
             time.sleep(batch_sleep_min * 60)
 
-    migration_logger.info(f"Migration complete.")
+    migration_logger.info("Migration complete.")
 
 if __name__ == "__main__":
     main()

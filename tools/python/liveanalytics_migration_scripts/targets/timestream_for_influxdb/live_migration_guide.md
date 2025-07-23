@@ -4,9 +4,11 @@ This guide explains how to perform **live migrations** when moving your applicat
 
 The migration has three high‑level phases:
 
-1. **Data Migration** – continuously back‑fill and replicate historical + live records from Timestream for LiveAnalytics into Timestream for InfluxDB using batched [Line Protocol](https://docs.influxdata.com/influxdb3/cloud-dedicated/reference/syntax/line-protocol/) ingestion.
-2. **Application Migration** – refactor your application code, queries, dashboards and alerting rules so clients read from and write to Timestream for InfluxDB.
-3. **Clean Up** – de‑commission your legacy Timestream for LiveAnalytics resources once data and traffic have been fully cut over.
+1. **[Data Migration](#step-1--data-migration)** – continuously back‑fill and replicate historical + live records from Timestream for LiveAnalytics into Timestream for InfluxDB using batched [Line Protocol](https://docs.influxdata.com/influxdb3/cloud-dedicated/reference/syntax/line-protocol/) ingestion.
+2. **[Application Migration](#step-2--application-migration)** – refactor your application code, queries, dashboards and alerting rules so clients read from and write to Timestream for InfluxDB.
+3. **[Clean Up](#step-3--clean-up)** – de‑commission your legacy Timestream for LiveAnalytics resources once data and traffic have been fully cut over.
+
+➡️ **[Application Migration](./example-application-migration/liveanalytics_influxdb_application_migration.md)**
 
 ---
 ## Table of Contents
@@ -47,7 +49,7 @@ Before starting the migration, ensure you have the necessary tools and dependenc
     export INFLUXDB_V2_TOKEN="xxx"
     ```
 
-    > **Large datasets (≥1 PB)** – LP ingestion can be slow. The InfluxDB team is working on a Parquet‑based migration solution for InfluxDB V3; consider waiting if you are dealing with petabytes of data.
+    > **Large datasets (≥1 TB)** – LP ingestion can be slow. The InfluxDB team is working on a Parquet‑based migration solution for InfluxDB V3; consider waiting if you are dealing with terabytes (or more) of data.
 
 
 
@@ -99,7 +101,9 @@ stage:
           - hostname
 ```
 
-See the [README for transform](../transform/README.md) for more details on advanced options.
+Migrations to V2 should be [mindful of cardinality](https://github.com/awslabs/amazon-timestream-tools/tree/mainline/tools/python/liveanalytics_migration_scripts#cardinality-assessment). Use the [Cardinality Calculation](../../cardinality) script to ensure you are within recommended limits.
+
+See the [README for transform](./transform/README.md) for more details on advanced options.
 
 4. Run the pipeline:
 
@@ -216,7 +220,7 @@ batch-<timestamp>/
 
 > **Goal:** cut application traffic over to your new InfluxDB backend with minimal downtime.
 
-Now that your data is available in Timestream for InfluxDB, you can begin migrating your application with minimal service disruption. The data migration pipeline from Step 1 will continue running in the background, keeping your InfluxDB instance synchronized with Timestream for LiveAnalytics with only a minor lag (determined by your configured `batch_sleep_min` setting).
+Now that your data is available in Timestream for InfluxDB, you can begin migrating your application with minimal service disruption. The [data migration pipeline](#step-1--data-migration) from Step 1 will continue running in the background, keeping your InfluxDB instance synchronized with Timestream for LiveAnalytics with only a minor lag (determined by your configured `batch_sleep_min` setting).
 
 ### Migration Strategy
 
