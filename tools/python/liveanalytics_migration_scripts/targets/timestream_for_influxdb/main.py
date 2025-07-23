@@ -28,6 +28,7 @@ def initialize_live_repl_logs(filename):
     """Live replication headers for each batch."""
     HEADERS = [
         "batch_id",
+        "batch_name",
         "executed_at",
         "duration",
         "batch_start_time",
@@ -176,15 +177,16 @@ def main():
     is_last_batch = False
     batch_index = 0
     while True and not is_last_batch:
+        # start current batch timer
+        start_timer = time.time()
+        executed_at = datetime.now(timezone.utc)
+        now = executed_at.strftime('%Y%m%d-%H%M%S')
+
         batch_base_logs_dir = os.path.join(base_logs_dir, f"batch-{now}")
         os.makedirs(batch_base_logs_dir, exist_ok=True)
 
         log_file_name = f'migration_{now}.log'
         update_logger(migration_logger, batch_base_logs_dir, log_file_name)
-
-        # start current batch timer
-        start_timer = time.time()
-        executed_at = datetime.now(timezone.utc)
 
         # in "live replication" mode
         if migration_mode == "live_replication":
@@ -589,6 +591,7 @@ def main():
             # update live replication logfile 
             new_row = [
                 batch_index,
+                batch_base_logs_dir,
                 executed_at.strftime(space_fmt),
                 f"{duration}s",
                 batch_start_time,
@@ -600,14 +603,14 @@ def main():
 
             if is_last_batch:
                 print("---"*30)
-                migration_logger.info(f"Last batch has been processed.")
+                migration_logger.info("Last batch has been processed.")
                 break
 
             batch_index += 1
             migration_logger.info(f"Sleeping for {batch_sleep_min} minutes..")
             time.sleep(batch_sleep_min * 60)
 
-    migration_logger.info(f"Migration complete.")
+    migration_logger.info("Migration complete.")
 
 if __name__ == "__main__":
     main()
