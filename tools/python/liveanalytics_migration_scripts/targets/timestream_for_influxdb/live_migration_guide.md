@@ -8,8 +8,6 @@ The migration has three high‑level phases:
 2. **[Application Migration](#step-2--application-migration)** – refactor your application code, queries, dashboards and alerting rules so clients read from and write to Timestream for InfluxDB.
 3. **[Clean Up](#step-3--clean-up)** – de‑commission your legacy Timestream for LiveAnalytics resources once data and traffic have been fully cut over.
 
-➡️ **[Application Migration](./example-application-migration/liveanalytics_influxdb_application_migration.md)**
-
 ---
 ## Table of Contents
 
@@ -101,9 +99,9 @@ stage:
           - hostname
 ```
 
-Migrations to V2 should be [mindful of cardinality](https://github.com/awslabs/amazon-timestream-tools/tree/mainline/tools/python/liveanalytics_migration_scripts#cardinality-assessment). Use the [Cardinality Calculation](../../cardinality) script to ensure you are within recommended limits.
+Migrations to V2 should be [mindful of cardinality](https://github.com/awslabs/amazon-timestream-tools/tree/mainline/tools/python/liveanalytics_migration_scripts#cardinality-assessment). Use the [Cardinality Calculation script](../../cardinality) to ensure you are within recommended limits.
 
-See the [README for transform](./transform/README.md) for more details on advanced options.
+See the [README on transform](./transform/README.md) for more details on advanced options.
 
 4. Run the pipeline:
 
@@ -220,7 +218,7 @@ batch-<timestamp>/
 
 > **Goal:** cut application traffic over to your new InfluxDB backend with minimal downtime.
 
-Now that your data is available in Timestream for InfluxDB, you can begin migrating your application with minimal service disruption. The [data migration pipeline](#step-1--data-migration) from Step 1 will continue running in the background, keeping your InfluxDB instance synchronized with Timestream for LiveAnalytics with only a minor lag (determined by your configured `batch_sleep_min` setting).
+Now that your data is available in Timestream for InfluxDB, you can begin migrating your application with minimal service disruption. The [data migration pipeline from Step 1](#step-1--data-migration) will continue running in the background, keeping your InfluxDB instance synchronized with Timestream for LiveAnalytics with only a minor lag (determined by your configured `batch_sleep_min` setting).
 
 ### Migration Strategy
 
