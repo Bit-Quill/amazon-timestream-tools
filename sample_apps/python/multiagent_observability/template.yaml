@@ -1,0 +1,138 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Deploy Amazon Timestream for InfluxDB with configurable instance type and IP whitelisting'
+
+Parameters:
+  InstanceType:
+    Type: String
+    Default: db.influx.medium
+    AllowedValues:
+      - db.influx.medium
+      - db.influx.large
+      - db.influx.xlarge
+      - db.influx.2xlarge
+      - db.influx.4xlarge
+      - db.influx.8xlarge
+      - db.influx.12xlarge
+      - db.influx.16xlarge
+    Description: 'Instance type for the InfluxDB instance'
+
+  WhitelistedIP:
+    Type: String
+    Default: '0.0.0.0/0'
+    Description: 'IP address or CIDR block to whitelist for access (e.g., 1.2.3.4/32 for single IP or 0.0.0.0/0 for all)'
+    AllowedPattern: '^([0-9]{1,3}\.){3}[0-9]{1,3}(\/([0-9]|[1-2][0-9]|3[0-2]))?$'
+    ConstraintDescription: 'Must be a valid IP address or CIDR block (e.g., 1.2.3.4/32 or 10.0.0.0/8)'
+
+  DBName:
+    Type: String
+    Default: 'influxdb-instance'
+    MinLength: 3
+    MaxLength: 40
+    AllowedPattern: '^[a-zA-Z][a-zA-Z0-9_-]*$'
+    Description: 'Name for the InfluxDB database instance'
+
+  Owner:
+    Type: String
+    Default: 'developer'
+    MinLength: 1
+    MaxLength: 63
+    AllowedPattern: '^[a-zA-Z][a-zA-Z0-9_-]*$'
+    Description: 'Owner for the InfluxDB instance'
+
+  AdminUsername:
+    Type: String
+    Default: 'admin'
+    MinLength: 1
+    MaxLength: 63
+    AllowedPattern: '^[a-zA-Z][a-zA-Z0-9_-]*$'
+    Description: 'Admin username for the InfluxDB instance'
+
+  AdminPassword:
+    Type: String
+    NoEcho: true
+    MinLength: 8
+    MaxLength: 64
+    Description: 'Admin password for the InfluxDB instance (minimum 8 characters)'
+
+  AllocatedStorage:
+    Type: Number
+    Default: 20
+    MinValue: 20
+    MaxValue: 16384
+    Description: 'Allocated storage for the InfluxDB instance in GB (20-16384)'
+
+  OrganizationName:
+    Type: String
+    Default: 'org'
+    MinLength: 1
+    MaxLength: 64
+    Description: 'Organization name for InfluxDB'
+
+  BucketName:
+    Type: String
+    Default: 'mybucket'
+    MinLength: 1
+    MaxLength: 64
+    Description: 'Initial bucket name for InfluxDB'
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: 'VPC ID where the InfluxDB instance will be deployed'
+
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: 'List of subnet IDs for the InfluxDB instance (minimum 2 subnets in different AZs)'
+
+Resources:
+  InfluxDBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: 'Security group for Timestream InfluxDB instance'
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8086
+          ToPort: 8086
+          CidrIp: !Ref WhitelistedIP
+          Description: 'InfluxDB HTTP API access'
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !Ref WhitelistedIP
+          Description: 'HTTPS access'
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+          Description: 'All outbound traffic'
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-influxdb-sg'
+
+  InfluxDBInstance:
+    Type: AWS::Timestream::InfluxDBInstance
+    Properties:
+      Name: !Ref DBName
+      DbInstanceType: !Ref InstanceType
+      VpcSecurityGroupIds:
+        - !Ref InfluxDBSecurityGroup
+      VpcSubnetIds: !Ref SubnetIds
+      PubliclyAccessible: true
+      AllocatedStorage: !Ref AllocatedStorage
+      Username: !Ref AdminUsername
+      Password: !Ref AdminPassword
+      Organization: !Ref OrganizationName
+      Bucket: !Ref BucketName
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-influxdb'
+        - Key: Environment
+          Value: !Ref AWS::StackName
+        - Key: Owner
+          Value: !Sub '${AWS::StackName}-influxdb'
+        - Key: managed-scheduler-override
+          Value: true
+
+Outputs:
+  InfluxDBEndpoint:
+    Description: 'InfluxDB instance endpoint'
+    Value: !GetAtt InfluxDBInstance.Endpoint
