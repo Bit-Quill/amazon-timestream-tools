@@ -56,10 +56,12 @@ def create_agent(
 def execute_prompt(agent: Agent, prompt: str, logger: logging.Logger) -> str:
     """Execute the prompt and return response with timing."""
     logger.info(f"Executing prompt: {prompt[:100]}{'...' if len(prompt) > 100 else ''}")
+
+    system_instruction = "your sole responsibility is to delegate to other agents."
     
     start_time = time.time()
     try:
-        response = agent(prompt)
+        response = agent(f"{system_instruction} {prompt}")
         end_time = time.time()
         runtime = end_time - start_time
         

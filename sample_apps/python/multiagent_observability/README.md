@@ -2,12 +2,14 @@
 
 This project demonstrates how to build and observe a distributed, multi-agent system using Amazon foundation models and industry-standard telemetry tools. Purpose-built **Strands agents** can draw on official AWS documentation through the **Model-Context Protocol (MCP)** and communicate via **agent-to-agent (A2A)** protocols to solve complex tasks end-to-end.
 
-<img src="./assets/arch.png" alt="drawing" width="800"/>
-
 To deliver operational excellence and measurable performance, each agent emits structured telemetry metrics via **OpenTelemetry**, which is exported to **Timestream for InfluxDB** for scalable, time-series storage. A preconfigured **Grafana** dashboard surfaces invocation metrics, tool usage, token efficiency, and latency trends in real time.
 
 > **Why Observability Matters**  
 > In distributed AI systems, **visibility into agent behavior is critical**. Time-series observability enables rapid root-cause analysis, system tuning, and continuous improvement by exposing how agents and tools interact over time—at both the orchestration and model level.
+
+<p align="center">
+  <img src="./assets/arch.png" alt="drawing" width="500"/>
+</p>
 
 ### ✅ What's Included
 - **MCP-integrated Strands agents** (CloudFormation + AWS specialists) with OTEL tracing 
@@ -56,7 +58,9 @@ All agents are **MCP-connected** and collaborate via **A2A**, including dependen
 
 ## Grafana Dashboard (Overview)
 
-<img src="./assets/demo.gif" alt="drawing" width="800"/>
+<p align="center">
+  <img src="./assets/demo.gif" alt="drawing" width="800"/>
+</p>
 
 ### Agent Performance
 
@@ -140,23 +144,23 @@ Execute queries against your multi-agent cluster:
 docker exec maestro bash -c "python maestro_agent.py '<your-prompt>'"
 ```
 
+#### Sample Queries
 
-#### I need to deploy a simple web app with a database. Make it secure and follow AWS best practices.
-
-```
-docker exec maestro bash -c "python maestro_agent.py 'your sole responsibility is to delegate to other agents. I need to deploy a simple web app with a databas . Make it secure and follow AWS best practices.'"
-```
-
-#### list all running EC2 instances in us-west-2 and tell me how much it will cost for the next month. then show me a cloudformation template for a cheaper alternative.
+##### I need to deploy a simple web app with a database. Make it secure and follow AWS best practices.
 
 ```
-docker exec maestro bash -c "python maestro_agent.py 'your sole responsibility is to delegate to other agents. list all running EC2 instances in us-west-2 and tell me how much it will cost for the next month. then show me a cloudformation template for a cheaper alternative.'"
+docker exec maestro bash -c "python maestro_agent.py 'I need to deploy a simple web app with a database. Make it secure and follow AWS best practices.'"
 ```
 
+##### list all running EC2 instances in us-west-2 and tell me how much it will cost for the next month.
 
-#### show me a minimal example of using AWS IoT Core with Timestream for live analytics, then provide a CloudFormation template.
 ```
-docker exec maestro bash -c "python maestro_agent.py 'your sole responsibility is to delegate to other agents. show me a minimal example of using AWS IoT Core with Timestream for live analytics, then provide a CloudFormation template.'"
+docker exec maestro bash -c "python maestro_agent.py 'list all running EC2 instances in us-west-2 and tell me how much it will cost for the next month.'"
+```
+
+##### show me a minimal example of using AWS IoT Core with Timestream for live analytics, then provide a CloudFormation template.
+```
+docker exec maestro bash -c "python maestro_agent.py 'show me a minimal example of using AWS IoT Core with Timestream for live analytics, then provide a CloudFormation template.'"
 ```
 
 The Grafana dashboard at [http://localhost:3000](http://localhost:3000) will update in real-time as agents collaborate to process your request.
@@ -167,11 +171,9 @@ The Grafana dashboard at [http://localhost:3000](http://localhost:3000) will upd
 
 Remove all resources:
 
-
-
 ```bash
-sam delete
-docker compose down --rmi all --volumes --remove-orphans
+sam delete # deletes Timestream for InfluxDB
+docker compose down --rmi all --volumes --remove-orphans # removes all local containers
 ```
 
 ---

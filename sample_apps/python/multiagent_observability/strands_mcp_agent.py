@@ -4,15 +4,14 @@ from mcp import stdio_client, StdioServerParameters
 from strands import Agent
 from strands.tools.mcp import MCPClient
 from strands.multiagent.a2a import A2AServer
+from contextlib import ExitStack
 
-# load vars
 agent_port = int(os.getenv("AGENT_PORT", 9000))
-agent_name = os.getenv("AGENT_NAME", "Multi-MCP Expert")
+agent_name = os.getenv("AGENT_NAME", "MCP Expert")
 agent_description = os.getenv("AGENT_DESCRIPTION", "An expert with configurable MCP server tools.")
 agent_model_id = os.getenv("AGENT_MODEL_ID", "us.amazon.nova-premier-v1:0")
 workspace_dir = os.getenv("WORKSPACE_DIR", "/app/output")
 aws_region = os.getenv("AWS_REGION", "us-west-2")
-
 http_url = f"http://host.docker.internal:{agent_port}"
 
 # MCP server configuration - comma-separated list of server names
@@ -56,9 +55,6 @@ if "aws_cfn" in enabled_servers:
 
 # Collect all tools from enabled MCP clients
 if mcp_clients:
-    # Use contextlib.ExitStack to manage multiple context managers
-    from contextlib import ExitStack
-    
     with ExitStack() as stack:
         # Enter all MCP clients
         for client in mcp_clients.values():

@@ -10,9 +10,9 @@ capabilities = "CAPABILITY_IAM"
 disable_rollback = false
 image_repositories = []
 parameter_overrides = [
-    "VpcId=vpc-01963d36c25c7b025",
-    "SubnetIds=subnet-04f8addfd14164b3b,subnet-0a974cd94acfd9c06",
-    "AdminPassword=passwordz",
-    "WhitelistedIP=24.86.198.193/32",
+    "VpcId=vpc-xxxxxx",
+    "SubnetIds=subnet-xxxxxx,subnet-xxxxxx",
+    "AdminPassword=password",
+    "WhitelistedIP=173.145.105.157/32",
     "InstanceType=db.influx.medium"
 ]
