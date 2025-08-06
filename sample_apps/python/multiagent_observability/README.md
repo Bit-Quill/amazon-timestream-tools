@@ -28,7 +28,7 @@ The A2A architecture enables specialized agents (AWS general operations and Clou
 Strands is a multi-agent framework for AWS infrastructure automation. Strands Agents equipped with MCP servers can provide secure, standardized access to AWS APIs and CloudFormation operations, eliminating custom integration complexity while ensuring consistent tool behavior across agents.
 
 #### [Timestream for InfluxDB](https://aws.amazon.com/timestream/)
-Amazon Timestream for InfluxDB is a managed time-series database that stores agent telemetry data. It handles automatic scaling, data compression, and provides fast queries for monitoring dashboards.
+Amazon Timestream for InfluxDB is a managed time-series database that can be used to store agent telemetry data. It provides: convenient operations for scaling, data compression, and fast queries for monitoring dashboards.
 
 #### [Grafana](https://aws.amazon.com/grafana/)
 Grafana is an open-source analytics and monitoring platform that enables rich, interactive visualization of time-series data. Grafana displays telemetry emitted by Strands agents, allowing users to monitor system behavior in real time.
@@ -82,9 +82,9 @@ All agents are **MCP-connected** and collaborate via **A2A**, including dependen
 
 ## Prerequisites
 
-* Docker & Docker Compose
-* AWS CLI configured with credentials
-* AWS SAM CLI
+* [Docker](https://docs.docker.com/) & [Docker Compose](https://docs.docker.com/compose/)
+* [AWS CLI configured with credentials](https://docs.aws.amazon.com/cli/v1/userguide/cli-chap-configure.html)
+* [AWS SAM CLI](https://github.com/aws/aws-sam-cli)
 
 ---
 
@@ -95,7 +95,15 @@ All agents are **MCP-connected** and collaborate via **A2A**, including dependen
 
 Deploy the SAM template:
 ```bash
-sam deploy
+sam deploy \
+    --stack-name multiagent-influxdb-demo \
+    --region <desired AWS region name> \
+    -t template.yaml \
+    --parameter-overrides \
+    ParameterKey=Username,ParameterValue=<username> \
+    ParameterKey=Password,ParameterValue=<password> \
+       ParameterKey=ClientIp,ParameterValue=<client IP> \
+    ParameterKey=S3BucketName,ParameterValue=<S3 bucket name>
 ```
 
 Once deployment is complete, navigate to the InfluxDB UI and [retrieve an operator token](https://docs.influxdata.com/influxdb/cloud/admin/tokens/create-token/).
@@ -109,7 +117,8 @@ a) **Define the following environment variables:**
 
 ```yaml
 export INFLUXDB_V2_URL="https://<your_influxdb_url>:8086"
-export INFLUXDB_V2_ORG="org"
+export INFLUXDB_V2_ORG="<your org name>"
+export INFLUXDB_V2_BUCKET="<your bucket name>"
 export INFLUXDB_V2_TOKEN="<your_operator_token>"
 ```
 
@@ -163,7 +172,7 @@ docker exec maestro bash -c "python maestro_agent.py 'list all running EC2 insta
 docker exec maestro bash -c "python maestro_agent.py 'show me a minimal example of using AWS IoT Core with Timestream for live analytics, then provide a CloudFormation template.'"
 ```
 
-The Grafana dashboard at [http://localhost:3000](http://localhost:3000) will update in real-time as agents collaborate to process your request.
+The Grafana dashboard at [http://localhost:3000](http://localhost:3000) will update in real-time as agents collaborate to process your request. On the signin page, enter `admin` for username and password.
 
 ---
 
@@ -204,10 +213,10 @@ docker compose down --rmi all --volumes --remove-orphans # removes all local con
   * Confirm the OpenTelemetry Collector is **connected to InfluxDB**:
 
   	* Ensure that the InfluxDB environment variables are set:
-      * `<INFLUXDB_URL>` — must include `http(s)://` and port
-      * `<INFLUXDB_ORG>` — matches your InfluxDB org
-      * `<INFLUXDB_BUCKET>` — destination for telemetry
-      * `<INFLUXDB_TOKEN>` — must have **read/write** permissions for the bucket
+      * `<INFLUXDB_V2_URL>` — must include `http(s)://` and port
+      * `<INFLUXDB_V2_ORG>` — matches your InfluxDB org
+      * `<INFLUXDB_V2_BUCKET>` — destination for telemetry
+      * `<INFLUXDB_V2_TOKEN>` — must have **read/write** permissions for the bucket
 
       
   * Inspect the OTel Collector logs:
@@ -248,7 +257,7 @@ docker compose down --rmi all --volumes --remove-orphans # removes all local con
   * Dashboard and Grafana configuration is persisted across restarts via mounted Docker volumes.
   * To fully reset Grafana state:
     ```bash
-    docker volume rm grafana_data
+    docker volume rm multiagent_observability_grafana_data
     ```
 
 * **Log Monitoring**
