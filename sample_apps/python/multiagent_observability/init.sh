@@ -2,7 +2,12 @@
 log() { echo "$(date '+%H:%M:%S') - $1"; }
 SERVICES=("cfn-agent" "aws-agent" "grafana")
 log "Starting services..."
-docker compose up -d
+
+if ! docker compose up -d; then
+    log "ERROR: docker compose up failed. Exiting."
+    exit 1
+fi
+
 get_container_id() {
   docker compose ps -q "$1"
 }
