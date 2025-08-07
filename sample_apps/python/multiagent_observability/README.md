@@ -102,7 +102,7 @@ sam deploy \
     --parameter-overrides \
     ParameterKey=Username,ParameterValue=<username> \
     ParameterKey=Password,ParameterValue=<password> \
-       ParameterKey=ClientIp,ParameterValue=<client IP> \
+    ParameterKey=ClientIp,ParameterValue=<client IP> \
     ParameterKey=S3BucketName,ParameterValue=<S3 bucket name>
 ```
 
