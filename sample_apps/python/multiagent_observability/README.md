@@ -93,17 +93,27 @@ All agents are **MCP-connected** and collaborate via **A2A**, including dependen
 ### 1) Deploy InfluxDB
 
 
-Deploy the SAM template:
+a) **Define the following environment variables:**
+
+```yaml
+export INFLUXDB_V2_ORG="<your org name>"
+export INFLUXDB_V2_BUCKET="<your bucket name>"
+```
+
+b) Deploy the SAM template:
 ```bash
 sam deploy \
     --stack-name multiagent-influxdb-demo \
     --region <desired AWS region name> \
     -t template.yaml \
     --parameter-overrides \
+    ParameterKey=DbInstanceName,ParameterValue=<instance name> \
     ParameterKey=Username,ParameterValue=<username> \
     ParameterKey=Password,ParameterValue=<password> \
     ParameterKey=ClientIp,ParameterValue=<client IP> \
-    ParameterKey=S3BucketName,ParameterValue=<S3 bucket name>
+    ParameterKey=DbInstanceLogsBucketName,ParameterValue=<instance logs bucket name> \
+    ParameterKey=Organization,ParameterValue=${INFLUXDB_V2_ORG} \
+    ParameterKey=Bucket,ParameterValue=${INFLUXDB_V2_BUCKET}
 ```
 
 Once deployment is complete, navigate to the InfluxDB UI and [retrieve an operator token](https://docs.influxdata.com/influxdb/cloud/admin/tokens/create-token/).
@@ -117,8 +127,6 @@ a) **Define the following environment variables:**
 
 ```yaml
 export INFLUXDB_V2_URL="https://<your_influxdb_url>:8086"
-export INFLUXDB_V2_ORG="<your org name>"
-export INFLUXDB_V2_BUCKET="<your bucket name>"
 export INFLUXDB_V2_TOKEN="<your_operator_token>"
 ```
 

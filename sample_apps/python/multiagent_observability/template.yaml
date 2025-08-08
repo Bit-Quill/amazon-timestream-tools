@@ -21,7 +21,6 @@ Parameters:
     AllowedPattern: ^[^_][^"]*$
     MinLength: 2
     MaxLength: 64
-    Default: "bucket"
     Description: "The name of the initial InfluxDB bucket. All InfluxDB data is stored in a bucket. A bucket combines the concept of a database and a retention period (the duration of time that each data point persists). A bucket belongs to an organization. Update required replacement."
 
   DbInstanceType:
@@ -63,14 +62,19 @@ Parameters:
     AllowedPattern: ^[a-zA-z][a-zA-Z0-9]*(-[a-zA-Z0-9]+)*$
     MinLength: 3
     MaxLength: 40
-    Default: "test-db-instance"
     Description: "The name that uniquely identifies the DB instance when interacting with the Amazon Timestream for InfluxDB API and CLI commands. This name will also be a prefix included in the endpoint. DB instance names must be unique per customer and per region. Update requires replacement."
+
+  DbInstancePort:
+    Type: Number
+    Default: 8086
+    MinValue: 1
+    MaxValue: 65535
+    Description: "The port number for InfluxDB access."
 
   Organization:
     Type: String
     MinLength: 1
     MaxLength: 64
-    Default: "organization"
     Description: "The name of the initial organization for the initial admin user in InfluxDB. An InfluxDB organization is a workspace for a group of users. Update requires replacement."
 
   Password:
@@ -81,7 +85,7 @@ Parameters:
     NoEcho: true
     Description: "The password of the initial admin user created in InfluxDB. This password will allow you to access the InfluxDB UI to perform various administrative tasks and also use the InfluxDB CLI to create an operator token. These attributes will be stored in a Secret created in Amazon SecretManager in your account. Update requires replacement."
 
-  S3BucketName:
+  DbInstanceLogsBucketName:
     Type: String
     AllowedPattern: ^[0-9a-z]+[0-9a-z\.\-]*[0-9a-z]+$
     MinLength: 3
@@ -147,14 +151,14 @@ Resources:
       SecurityGroupIngress:
         - IpProtocol: tcp
           Description: "Ingress rule for client access"
-          FromPort: 8086
-          ToPort: 8086
+          FromPort: !Ref DbInstancePort
+          ToPort: !Ref DbInstancePort
           CidrIp: !Sub ${ClientIp}/32
 
   S3Bucket:
     Type: "AWS::S3::Bucket"
     Properties:
-      BucketName: !Ref "S3BucketName"
+      BucketName: !Ref "DbInstanceLogsBucketName"
       ObjectLockEnabled: true
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
@@ -171,7 +175,7 @@ Resources:
   S3BucketPolicy:
     Type: "AWS::S3::BucketPolicy"
     Properties:
-      Bucket: !Ref "S3BucketName"
+      Bucket: !Ref "DbInstanceLogsBucketName"
       PolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -197,11 +201,12 @@ Resources:
       DeploymentType: !Ref "DeploymentType"
       LogDeliveryConfiguration:
         S3Configuration:
-          BucketName: !Ref "S3BucketName"
+          BucketName: !Ref "DbInstanceLogsBucketName"
           Enabled: true
       Name: !Ref "DbInstanceName"
       Organization: !Ref "Organization"
       Password: !Ref "Password"
+      Port: !Ref "DbInstancePort"
       PubliclyAccessible: true
       Tags:
         - Key: "group"
@@ -213,4 +218,4 @@ Resources:
 Outputs:
   TimestreamInfluxDBEndpoint:
     Description: "The endpoint of the Timestream for InfluxDB instance."
-    Value: !GetAtt TimestreamInfluxDBInstance.Endpoint
+    Value: !Sub "https://${TimestreamInfluxDBInstance.Endpoint}:${DbInstancePort}"
