@@ -1,3 +1,6 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
+
 package software.amazon.timestream.utility;
 
 import org.apache.kafka.clients.admin.AdminClientConfig;
@@ -47,18 +50,33 @@ public final class TimestreamSinkConfigurationValidator {
      */
     public static void validateInitialConfig(final Map<String, String> config) {
 
+        Boolean influxDB_enabled = false; // TimestreamSinkConstants.INFLUXDB_ENABLE
+        Boolean liveanalytics_enabled = false; // TimestreamSinkConstants.LIVE_ANALYTICS_ENABLE
+
+        if (config.containsKey(TimestreamSinkConstants.INFLUXDB_ENABLE)) {
+            String influx_string = config.get(TimestreamSinkConstants.INFLUXDB_ENABLE);
+            if (influx_string.toLowerCase() == "true") influxDB_enabled = true;
+        }
+
+        if (config.containsKey(TimestreamSinkConstants.LIVE_ANALYTICS_ENABLE)) {
+            String liveAnalytics_string = config.get(TimestreamSinkConstants.LIVE_ANALYTICS_ENABLE);
+            if (liveAnalytics_string.toLowerCase() == "true") liveanalytics_enabled = true;
+        }
+
         validationErrors = new ArrayList<>();
         validateRequiredConnectorConfig(config, TimestreamSinkConstants.TASKS_MAX, TimestreamSinkErrorCodes.MISSING_TASKS_MAX);
         validateRequiredConnectorConfig(config, TimestreamSinkConstants.CONNECTOR_CLASS, TimestreamSinkErrorCodes.MISSING_CLASS, TimestreamSinkConstants.CLASS_FQDN);
         validateRequiredConnectorConfig(config, SinkConnector.TOPICS_CONFIG, TimestreamSinkErrorCodes.MISSING_TOPICS);
 
-        validateRequiredConnectorConfig(config, TimestreamSinkConstants.AWS_REGION, TimestreamSinkErrorCodes.MISSING_REGION);
-        validateRequiredConnectorConfig(config, TimestreamSinkConstants.S3_BUCKET, TimestreamSinkErrorCodes.MISSING_BUCKET);
-        validateRequiredConnectorConfig(config, TimestreamSinkConstants.SCHEMA_S3KEY, TimestreamSinkErrorCodes.MISSING_SCHEMA);
-        validateRequiredConnectorConfig(config, TimestreamSinkConstants.DATABASE_NAME, TimestreamSinkErrorCodes.MISSING_DATABASE);
-        validateRequiredConnectorConfig(config, TimestreamSinkConstants.TABLE_NAME, TimestreamSinkErrorCodes.MISSING_TABLE);
-        validateRequiredConnectorConfig(config, TimestreamSinkConstants.VPC_ENDPOINT, TimestreamSinkErrorCodes.MISSING_ENDPOINT);
-        validateURI(config.get(TimestreamSinkConstants.VPC_ENDPOINT));
+        if (liveanalytics_enabled) {
+            validateRequiredConnectorConfig(config, TimestreamSinkConstants.AWS_REGION, TimestreamSinkErrorCodes.MISSING_REGION);
+            validateRequiredConnectorConfig(config, TimestreamSinkConstants.S3_BUCKET, TimestreamSinkErrorCodes.MISSING_BUCKET);
+            validateRequiredConnectorConfig(config, TimestreamSinkConstants.SCHEMA_S3KEY, TimestreamSinkErrorCodes.MISSING_SCHEMA);
+            validateRequiredConnectorConfig(config, TimestreamSinkConstants.DATABASE_NAME, TimestreamSinkErrorCodes.MISSING_DATABASE);
+            validateRequiredConnectorConfig(config, TimestreamSinkConstants.TABLE_NAME, TimestreamSinkErrorCodes.MISSING_TABLE);
+            validateRequiredConnectorConfig(config, TimestreamSinkConstants.VPC_ENDPOINT, TimestreamSinkErrorCodes.MISSING_ENDPOINT);
+            validateURI(config.get(TimestreamSinkConstants.VPC_ENDPOINT));
+        }
 
         AWSServiceClientObjectsValidator.validateAWSRegion(config.get(TimestreamSinkConstants.AWS_REGION), validationErrors);
 
@@ -93,9 +111,11 @@ public final class TimestreamSinkConfigurationValidator {
         // validate S3 resources
         AWSServiceClientObjectsValidator.validateS3Bucket(clientFactory, config.getAWSRegion(), config.getSchemaS3BucketName(), validationErrors);
         AWSServiceClientObjectsValidator.validateS3Object(clientFactory, config.getAWSRegion(), config.getSchemaS3BucketName(), config.getSchmeaS3ObjectPath(), validationErrors);
-        // validate Timestream resources
-        AWSServiceClientObjectsValidator.validateTimestreamDatabase(clientFactory.getTimestreamClient(), config.getDatabaseName(), validationErrors);
-        AWSServiceClientObjectsValidator.validateTimestreamTable(clientFactory.getTimestreamClient(), config.getDatabaseName(), config.getTableName(), validationErrors);
+        // validate Timestream LiveAnalytics resources
+        if (config.isLiveAnalyticsEnabled()) {
+            AWSServiceClientObjectsValidator.validateTimestreamDatabase(clientFactory.getTimestreamClient(), config.getDatabaseName(), validationErrors);
+            AWSServiceClientObjectsValidator.validateTimestreamTable(clientFactory.getTimestreamClient(), config.getDatabaseName(), config.getTableName(), validationErrors);
+        }
     }
 
     /**

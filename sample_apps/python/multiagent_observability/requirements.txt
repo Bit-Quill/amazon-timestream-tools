@@ -1,0 +1,3 @@
+uv
+strands-agents[ a2a, otel ]
+strands-agents-tools
