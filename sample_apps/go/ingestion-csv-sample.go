@@ -1,22 +1,16 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
+
 package main
 
 import (
-	"encoding/csv"
 	"flag"
 	"fmt"
-	"io"
-	"net"
-	"net/http"
-	"os"
-	"strconv"
-	"time"
-
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/timestreamquery"
 	"github.com/aws/aws-sdk-go/service/timestreamwrite"
-
-	"golang.org/x/net/http2"
+	"go_sample/utils"
 )
 
 /**
@@ -26,55 +20,33 @@ import (
 */
 func main() {
 
-	/**
-	* Recommended Timestream write client SDK configuration:
-	*  - Set SDK retry count to 10.
-	*  - Use SDK DEFAULT_BACKOFF_STRATEGY
-	*  - Request timeout of 20 seconds
-	 */
-
-	// Setting 20 seconds for timeout
-	tr := &http.Transport{
-		ResponseHeaderTimeout: 20 * time.Second,
-		// Using DefaultTransport values for other parameters: https://golang.org/pkg/net/http/#RoundTripper
-		Proxy: http.ProxyFromEnvironment,
-		DialContext: (&net.Dialer{
-			KeepAlive: 30 * time.Second,
-			DualStack: true,
-			Timeout:   30 * time.Second,
-		}).DialContext,
-		MaxIdleConns:          100,
-		IdleConnTimeout:       90 * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
-	}
-
-	// So client makes HTTP/2 requests
-	http2.ConfigureTransport(tr)
-
-	sess, err := session.NewSession(&aws.Config{Region: aws.String("us-east-1"), MaxRetries: aws.Int(10), HTTPClient: &http.Client{Transport: tr}})
-	writeSvc := timestreamwrite.New(sess)
-
-	// setup the query client
-	sessQuery, err := session.NewSession(&aws.Config{Region: aws.String("us-east-1")})
-	querySvc := timestreamquery.New(sessQuery)
-
-	databaseName := flag.String("database_name", "devops", "database name string")
-	tableName := flag.String("table_name", "host_metrics", "table name string")
-	testFileName := flag.String("test_file", "../data/sample.csv", "CSV file containing the data to ingest")
+	databaseName := flag.String("database_name", utils.DATABASE_NAME, "database name string")
+	tableName := flag.String("table_name", utils.TABLE_NAME, "table name string")
+	testFileName := flag.String("test_file", "../data/sample-multi.csv", "CSV file containing the data to ingest")
+	region := flag.String("region", "us-east-1", "region")
 
 	flag.Parse()
 
+	sess, err := utils.GetSession(*region)
+	utils.HandleError(err, "Failed to start a new session", true)
+
+	writeSvc := timestreamwrite.New(sess)
+	querySvc := timestreamquery.New(sess)
+	s3Svc := s3.New(sess, aws.NewConfig().WithRegion(*region))
+
+	timestreamBuilder := utils.TimestreamBuilder{WriteSvc: writeSvc, QuerySvc: querySvc}
+	timestreamDependencyHelper := utils.TimestreamDependencyHelper{S3Svc: s3Svc}
+
+	createdResourcesList := []utils.Resource{}
+	// Make the bucket name unique by appending 5 random characters at the end
+	s3BucketName := utils.SQ_ERROR_CONFIGURATION_S3_BUCKET_NAME_PREFIX + utils.GenerateRandomStringWithSize(5)
+	err = timestreamDependencyHelper.CreateS3Bucket(s3BucketName, *region)
+	utils.HandleError(err, fmt.Sprintf("Failed to create S3Bucket %s ", s3BucketName), true)
+	createdResourcesList = append(createdResourcesList, utils.Resource{Type: "S3", Identifier: s3BucketName})
+
 	// Describe database.
-	describeDatabaseInput := &timestreamwrite.DescribeDatabaseInput{
-		DatabaseName: aws.String(*databaseName),
-	}
-
-	describeDatabaseOutput, err := writeSvc.DescribeDatabase(describeDatabaseInput)
-
+	err = timestreamBuilder.DescribeDatabase(*databaseName)
 	if err != nil {
-		fmt.Println("Error:")
-		fmt.Println(err)
 		// Create database if database doesn't exist.
 		serr, ok := err.(*timestreamwrite.ResourceNotFoundException)
 		fmt.Println(serr)
@@ -83,128 +55,59 @@ func main() {
 			createDatabaseInput := &timestreamwrite.CreateDatabaseInput{
 				DatabaseName: aws.String(*databaseName),
 			}
-
 			_, err = writeSvc.CreateDatabase(createDatabaseInput)
-
 			if err != nil {
-				panic(fmt.Sprintf("Error while creating database: %s", err))
+				utils.HandleError(err, fmt.Sprintf("Failed to create table %s in database %s ",
+					*tableName, *databaseName), true)
 			}
+			createdResourcesList = append(createdResourcesList, utils.Resource{Type: "TIMESTREAM_DATABASE", Identifier: *databaseName})
 		}
 	} else {
 		fmt.Println("Database exists")
-		fmt.Println(describeDatabaseOutput)
 	}
 
 	// Describe table.
-	describeTableInput := &timestreamwrite.DescribeTableInput{
-		DatabaseName: aws.String(*databaseName),
-		TableName:    aws.String(*tableName),
-	}
-	describeTableOutput, err := writeSvc.DescribeTable(describeTableInput)
-
+	_, err = timestreamBuilder.DescribeTable(*databaseName, *tableName)
 	if err != nil {
-		fmt.Println("Error:")
-		fmt.Println(err)
 		serr, ok := err.(*timestreamwrite.ResourceNotFoundException)
 		fmt.Println(serr)
 		if ok {
 			// Create table if table doesn't exist.
-			fmt.Println("Creating the table")
-			createTableInput := &timestreamwrite.CreateTableInput{
-				DatabaseName: aws.String(*databaseName),
-				TableName:    aws.String(*tableName),
-			}
-			_, err = writeSvc.CreateTable(createTableInput)
-
+			fmt.Println("Creating the table now")
+			err = timestreamBuilder.CreateTable(*databaseName, *tableName, s3BucketName)
 			if err != nil {
-				panic(fmt.Sprintf("Error while creating table: %s", err))
+				utils.HandleError(err, fmt.Sprintf("Failed to create table %s in database %s ",
+					*tableName, *databaseName), true)
 			}
+			createdResourcesList = append(createdResourcesList, utils.Resource{Type: "TIMESTREAM_TABLE", Identifier: *tableName})
 		}
 	} else {
-		fmt.Println("Table exists")
-		fmt.Println(describeTableOutput)
-	}
-
-	csvfile, err := os.Open(*testFileName)
-	records := make([]*timestreamwrite.Record, 0)
-	if err != nil {
-		panic(fmt.Sprintf("Couldn't open the csv file %s", err))
-	}
-
-	// Get current time in nano seconds.
-	currentTimeInMilliSeconds := time.Now().UnixNano() / int64(time.Millisecond)
-	// Counter for number of records.
-	counter := int64(0)
-	reader := csv.NewReader(csvfile)
-	// Iterate through the records
-	for {
-		// Read each record from csv
-		record, err := reader.Read()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			fmt.Println(err)
-		}
-		records = append(records, &timestreamwrite.Record{
-			Dimensions: []*timestreamwrite.Dimension{
-				&timestreamwrite.Dimension{
-					Name:  aws.String(record[0]),
-					Value: aws.String(record[1]),
-				},
-				&timestreamwrite.Dimension{
-					Name:  aws.String(record[2]),
-					Value: aws.String(record[3]),
-				},
-				&timestreamwrite.Dimension{
-					Name:  aws.String(record[4]),
-					Value: aws.String(record[5]),
-				},
-			},
-			MeasureName:      aws.String(record[6]),
-			MeasureValue:     aws.String(record[7]),
-			MeasureValueType: aws.String(record[8]),
-			Time:             aws.String(strconv.FormatInt(currentTimeInMilliSeconds-counter*int64(50), 10)),
-			TimeUnit:         aws.String("MILLISECONDS"),
-		})
-
-		counter++
-		// WriteRecordsRequest has 100 records limit per request.
-		if counter%100 == 0 {
-			writeBatch(writeSvc, *databaseName, *tableName, records)
-			records = make([]*timestreamwrite.Record, 0)
-			fmt.Printf("Ingested %d records to the table.\n", counter)
+		fmt.Println("Table already exists")
+		fmt.Printf("Deleting created s3Bucket=%s as it was not used for creating the table.", s3BucketName)
+		timestreamDependencyHelper.DeleteS3Bucket(s3BucketName)
+		if len(createdResourcesList) > 0 && createdResourcesList[0].Identifier == s3BucketName {
+			createdResourcesList = createdResourcesList[1:]
 		}
 	}
 
-	if len(records) > 0 {
-		writeBatch(writeSvc, *databaseName, *tableName, records)
-		fmt.Printf("Ingested %d records to the table.\n", counter)
-	}
+	//Ingest records from csv file
+	timestreamBuilder.IngestRecordsFromCsv(*testFileName, *databaseName, *tableName)
 
-	queryInput := &timestreamquery.QueryInput{
-		QueryString: aws.String("select count(*) from " + *databaseName + "." + *tableName),
-	}
+	// sample query
+	queryString := fmt.Sprintf("select count(*) from %s.%s", *databaseName, *tableName)
 	// execute the query
-	query, err := querySvc.Query(queryInput)
+	queryOutput, err := timestreamBuilder.QueryWithQueryString(queryString)
+	if err == nil {
+		fmt.Println(queryOutput)
+	}
 
-	if err != nil {
-		fmt.Println("Error:")
-		fmt.Println(err)
+	fmt.Println("Ingesting Records Complete")
+	if len(createdResourcesList) > 0 {
+		fmt.Println("Following Resources are created and not cleaned")
+		for _, resource := range createdResourcesList {
+			fmt.Printf("\tResource Type : %s, Identifier/Name : %s\n", resource.Type, resource.Identifier)
+		}
 	} else {
-		fmt.Println(query)
-	}
-}
-
-func writeBatch(client *timestreamwrite.TimestreamWrite, databaseName string, tableName string, records []*timestreamwrite.Record) {
-	writeRecordsInput := &timestreamwrite.WriteRecordsInput{
-		DatabaseName: aws.String(databaseName),
-		TableName:    aws.String(tableName),
-		Records:      records,
-	}
-	_, err := client.WriteRecords(writeRecordsInput)
-
-	if err != nil {
-		panic(fmt.Sprintf("Error while ingesting: %s", err))
+		fmt.Println("Used existing resources to ingest data")
 	}
 }

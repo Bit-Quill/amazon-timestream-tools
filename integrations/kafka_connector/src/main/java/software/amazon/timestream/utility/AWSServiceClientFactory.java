@@ -1,3 +1,6 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
+
 package software.amazon.timestream.utility;
 
 import lombok.Getter;
@@ -78,11 +81,21 @@ public final class AWSServiceClientFactory {
             overrideConfig.apiCallAttemptTimeout(Duration.ofSeconds(config.getMaxTimeoutSeconds()));
             overrideConfig.retryPolicy(retryPolicy.build());
 
-            return TimestreamWriteClient.builder()
-                    .httpClientBuilder(httpClientBuilder)
-                    .overrideConfiguration(overrideConfig.build())
-                    .region(config.getAWSRegion()).endpointOverride(new URI(config.getTimestreamIngestionEndPoint()))
-                    .build();
+            if (config.isLiveAnalyticsEnabled()) {
+
+                return TimestreamWriteClient.builder()
+                        .httpClientBuilder(httpClientBuilder)
+                        .overrideConfiguration(overrideConfig.build())
+                        .region(config.getAWSRegion()).endpointOverride(new URI(config.getTimestreamIngestionEndPoint()))
+                        .build();
+            }
+            else if (config.isInfluxDBEnabled()) {
+                return null;
+            }
+            else{
+                LOGGER.error("ERROR::AWSServiceClientFactory::instantiateTimeStreamWriterClient:: no Timestream Engine enabled");
+                return null;
+            }
         } catch (URISyntaxException e) {
             LOGGER.error("ERROR::AWSServiceClientFactory::instantiateTimeStreamWriterClient::", e);
             final TimestreamSinkConnectorError error = new TimestreamSinkConnectorError(TimestreamSinkErrorCodes.INVALID_ENDPOINT, config.getTimestreamIngestionEndPoint());

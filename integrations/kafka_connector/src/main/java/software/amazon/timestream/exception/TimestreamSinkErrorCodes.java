@@ -1,3 +1,6 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
+
 package software.amazon.timestream.exception;
 
 /**
@@ -120,4 +123,11 @@ public class TimestreamSinkErrorCodes {
      */
     public static final String INVALID_MEASURE_VALUE ="invalid.measure.value";
 
+    /**
+     * Error code: no target engine specified (InfluxDB or LiveAnalytics)
+     */
+    public static final String NO_INGESTION_TARGET ="No ingestion engine specified, enable either LiveAnalytics or InfluxDB";
+
+    //// INFLUX DB
+    // #TODO fix later to add detailed errors
 }

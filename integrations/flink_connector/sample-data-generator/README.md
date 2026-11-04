@@ -1,11 +1,12 @@
-# Ingesting data to Amazon Kinesis for Amazon Timestream Sink Sample Application
+# Ingesting data to Amazon Kinesis for Amazon Timestream for LiveAnalytics Sink Sample Application
 
-This folder contains a script to generate a continuous stream of records that are ingested into Kinesis, and then can be consumed by Amazon Timestream Sink Sample Application. You can refer to the [Amazon Timestream documentation on working with Apache Flink](https://docs.aws.amazon.com/timestream/latest/developerguide/ApacheFlink.html) for additional information. This script mimics a DevOps scenario where an application is emitting different types of events at a regular cadence. The script continuously generates data until the execution is interrupted with a SIGINT (or `CTRL + C`).
+This folder contains a script to generate a continuous stream of records that are ingested into Kinesis, and then can be consumed by the Amazon Timestream for LiveAnalytics Sink Sample Application. You can refer to the [Amazon Timestream documentation on working with Apache Flink](https://docs.aws.amazon.com/timestream/latest/developerguide/ApacheFlink.html) for additional information. This script mimics a DevOps scenario where an application is emitting different types of events at a regular cadence. The script continuously generates data until the execution is interrupted with a SIGINT (or `CTRL + C`).
 
 --- 
 ## Dependencies
 - Boto3
-- numpy (Tested with version 1.18.5)
+- distutils
+- numpy (Tested with version 2.0.0)
 - Python3 (Tested with version 3.5.2)
 
 ----
@@ -27,7 +28,13 @@ python3 -m venv venv
    pip3 install numpy
    ```
 
-3. Run the following command to continuously generate and ingest sample data into Kinesis.
+3. Install  setuptools
+
+  ```
+  pip3 install setuptools
+  ```
+
+4. Run the following command to continuously generate and ingest sample data into Kinesis.
 
     ```    
     python3 kinesis_data_gen.py --stream <name_of_the_kinesis_stream> --region <the_region_of_kinesis_stream> 
